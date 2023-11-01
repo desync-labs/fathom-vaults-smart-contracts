@@ -6,7 +6,7 @@ pragma solidity 0.8.16;
 import "../StakingStructs.sol";
 
 interface IStakingGetter {
-    function getAllLocks(address account) external view returns (LockedBalance[] memory);
+    function getLock(address account) external view returns (LockedBalance memory);
 
     function getUsersPendingRewards(address account, uint256 streamId) external view returns (uint256);
 

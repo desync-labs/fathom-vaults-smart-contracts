@@ -18,8 +18,7 @@ contract StakingStorage {
 
     uint256 public maxLockPeriod;
     uint256 public minLockPeriod;
-    uint256 public maxLockPositions;
-    mapping(address => mapping(uint256 => bool)) internal prohibitedEarlyWithdraw;
+    mapping(address => bool) internal prohibitedEarlyWithdraw;
     uint256 internal touchedAt;
 
     uint256 public totalAmountOfStakedToken;
@@ -48,6 +47,6 @@ contract StakingStorage {
 
     Stream[] internal streams;
     ///Mapping (user => LockedBalance) to keep locking information for each user
-    mapping(address => LockedBalance[]) internal locks;
+    mapping(address => LockedBalance) internal lock;
     mapping(uint256 => uint256) public streamTotalUserPendings;
 }

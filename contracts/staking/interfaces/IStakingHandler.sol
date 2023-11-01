@@ -15,7 +15,6 @@ interface IStakingHandler {
         address _sharesToken,
         Weight calldata _weight,
         SharesCoefficient calldata sharesCoeffic,
-        uint256 _maxLocks,
         address _rewardsContract,
         uint256 _minLockPeriod
     ) external;
@@ -61,11 +60,9 @@ interface IStakingHandler {
 
     function emergencyUnlockAndWithdraw() external;
 
-    function createFixedLocksOnBehalfOfUserByAdmin(address account, uint256 amount, uint256 lockPeriod) external;
+    function createFixedLockOnBehalfOfUserByAdmin(address account, uint256 amount, uint256 lockPeriod) external;
 
     function setMinimumLockPeriod(uint256 _minLockPeriod) external;
-
-    function setMaxLockPositions(uint256 newMaxLockPositions) external;
 
     function setTreasuryAddress(address newTreasury) external;
 }

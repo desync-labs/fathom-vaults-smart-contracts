@@ -22,23 +22,18 @@ contract StakingGettersHelper is IStakingGetterHelper, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
-    function getLocksLength(address account) external view override returns (uint256) {
-        LockedBalance[] memory locks = getLockInfo(account);
-        return locks.length;
-    }
-
     function getWeight() external view override returns (Weight memory) {
         return _getWeight();
     }
 
     function getLock(address account) external view override returns (uint128, uint128, uint64, address, uint256) {
-        LockedBalance[] memory locks = getLockInfo(account);
-        return (locks[0].amountOfToken, locks[0].positionStreamShares, locks[0].end, locks[0].owner, locks[0].amountOfSharesToken);
+        LockedBalance memory lock = getLockInfo(account);
+        return (lock.amountOfToken, lock.positionStreamShares, lock.end, lock.owner, lock.amountOfSharesToken);
     }
 
     function getUserTotalDeposit(address account) external view override returns (uint256) {
-        LockedBalance[] memory locks = getLockInfo(account);
-        return locks[0].amountOfToken;
+        LockedBalance memory lock = getLockInfo(account);
+        return lock.amountOfToken;
     }
 
     function getStreamClaimableAmount(uint256 streamId, address account) external view override returns (uint256) {
@@ -47,30 +42,30 @@ contract StakingGettersHelper is IStakingGetterHelper, AccessControl {
     }
 
     function getUserTotalShares(address account) external view override returns (uint256) {
-        LockedBalance[] memory locks = getLockInfo(account);
-        return locks[0].amountOfSharesToken;
+        LockedBalance memory lock = getLockInfo(account);
+        return lock.amountOfSharesToken;
     }
 
     function getFeesForEarlyUnlock(address account) external view override returns (uint256) {
-        LockedBalance[] memory locks = getLockInfo(account);
-        if (locks[0].end <= block.timestamp) {
+        LockedBalance memory lock = getLockInfo(account);
+        if (lock.end <= block.timestamp) {
             revert LockOpenedError();
         }
 
-        uint256 amount = locks[0].amountOfToken;
-        uint256 lockEnd = locks[0].end;
+        uint256 amount = lock.amountOfToken;
+        uint256 lockEnd = lock.end;
         uint256 weighingCoef = _weightedPenalty(lockEnd, block.timestamp);
         uint256 penalty = (weighingCoef * amount) / 100000;
         return penalty;
     }
 
-    function getLockInfo(address account) public view override returns (LockedBalance[] memory) {
-        LockedBalance[] memory locks = IStakingHelper(stakingContract).getAllLocks(account);
+    function getLockInfo(address account) public view override returns (LockedBalance memory) {
+        LockedBalance memory lock = IStakingHelper(stakingContract).getLock(account);
         // Ensure the user has a lock position
-        if (locks.length == 0) {
+        if (lock.owner == address(0)) {
             revert NoLockedPosition();
         }
-        return locks;
+        return lock;
     }
 
     function _weightedPenalty(uint256 lockEnd, uint256 timestamp) internal view returns (uint256) {

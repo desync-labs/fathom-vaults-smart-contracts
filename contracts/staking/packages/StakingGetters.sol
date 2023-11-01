@@ -21,19 +21,19 @@ contract StakingGetters is StakingStorage, IStakingGetter, StakingInternals {
             revert StreamInactiveError();
         }
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
         uint256 latestRps = _getLatestRewardsPerShare(streamId);
         User storage userAccount = users[account];
-        LockedBalance storage lock = locks[account][0];
+        LockedBalance storage lock = lock[account];
         uint256 userRpsPerLock = userAccount.rpsDuringLastClaimForLock[0][streamId];
         uint256 userSharesOfLock = lock.positionStreamShares;
         return ((latestRps - userRpsPerLock) * userSharesOfLock) / RPS_MULTIPLIER;
     }
 
-    function getAllLocks(address account) external view override returns (LockedBalance[] memory) {
-        return locks[account];
+    function getLock(address account) external view override returns (LockedBalance memory) {
+        return lock[account];
     }
 
     function getStreamSchedule(uint256 streamId) external view override returns (uint256[] memory scheduleTimes, uint256[] memory scheduleRewards) {
@@ -51,6 +51,6 @@ contract StakingGetters is StakingStorage, IStakingGetter, StakingInternals {
      @notice this will be used by frontend to get the actual amount that can be claimed
      */
     function isProhibitedLockPosition(address account) external view override returns (bool) {
-        return prohibitedEarlyWithdraw[account][0];
+        return prohibitedEarlyWithdraw[account];
     }
 }

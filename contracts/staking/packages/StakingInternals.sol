@@ -28,7 +28,6 @@ contract StakingInternals is RewardsInternals {
         address _treasury,
         Weight memory _weight,
         address _vault,
-        uint256 _maxLockPositions,
         uint256 _sharesCoef,
         uint256 _sharesLockCoef
     ) internal {
@@ -38,7 +37,6 @@ contract StakingInternals is RewardsInternals {
         treasury = _treasury;
         weight = _weight;
         vault = _vault;
-        maxLockPositions = _maxLockPositions;
         sharesCoef = _sharesCoef;
         sharesLockCoef = _sharesLockCoef;
     }
@@ -53,7 +51,7 @@ contract StakingInternals is RewardsInternals {
         }
 
         // Restrict users to a single staking position per vault pool
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             LockedBalance memory _newLock = LockedBalance({
                 amountOfToken: BoringMath.to128(amount),
                 amountOfSharesToken: nSharesToken,
@@ -61,11 +59,11 @@ contract StakingInternals is RewardsInternals {
                 end: BoringMath.to64(lockPeriod + block.timestamp),
                 owner: account
             });
-            locks[account].push(_newLock);
+            lock[account] = _newLock;
         } else {
             // Allow users to top-up their staking position
-            locks[account][0].amountOfToken += BoringMath.to128(amount);
-            locks[account][0].amountOfSharesToken += nSharesToken;
+            lock[account].amountOfToken += BoringMath.to128(amount);
+            lock[account].amountOfSharesToken += nSharesToken;
         }
 
         _stake(account, amount, nSharesToken);
@@ -87,11 +85,11 @@ contract StakingInternals is RewardsInternals {
         User storage userAccount = users[account];
 
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
-        LockedBalance storage updateLock = locks[account][0];
+        LockedBalance storage updateLock = lock[account];
 
         if (totalAmountOfStakedToken == 0) {
             revert ZeroTotalStakedToken();
@@ -135,11 +133,11 @@ contract StakingInternals is RewardsInternals {
         User storage userAccount = users[account];
 
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
-        LockedBalance storage lock = locks[account][0];
+        LockedBalance storage lock = lock[account];
 
         totalAmountOfStakedToken += amount;
         uint256 weightedAmountOfSharesPerStream = _weightedShares(amount, nSharesToken, block.timestamp);
@@ -160,11 +158,11 @@ contract StakingInternals is RewardsInternals {
         User storage userAccount = users[account];
 
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
-        LockedBalance storage updateLock = locks[account][0];
+        LockedBalance storage updateLock = lock[account];
 
         totalAmountOfStakedToken -= stakeValue;
         totalStreamShares -= updateLock.positionStreamShares;
@@ -214,11 +212,11 @@ contract StakingInternals is RewardsInternals {
      @param account The account whose lock position is unlocked early
      */
     function _earlyUnlock(address account) internal {
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
-        LockedBalance storage lock = locks[account][0];
+        LockedBalance storage lock = lock[account];
         uint256 lockEnd = lock.end;
         uint256 amount = lock.amountOfToken;
         _unlock(amount, amount, account);
@@ -232,7 +230,7 @@ contract StakingInternals is RewardsInternals {
 
     function _removeLockPosition(User storage userAccount, address account) internal {
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
@@ -241,7 +239,7 @@ contract StakingInternals is RewardsInternals {
         for (uint256 i = 0; i < streamsLength; i++) {
             delete userAccount.rpsDuringLastClaimForLock[0][i];
         }
-        locks[account].pop();
+        delete lock[account];
     }
 
     function _withdraw(uint256 streamId) internal {

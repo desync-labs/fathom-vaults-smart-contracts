@@ -31,13 +31,13 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
         }
 
         // Ensure the user has a lock position
-        if (locks[account].length == 0) {
+        if (lock[account].owner == address(0)) {
             revert NoLockedPosition();
         }
 
-        LockedBalance storage lock = locks[account][0];
+        LockedBalance storage lock = lock[account];
 
-        if (prohibitedEarlyWithdraw[account][0] && lock.end > block.timestamp) {
+        if (prohibitedEarlyWithdraw[account] && lock.end > block.timestamp) {
             return;
         }
 
@@ -74,9 +74,8 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
         if (streams[streamId].status != StreamStatus.ACTIVE) {
             revert InactiveStreamError();
         }
-        LockedBalance[] storage locksOfAccount = locks[account];
-        uint256 locksLength = locksOfAccount.length;
-        if (locksLength == 0) {
+        LockedBalance storage lock = lock[account];
+        if (lock.owner == address(0)) {
             revert NoLockError();
         }
         _moveRewardsToPending(account, streamId);
