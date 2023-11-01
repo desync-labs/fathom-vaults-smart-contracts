@@ -24,21 +24,22 @@ contract StakingStorage {
 
     uint256 public totalAmountOfStakedToken;
     uint256 public totalStreamShares;
-    uint256 public totalAmountOfVoteToken;
+    uint256 public totalAmountOfSharesToken;
 
     uint256 public totalPenaltyBalance;
-    /// _voteShareCoef the weight of vote tokens during shares distribution.
+    /// _sharesCoef the weight of shares tokens during shares distribution.
     /// Should be passed in proportion of 1000. ie, if you want weight of 2, have to pass 2000
-    uint256 internal voteShareCoef;
-    ///_voteLockWeight the weight that determines the amount of vote tokens to release
-    uint256 internal voteLockCoef;
+    uint256 internal sharesCoef;
+    ///_sharesLockCoef the weight that determines the amount of shares tokens to release
+    uint256 internal sharesLockCoef;
 
     address public mainToken;
-    address public voteToken;
+    address public sharesToken;
     address public vault;
     address public rewardsCalculator;
     address public treasury;
     bool internal mainStreamInitialized;
+    bool internal isTransferable = false; // To make the sharesToken optionally untransferrable
 
     ///Weighting coefficient for shares and penalties
     Weight public weight;

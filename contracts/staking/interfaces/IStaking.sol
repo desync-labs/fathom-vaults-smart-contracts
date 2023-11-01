@@ -7,6 +7,6 @@ import "../StakingStructs.sol";
 import "./IStakingGetter.sol";
 import "./IStakingHandler.sol";
 import "./IStakingStorage.sol";
-import "../../../common/security/IAdminPausable.sol";
+import "../../common/security/IAdminPausable.sol";
 
 interface IStaking is IStakingGetter, IStakingHandler, IStakingStorage, IAdminPausable {}

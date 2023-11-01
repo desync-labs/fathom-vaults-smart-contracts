@@ -6,7 +6,7 @@ pragma solidity 0.8.16;
 
 import "./IERC20.sol";
 import "./extensions/IERC20Metadata.sol";
-import "../../../common/Context.sol";
+import "../../common/Context.sol";
 
 contract ERC20 is Context, IERC20, IERC20Metadata {
     mapping(address => uint256) internal _balances;

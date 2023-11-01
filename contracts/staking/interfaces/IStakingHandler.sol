@@ -12,9 +12,9 @@ interface IStakingHandler {
         address _vault,
         address _treasury,
         address _mainToken,
-        address _voteToken,
+        address _sharesToken,
         Weight calldata _weight,
-        VoteCoefficient calldata voteCoef,
+        SharesCoefficient calldata sharesCoeffic,
         uint256 _maxLocks,
         address _rewardsContract,
         uint256 _minLockPeriod
@@ -41,13 +41,13 @@ interface IStakingHandler {
 
     function createLock(uint256 amount, uint256 lockPeriod) external;
 
-    function unlockPartially(uint256 lockId, uint256 amount) external;
+    function unlockPartially(uint256 amount) external;
 
-    function unlock(uint256 lockId) external;
+    function unlock() external;
 
-    function earlyUnlock(uint256 lockId) external;
+    function earlyUnlock() external;
 
-    function claimAllStreamRewardsForLock(uint256 lockId) external;
+    function claimAllStreamRewardsForLock() external;
 
     function claimAllLockRewardsForStream(uint256 streamId) external;
 
@@ -61,7 +61,7 @@ interface IStakingHandler {
 
     function emergencyUnlockAndWithdraw() external;
 
-    function createFixedLocksOnBehalfOfUserByAdmin(CreateLockParams[] calldata lockPosition) external;
+    function createFixedLocksOnBehalfOfUserByAdmin(address account, uint256 amount, uint256 lockPeriod) external;
 
     function setMinimumLockPeriod(uint256 _minLockPeriod) external;
 

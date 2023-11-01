@@ -3,8 +3,8 @@
 
 pragma solidity 0.8.16;
 
-import "../dao/tokens/ERC20/IERC20.sol";
-import "../dao/tokens/ERC20/extensions/IERC20Permit.sol";
+import "../tokens/ERC20/IERC20.sol";
+import "../tokens/ERC20/extensions/IERC20Permit.sol";
 import "./Address.sol";
 
 /**

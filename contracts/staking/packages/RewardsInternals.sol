@@ -16,6 +16,7 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
     error NoLockError();
     error NoSharesError();
     error ClaimingOfRewardsUnfeasibleForLockWithoutEarlyWithdraw();
+    error NoLockedPosition();
 
     function _updateStreamsRewardsSchedules(uint256 streamId, uint256 rewardTokenAmount) internal {
         uint256 streamScheduleRewardLength = streams[streamId].schedule.reward.length;
@@ -24,13 +25,19 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
         }
     }
 
-    function _moveRewardsToPending(address account, uint256 streamId, uint256 lockId) internal {
+    function _moveRewardsToPending(address account, uint256 streamId) internal {
         if (streams[streamId].status != StreamStatus.ACTIVE) {
             revert InactiveStreamError();
         }
-        LockedBalance storage lock = locks[account][lockId - 1];
 
-        if (prohibitedEarlyWithdraw[account][lockId] && lock.end > block.timestamp) {
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
+        }
+
+        LockedBalance storage lock = locks[account][0];
+
+        if (prohibitedEarlyWithdraw[account][0] && lock.end > block.timestamp) {
             return;
         }
 
@@ -40,7 +47,7 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
 
         User storage userAccount = users[account];
 
-        uint256 reward = ((streams[streamId].rps - userAccount.rpsDuringLastClaimForLock[lockId][streamId]) * lock.positionStreamShares) /
+        uint256 reward = ((streams[streamId].rps - userAccount.rpsDuringLastClaimForLock[0][streamId]) * lock.positionStreamShares) /
             RPS_MULTIPLIER;
         if (reward == 0) return; // All rewards claimed or stream schedule didn't start
         if (streams[streamId].rewardClaimedAmount + reward > streams[streamId].rewardDepositAmount) {
@@ -49,17 +56,17 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
 
         userAccount.pendings[streamId] += reward;
         streamTotalUserPendings[streamId] += reward;
-        userAccount.rpsDuringLastClaimForLock[lockId][streamId] = streams[streamId].rps;
+        userAccount.rpsDuringLastClaimForLock[0][streamId] = streams[streamId].rps;
         userAccount.releaseTime[streamId] = block.timestamp + streams[streamId].tau;
         // If the stream is blocklisted, remaining unclaimed rewards will be transfered out.
         streams[streamId].rewardClaimedAmount += reward;
         emit Pending(streamId, account, userAccount.pendings[streamId]);
     }
 
-    function _moveAllStreamRewardsToPending(address account, uint256 lockId) internal {
+    function _moveAllStreamRewardsToPending(address account) internal {
         uint256 streamsLength = streams.length;
         for (uint256 i; i < streamsLength; i++) {
-            if (streams[i].status == StreamStatus.ACTIVE) _moveRewardsToPending(account, i, lockId);
+            if (streams[i].status == StreamStatus.ACTIVE) _moveRewardsToPending(account, i);
         }
     }
 
@@ -72,9 +79,7 @@ contract RewardsInternals is StakingStorage, IStakingEvents {
         if (locksLength == 0) {
             revert NoLockError();
         }
-        for (uint256 i = 1; i <= locksLength; i++) {
-            _moveRewardsToPending(account, streamId, i);
-        }
+        _moveRewardsToPending(account, streamId);
     }
 
     function _updateStreamRPS() internal {

@@ -11,7 +11,7 @@ interface IStakingEvents {
     event StreamProposalCancelled(uint256 indexed streamId, address indexed owner, address indexed token);
     event StreamCreated(uint256 indexed streamId, address indexed owner, address indexed token, uint256 tau);
     event StreamRemoved(uint256 indexed streamId, address indexed owner, address indexed token);
-    event Unstaked(address indexed account, uint256 amount, uint256 indexed lockId);
-    event PartialUnstaked(address indexed account, uint256 amount, uint256 indexed lockId);
+    event Unstaked(address indexed account, uint256 amount);
+    event PartialUnstaked(address indexed account, uint256 amount);
     event Pending(uint256 indexed streamId, address indexed account, uint256 pendings);
 }

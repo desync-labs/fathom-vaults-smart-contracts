@@ -16,17 +16,18 @@ contract StakingGetters is StakingStorage, IStakingGetter, StakingInternals {
         return users[account].pendings[streamId];
     }
 
-    function getStreamClaimableAmountPerLock(uint256 streamId, address account, uint256 lockId) external view override returns (uint256) {
+    function getStreamClaimableAmountPerLock(uint256 streamId, address account) external view override returns (uint256) {
         if (streams[streamId].status != StreamStatus.ACTIVE) {
             revert StreamInactiveError();
         }
-        if (lockId > locks[account].length) {
-            revert BadIndexError();
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
         }
         uint256 latestRps = _getLatestRewardsPerShare(streamId);
         User storage userAccount = users[account];
-        LockedBalance storage lock = locks[account][lockId - 1];
-        uint256 userRpsPerLock = userAccount.rpsDuringLastClaimForLock[lockId][streamId];
+        LockedBalance storage lock = locks[account][0];
+        uint256 userRpsPerLock = userAccount.rpsDuringLastClaimForLock[0][streamId];
         uint256 userSharesOfLock = lock.positionStreamShares;
         return ((latestRps - userRpsPerLock) * userSharesOfLock) / RPS_MULTIPLIER;
     }
@@ -49,7 +50,7 @@ contract StakingGetters is StakingStorage, IStakingGetter, StakingInternals {
     /**
      @notice this will be used by frontend to get the actual amount that can be claimed
      */
-    function isProhibitedLockPosition(uint256 lockId, address account) external view override returns (bool) {
-        return prohibitedEarlyWithdraw[account][lockId];
+    function isProhibitedLockPosition(address account) external view override returns (bool) {
+        return prohibitedEarlyWithdraw[account][0];
     }
 }

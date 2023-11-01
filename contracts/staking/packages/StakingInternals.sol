@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL 3.0
 // Original Copyright Aurora
-// Copyright Fathom 2022
+// Copyright Fathom 2023
 
 pragma solidity 0.8.16;
 
@@ -9,13 +9,13 @@ import "../interfaces/IStakingEvents.sol";
 import "../vault/interfaces/IVault.sol";
 import "../../tokens/ERC20/IERC20.sol";
 import "../../tokens/IVMainToken.sol";
-import "../../../common/math/BoringMath.sol";
-import "../../../common/math/FullMath.sol";
+import "../../common/math/BoringMath.sol";
+import "../../common/math/FullMath.sol";
 
 contract StakingInternals is RewardsInternals {
     // solhint-disable not-rely-on-time
     error ZeroAddress();
-    error ZeroLocked(uint256 lockId);
+    error ZeroLocked();
     error ZeroTotalStakedToken();
     error InvalidShareWeights();
     error InvalidPenaltyWeights();
@@ -24,88 +24,104 @@ contract StakingInternals is RewardsInternals {
 
     function _initializeStaking(
         address _mainToken,
-        address _voteToken,
+        address _sharesToken,
         address _treasury,
         Weight memory _weight,
         address _vault,
         uint256 _maxLockPositions,
-        uint256 _voteShareCoef,
-        uint256 _voteLockCoef
+        uint256 _sharesCoef,
+        uint256 _sharesLockCoef
     ) internal {
-        _verifyStaking(_mainToken, _voteToken, _treasury, _weight, _vault, _voteLockCoef);
+        _verifyStaking(_mainToken, _sharesToken, _treasury, _weight, _vault, _sharesLockCoef);
         mainToken = _mainToken;
-        voteToken = _voteToken;
+        sharesToken = _sharesToken;
         treasury = _treasury;
         weight = _weight;
         vault = _vault;
         maxLockPositions = _maxLockPositions;
-        voteShareCoef = _voteShareCoef;
-        voteLockCoef = _voteLockCoef;
+        sharesCoef = _sharesCoef;
+        sharesLockCoef = _sharesLockCoef;
     }
 
     function _lock(address account, uint256 amount, uint256 lockPeriod) internal {
-        uint256 nVoteToken;
+        uint256 nSharesToken;
         User storage userAccount = users[account];
         if (lockPeriod > 0) {
-            nVoteToken = (amount * lockPeriod * POINT_MULTIPLIER) / voteLockCoef / POINT_MULTIPLIER; //maxVoteTokens;
-            userAccount.voteTokenBalance += nVoteToken;
-            totalAmountOfVoteToken += nVoteToken;
+            nSharesToken = (amount * lockPeriod * POINT_MULTIPLIER) / sharesLockCoef / POINT_MULTIPLIER; //maxVoteTokens;
+            userAccount.sharesTokenBalance += nSharesToken;
+            totalAmountOfSharesToken += nSharesToken;
         }
-        LockedBalance memory _newLock = LockedBalance({
-            amountOfToken: BoringMath.to128(amount),
-            amountOfVoteToken: nVoteToken,
-            positionStreamShares: 0,
-            end: BoringMath.to64(lockPeriod + block.timestamp),
-            owner: account
-        });
-        locks[account].push(_newLock);
 
-        _stake(account, amount, nVoteToken, locks[account].length);
-        if (nVoteToken > 0) {
-            IVMainToken(voteToken).mint(account, nVoteToken);
+        // Restrict users to a single staking position per vault pool
+        if (locks[account].length == 0) {
+            LockedBalance memory _newLock = LockedBalance({
+                amountOfToken: BoringMath.to128(amount),
+                amountOfSharesToken: nSharesToken,
+                positionStreamShares: 0,
+                end: BoringMath.to64(lockPeriod + block.timestamp),
+                owner: account
+            });
+            locks[account].push(_newLock);
+        } else {
+            // Allow users to top-up their staking position
+            locks[account][0].amountOfToken += BoringMath.to128(amount);
+            locks[account][0].amountOfSharesToken += nSharesToken;
+        }
+
+        _stake(account, amount, nSharesToken);
+
+        if (isTransferable == true && nSharesToken > 0) {
+            IVMainToken(sharesToken).mint(account, nSharesToken);
         }
     }
 
     /**
-     * @dev Unlocks the lockId position and unstakes it from staking pool
+     * @dev Unlocks the position and unstakes it from staking pool
      * @dev Updates Governance weights after unlocking
      * WARNING: rewards are not claimed during unlock.
        The UI must make sure to claim rewards before unstaking.
        Unclaimed rewards will be lost.
       `_updateStreamRPS()` must be called before `_unlock` to update streams rps
-     * @notice lockId is index + 1 of array of Locked Balance
-     * @notice If the lock position is completely unlocked then the last lock is swapped with current locked
-     * and last lock is popped off.
      */
-    function _unlock(uint256 stakeValue, uint256 amount, uint256 lockId, address account) internal {
+    function _unlock(uint256 stakeValue, uint256 amount, address account) internal {
         User storage userAccount = users[account];
-        LockedBalance storage updateLock = locks[account][lockId - 1];
+
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
+        }
+
+        LockedBalance storage updateLock = locks[account][0];
 
         if (totalAmountOfStakedToken == 0) {
             revert ZeroTotalStakedToken();
         }
 
-        uint256 nVoteToken = updateLock.amountOfVoteToken;
+        uint256 nSharesToken = updateLock.amountOfSharesToken;
+
         /// if you unstake, early or partial or complete,
         /// the number of vote tokens for lock position is set to zero
-        updateLock.amountOfVoteToken = 0;
-        totalAmountOfVoteToken -= nVoteToken;
-        uint256 remainingVoteTokenBalance = 0;
+        updateLock.amountOfSharesToken = 0;
+        totalAmountOfSharesToken -= nSharesToken;
+        uint256 remainingSharesTokenBalance = 0;
 
         //this check to not overflow:
-        if (userAccount.voteTokenBalance > nVoteToken) {
-            remainingVoteTokenBalance = userAccount.voteTokenBalance - nVoteToken;
+        if (userAccount.sharesTokenBalance > nSharesToken) {
+            remainingSharesTokenBalance = userAccount.sharesTokenBalance - nSharesToken;
         }
-        userAccount.voteTokenBalance = remainingVoteTokenBalance;
-        _unstake(amount, stakeValue, lockId, account);
-        // This is for dust mitigation, so that even if the
-        // user does not have enough voteToken, it is still able to burn and unlock
-        // takes a bit of gas
-        uint256 balance = IERC20(voteToken).balanceOf(account);
-        if (balance < nVoteToken) {
-            nVoteToken = balance;
+        userAccount.sharesTokenBalance = remainingSharesTokenBalance;
+        _unstake(amount, stakeValue, account);
+
+        if (isTransferable == true) {
+            // This is for dust mitigation, so that even if the
+            // user does not have enough sharesToken, it is still able to burn and unlock
+            // takes a bit of gas
+            uint256 balance = IERC20(sharesToken).balanceOf(account);
+            if (balance < nSharesToken) {
+                nSharesToken = balance;
+            }
+            IVMainToken(sharesToken).burn(account, nSharesToken);
         }
-        IVMainToken(voteToken).burn(account, nVoteToken);
     }
 
     /**
@@ -115,12 +131,18 @@ contract StakingInternals is RewardsInternals {
      * @notice the amount of stream shares you receive decreases from 100% to 25%
      * @notice the amount of stream shares you receive depends upon when in the timeline you have staked
      */
-    function _stake(address account, uint256 amount, uint256 nVoteToken, uint256 lockId) internal {
+    function _stake(address account, uint256 amount, uint256 nSharesToken) internal {
         User storage userAccount = users[account];
-        LockedBalance storage lock = locks[account][lockId - 1];
+
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
+        }
+
+        LockedBalance storage lock = locks[account][0];
 
         totalAmountOfStakedToken += amount;
-        uint256 weightedAmountOfSharesPerStream = _weightedShares(amount, nVoteToken, block.timestamp);
+        uint256 weightedAmountOfSharesPerStream = _weightedShares(amount, nSharesToken, block.timestamp);
 
         totalStreamShares += weightedAmountOfSharesPerStream;
         lock.positionStreamShares += BoringMath.to128(weightedAmountOfSharesPerStream);
@@ -128,15 +150,22 @@ contract StakingInternals is RewardsInternals {
         uint256 streamsLength = streams.length;
         for (uint256 i; i < streamsLength; i++) {
             if (streams[i].status == StreamStatus.ACTIVE) {
-                userAccount.rpsDuringLastClaimForLock[lockId][i] = streams[i].rps;
+                userAccount.rpsDuringLastClaimForLock[0][i] = streams[i].rps;
             }
         }
-        emit Staked(account, amount, weightedAmountOfSharesPerStream, nVoteToken, lockId, lock.end);
+        emit Staked(account, amount, weightedAmountOfSharesPerStream, nSharesToken, 0, lock.end);
     }
 
-    function _unstake(uint256 amount, uint256 stakeValue, uint256 lockId, address account) internal {
+    function _unstake(uint256 amount, uint256 stakeValue, address account) internal {
         User storage userAccount = users[account];
-        LockedBalance storage updateLock = locks[account][lockId - 1];
+
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
+        }
+
+        LockedBalance storage updateLock = locks[account][0];
+
         totalAmountOfStakedToken -= stakeValue;
         totalStreamShares -= updateLock.positionStreamShares;
 
@@ -150,15 +179,15 @@ contract StakingInternals is RewardsInternals {
         streamTotalUserPendings[MAIN_STREAM] += amount;
         ///@notice: Only update the lock if it has remaining stake
         if (amountToRestake > 0) {
-            _restakeThePosition(amountToRestake, lockId, updateLock, userAccount);
-            emit PartialUnstaked(account, amount, lockId);
+            _restakeThePosition(amountToRestake, updateLock, userAccount);
+            emit PartialUnstaked(account, amount);
         } else {
-            _removeLockPosition(userAccount, account, lockId);
-            emit Unstaked(account, amount, lockId);
+            _removeLockPosition(userAccount, account);
+            emit Unstaked(account, amount);
         }
     }
 
-    function _restakeThePosition(uint256 amountToRestake, uint256 lockId, LockedBalance storage updateLock, User storage userAccount) internal {
+    function _restakeThePosition(uint256 amountToRestake, LockedBalance storage updateLock, User storage userAccount) internal {
         totalAmountOfStakedToken += amountToRestake;
         updateLock.amountOfToken += BoringMath.to128(amountToRestake);
         ///@notice if you unstake, early or partial or complete,
@@ -171,7 +200,7 @@ contract StakingInternals is RewardsInternals {
         for (uint256 i; i < streamsLength; i++) {
             // The new shares should not claim old rewards
             if (streams[i].status == StreamStatus.ACTIVE) {
-                userAccount.rpsDuringLastClaimForLock[lockId][i] = streams[i].rps;
+                userAccount.rpsDuringLastClaimForLock[0][i] = streams[i].rps;
             }
         }
     }
@@ -181,15 +210,18 @@ contract StakingInternals is RewardsInternals {
      @dev This unlocks and unstakes the position completely and then applies penalty
      @notice The weighing function decreases based upon the remaining time left in the lock
      @notice The penalty is decreased from the pendings of Main stream
-     @notice Early unlock completely unlocks your whole position and vote tokens
-     @param lockId The lock id of lock position to early unlock
+     @notice Early unlock completely unlocks your whole position and share tokens
      @param account The account whose lock position is unlocked early
      */
-    function _earlyUnlock(uint256 lockId, address account) internal {
-        LockedBalance storage lock = locks[account][lockId - 1];
+    function _earlyUnlock(address account) internal {
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
+        }
+
+        LockedBalance storage lock = locks[account][0];
         uint256 lockEnd = lock.end;
         uint256 amount = lock.amountOfToken;
-        _unlock(amount, amount, lockId, account);
+        _unlock(amount, amount, account);
         uint256 weighingCoef = _weightedPenalty(lockEnd, block.timestamp);
         uint256 penalty = (weighingCoef * amount) / 100000;
         User storage userAccount = users[account];
@@ -198,18 +230,16 @@ contract StakingInternals is RewardsInternals {
         totalPenaltyBalance += penalty;
     }
 
-    function _removeLockPosition(User storage userAccount, address account, uint256 lockId) internal {
-        uint256 streamsLength = streams.length;
-        uint256 lastLockId = locks[account].length;
-        if (lastLockId != lockId && lastLockId > 1) {
-            LockedBalance storage lastIndexLockedBalance = locks[account][lastLockId - 1];
-            locks[account][lockId - 1] = lastIndexLockedBalance;
-            for (uint256 i; i < streamsLength; i++) {
-                userAccount.rpsDuringLastClaimForLock[lockId][i] = userAccount.rpsDuringLastClaimForLock[lastLockId][i];
-            }
+    function _removeLockPosition(User storage userAccount, address account) internal {
+        // Ensure the user has a lock position
+        if (locks[account].length == 0) {
+            revert NoLockedPosition();
         }
-        for (uint256 i; i < streamsLength; i++) {
-            delete userAccount.rpsDuringLastClaimForLock[lastLockId][i];
+
+        uint256 streamsLength = streams.length;
+        // Since there's only one position, we'll always delete data related to that position
+        for (uint256 i = 0; i < streamsLength; i++) {
+            delete userAccount.rpsDuringLastClaimForLock[0][i];
         }
         locks[account].pop();
     }
@@ -229,11 +259,11 @@ contract StakingInternals is RewardsInternals {
         IVault(vault).payRewards(accountTo, mainToken, pendingPenalty);
     }
 
-    function _weightedShares(uint256 amountOfTokenShares, uint256 nVoteToken, uint256 timestamp) internal view returns (uint256) {
-        ///@notice Shares accomodate vote the amount of  tokenShares and vote Tokens to be released
+    function _weightedShares(uint256 amountOfTokenShares, uint256 nSharesToken, uint256 timestamp) internal view returns (uint256) {
+        ///@notice Shares accommodate both the amount of tokenShares and sharesTokens to be released
         ///@notice This formula makes it so that both the time locked for Main token and the amount of token locked
         ///        is used to calculate rewards
-        uint256 shares = amountOfTokenShares + (voteShareCoef * nVoteToken) / 1000;
+        uint256 shares = amountOfTokenShares + (sharesCoef * nSharesToken) / 1000;
         uint256 slopeStart = streams[MAIN_STREAM].schedule.time[0] + ONE_MONTH;
         uint256 slopeEnd = slopeStart + ONE_YEAR;
         if (timestamp <= slopeStart) return shares * weight.maxWeightShares;
@@ -267,16 +297,16 @@ contract StakingInternals is RewardsInternals {
     // solhint-disable code-complexity
     function _verifyStaking(
         address _mainToken,
-        address _voteToken,
+        address _sharesToken,
         address _treasury,
         Weight memory _weight,
         address _vault,
-        uint256 _voteLockCoef
+        uint256 _sharesLockCoef
     ) internal pure {
         if (_mainToken == address(0x00)) {
             revert ZeroAddress();
         }
-        if (_voteToken == address(0x00)) {
+        if (_sharesToken == address(0x00)) {
             revert ZeroAddress();
         }
         if (_vault == address(0x00)) {
@@ -294,7 +324,7 @@ contract StakingInternals is RewardsInternals {
         if (_weight.penaltyWeightMultiplier * _weight.maxWeightPenalty > 100000) {
             revert IncorrectWeight();
         }
-        if (_voteLockCoef == 0) {
+        if (_sharesLockCoef == 0) {
             revert ZeroCoefficient();
         }
     }
