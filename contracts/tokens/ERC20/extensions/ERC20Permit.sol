@@ -6,9 +6,9 @@ pragma solidity 0.8.16;
 
 import "./IERC20Permit.sol";
 import "../ERC20.sol";
-import "../../../common/cryptography/EIP712.sol";
-import "../../../common/cryptography/ECDSA.sol";
-import "../../../common/structs/Counters.sol";
+import "../../../../common/cryptography/EIP712.sol";
+import "../../../../common/cryptography/ECDSA.sol";
+import "../../../../common/structs/Counters.sol";
 
 abstract contract ERC20Permit is ERC20, IERC20Permit, EIP712 {
     using Counters for Counters.Counter;

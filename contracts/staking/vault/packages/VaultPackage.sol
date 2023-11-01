@@ -6,9 +6,9 @@ pragma solidity 0.8.16;
 import "../interfaces/IVault.sol";
 import "../interfaces/IVaultEvents.sol";
 import "../../../tokens/ERC20/IERC20.sol";
-import "../../../common/security/AdminPausable.sol";
-import "../../../common/SafeERC20.sol";
-import "../../../common/introspection/ERC165.sol";
+import "../../../../common/security/AdminPausable.sol";
+import "../../../../common/SafeERC20.sol";
+import "../../../../common/introspection/ERC165.sol";
 
 // solhint-disable not-rely-on-time
 contract VaultPackage is IVault, IVaultEvents, AdminPausable {

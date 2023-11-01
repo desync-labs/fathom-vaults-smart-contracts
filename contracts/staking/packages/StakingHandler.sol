@@ -7,8 +7,8 @@ import "./StakingInternals.sol";
 import "../StakingStorage.sol";
 import "../interfaces/IStakingHandler.sol";
 import "../vault/interfaces/IVault.sol";
-import "../../common/security/AdminPausable.sol";
-import "../../common/SafeERC20Staking.sol";
+import "../../../common/security/AdminPausable.sol";
+import "../../../common/SafeERC20Staking.sol";
 
 // solhint-disable not-rely-on-time
 contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, AdminPausable {
@@ -49,7 +49,6 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
     error NotLockOwner();
     error BadRewardsAmount();
     error NoLocks();
-    error AlreadyHaveALockedPosition();
 
     constructor() {
         _disableInitializers();
@@ -71,15 +70,15 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
         address _vault,
         address _treasury,
         address _mainToken,
-        address _sharesToken,
+        address _voteToken,
         Weight calldata _weight,
-        SharesCoefficient calldata sharesCoeffic,
+        VoteCoefficient calldata voteCoef,
         uint256 _maxLocks,
         address _rewardsContract,
         uint256 _minLockPeriod
     ) external override initializer {
         rewardsCalculator = _rewardsContract;
-        _initializeStaking(_mainToken, _sharesToken, _treasury, _weight, _vault, _maxLocks, sharesCoeffic.sharesCoef, sharesCoeffic.sharesLockCoef);
+        _initializeStaking(_mainToken, _voteToken, _treasury, _weight, _vault, _maxLocks, voteCoef.voteShareCoef, voteCoef.voteLockCoef);
         if (!IVault(vault).isSupportedToken(_mainToken)) {
             revert UnsupportedToken();
         }
@@ -284,85 +283,68 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
     /**
      * @dev Admin can create a lock on behalf of a user without early withdrawal
      */
-    function createFixedLocksOnBehalfOfUserByAdmin(
-            address account, 
-            uint256 amount, 
-            uint256 lockPeriod
-        ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (account == address(0)) {
-            revert ZeroAddress();
+    function createFixedLocksOnBehalfOfUserByAdmin(CreateLockParams[] calldata lockPositions) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i; i < lockPositions.length; i++) {
+            address account = lockPositions[i].account;
+            if (account == address(0)) {
+                revert ZeroAddress();
+            }
+            prohibitedEarlyWithdraw[account][locks[account].length + 1] = true;
+            _createLock(lockPositions[i].amount, lockPositions[i].lockPeriod, account);
         }
-        
-        // Ensure the user does not already have a lock position
-        if (locks[account].length > 0) {
-            revert AlreadyHaveALockedPosition();
-        }
-
-        prohibitedEarlyWithdraw[account][0] = true;
-        _createLock(amount, lockPeriod, account);
     }
 
     function createLock(uint256 amount, uint256 lockPeriod) external override pausable(1) {
         _createLock(amount, lockPeriod, msg.sender);
     }
 
-    function unlock() external override pausable(1) {
-        _verifyUnlock();
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
-        }
-        LockedBalance storage lock = locks[msg.sender][0];
+    function unlock(uint256 lockId) external override pausable(1) {
+        _verifyUnlock(lockId);
+        LockedBalance storage lock = locks[msg.sender][lockId - 1];
         if (lock.end > block.timestamp) {
             revert LockNotClosed();
         }
         _updateStreamRPS();
         uint256 stakeValue = lock.amountOfToken;
-        prohibitedEarlyWithdraw[msg.sender][0] = false;
-        _unlock(stakeValue, stakeValue, msg.sender);
+        prohibitedEarlyWithdraw[msg.sender][lockId] = false;
+        _unlock(stakeValue, stakeValue, lockId, msg.sender);
     }
 
-    function unlockPartially(uint256 amount) external override pausable(1) {
-        _verifyUnlock();
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
-        }
-        LockedBalance storage lock = locks[msg.sender][0];
+    function unlockPartially(uint256 lockId, uint256 amount) external override pausable(1) {
+        _verifyUnlock(lockId);
+        LockedBalance storage lock = locks[msg.sender][lockId - 1];
         if (lock.end > block.timestamp) {
             revert LockNotExpired();
         }
         _updateStreamRPS();
         uint256 stakeValue = lock.amountOfToken;
-        prohibitedEarlyWithdraw[msg.sender][0] = false;
-        _unlock(stakeValue, amount, msg.sender);
+        prohibitedEarlyWithdraw[msg.sender][lockId] = false;
+        _unlock(stakeValue, amount, lockId, msg.sender);
     }
 
-    function earlyUnlock() external override pausable(1) {
-        _verifyUnlock();
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
-        }
-        if (prohibitedEarlyWithdraw[msg.sender][0]) {
+    function earlyUnlock(uint256 lockId) external override pausable(1) {
+        _verifyUnlock(lockId);
+        if (prohibitedEarlyWithdraw[msg.sender][lockId]) {
             revert EarlyWithdrawalInfeasible();
         }
-        LockedBalance storage lock = locks[msg.sender][0];
+        LockedBalance storage lock = locks[msg.sender][lockId - 1];
         if (lock.end <= block.timestamp) {
             revert LockAlreadyOpen();
         }
         _updateStreamRPS();
-        _earlyUnlock(msg.sender);
+        _earlyUnlock(lockId, msg.sender);
     }
 
-    function claimAllStreamRewardsForLock() external override pausable(1) {
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
+    function claimAllStreamRewardsForLock(uint256 lockId) external override pausable(1) {
+        if (lockId > locks[msg.sender].length) {
+            revert MaxLockIdExceeded(lockId, msg.sender);
+        }
+        if (lockId == 0) {
+            revert ZeroLockId();
         }
         _updateStreamRPS();
         // Claim all streams while skipping inactive streams.
-        _moveAllStreamRewardsToPending(msg.sender);
+        _moveAllStreamRewardsToPending(msg.sender, lockId);
     }
 
     function claimAllLockRewardsForStream(uint256 streamId) external override pausable(1) {
@@ -408,13 +390,15 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
         if (IVault(vault).migrated()) {
             revert VaultMigrated(vault);
         }
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
+        //unlock all locks
+        uint256 numberOfLocks = locks[msg.sender].length;
+        if (numberOfLocks == 0) {
+            revert NoLocks();
         }
-        
-        uint256 stakeValue = locks[msg.sender][0].amountOfToken;
-        _unlock(stakeValue, stakeValue, msg.sender);        
+        for (uint256 lockId = numberOfLocks; lockId >= 1; lockId--) {
+            uint256 stakeValue = locks[msg.sender][lockId - 1].amountOfToken;
+            _unlock(stakeValue, stakeValue, lockId, msg.sender);
+        }
         _withdraw(MAIN_STREAM);
     }
 
@@ -486,6 +470,9 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
         if (lockPeriod < minLockPeriod) {
             revert MinLockPeriodNotMet();
         }
+        if (locks[account].length >= maxLockPositions) {
+            revert MaxLockPositionsReached();
+        }
         if (amount == 0) {
             revert ZeroAmount();
         }
@@ -516,17 +503,19 @@ contract StakingHandlers is StakingStorage, IStakingHandler, StakingInternals, A
         }
     }
 
-    function _verifyUnlock() internal view {
-        // Ensure the user has a lock position
-        if (locks[msg.sender].length == 0) {
-            revert NoLockedPosition();
+    function _verifyUnlock(uint256 lockId) internal view {
+        if (lockId == 0) {
+            revert ZeroLockId();
         }
-        LockedBalance storage lock = locks[msg.sender][0];
+        if (lockId > locks[msg.sender].length) {
+            revert MaxLockIdExceeded(lockId, msg.sender);
+        }
+        LockedBalance storage lock = locks[msg.sender][lockId - 1];
         if (lock.owner != msg.sender) {
             revert NotLockOwner();
         }
         if (lock.amountOfToken == 0) {
-            revert ZeroLocked();
+            revert ZeroLocked(lockId);
         }
     }
 }

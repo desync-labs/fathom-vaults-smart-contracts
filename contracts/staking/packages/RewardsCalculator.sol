@@ -4,7 +4,7 @@
 pragma solidity 0.8.16;
 import "../StakingStructs.sol";
 import "../interfaces/IRewardsHandler.sol";
-import "../../common/math/FullMath.sol";
+import "../../../common/math/FullMath.sol";
 
 // solhint-disable not-rely-on-time
 contract RewardsCalculator is IRewardsHandler {

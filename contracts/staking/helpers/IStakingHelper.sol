@@ -6,7 +6,7 @@ import "../StakingStructs.sol";
 import "../interfaces/IStakingGetter.sol";
 import "../interfaces/IStakingHandler.sol";
 import "../interfaces/IStakingStorage.sol";
-import "../../common/security/IAdminPausable.sol";
+import "../../../common/security/IAdminPausable.sol";
 
 interface IStakingHelper is IStakingGetter, IStakingHandler, IStakingStorage, IAdminPausable {
     function maxLockPeriod() external view returns (uint64);

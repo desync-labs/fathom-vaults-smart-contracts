@@ -20,7 +20,7 @@ struct Schedule {
 }
 
 struct User {
-    uint256 sharesTokenBalance;
+    uint256 voteTokenBalance;
     //streamId => pendings
     mapping(uint256 => uint256) pendings; // The amount of tokens pending release for user per stream
     //streamId => releaseTime
@@ -39,9 +39,9 @@ struct Weight {
     uint32 penaltyWeightMultiplier;
 }
 
-struct SharesCoefficient {
-    uint32 sharesCoef;
-    uint32 sharesLockCoef;
+struct VoteCoefficient {
+    uint32 voteShareCoef;
+    uint32 voteLockCoef;
 }
 
 struct LockedBalance {
@@ -49,9 +49,8 @@ struct LockedBalance {
     uint128 positionStreamShares;
     uint64 end;
     address owner;
-    uint256 amountOfSharesToken;
+    uint256 amountOfVoteToken;
 }
-
 struct Stream {
     address owner; // stream owned by the ERC-20 reward token owner
     address manager; // stream manager handled by Main stream manager role

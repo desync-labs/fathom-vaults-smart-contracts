@@ -10,7 +10,7 @@ interface IStakingGetter {
 
     function getUsersPendingRewards(address account, uint256 streamId) external view returns (uint256);
 
-    function getStreamClaimableAmountPerLock(uint256 streamId, address account) external view returns (uint256);
+    function getStreamClaimableAmountPerLock(uint256 streamId, address account, uint256 lockId) external view returns (uint256);
 
     function getStreamSchedule(uint256 streamId) external view returns (uint256[] memory scheduleTimes, uint256[] memory scheduleRewards);
 
@@ -18,5 +18,5 @@ interface IStakingGetter {
         uint256 streamId
     ) external view returns (uint256 rewardDepositAmount, uint256 rewardClaimedAmount, uint256 rps, StreamStatus status);
 
-    function isProhibitedLockPosition(address account) external view returns (bool);
+    function isProhibitedLockPosition(uint256 lockId, address account) external view returns (bool);
 }

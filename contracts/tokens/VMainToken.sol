@@ -3,13 +3,13 @@
 
 pragma solidity 0.8.16;
 
-import "../common/security/Pausable.sol";
-import "../common/access/AccessControl.sol";
-import "./ERC20/extensions/ERC20Shares.sol";
+import "../../common/security/Pausable.sol";
+import "../../common/access/AccessControl.sol";
+import "./ERC20/extensions/ERC20Votes.sol";
 import "./IVMainToken.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract VMainToken is IVMainToken, Pausable, AccessControl, Initializable, ERC20Shares {
+contract VMainToken is IVMainToken, Pausable, AccessControl, Initializable, ERC20Votes {
     // Mapping to keep track of who is allowed to transfer voting tokens
     mapping(address => bool) public isAllowListed;
 
@@ -20,7 +20,7 @@ contract VMainToken is IVMainToken, Pausable, AccessControl, Initializable, ERC2
     error AdminShouldBeDifferentThanMsgSender();
     error VMainTokenIsIntransferableUnlessTheSenderIsAllowlisted();
 
-    constructor(string memory name_, string memory symbol_) ERC20Shares(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_) ERC20Votes(name_, symbol_) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
