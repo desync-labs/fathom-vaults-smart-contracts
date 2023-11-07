@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import "./Interfaces/IVault.sol";
 
 /**
 @title Yearn V3 Vault
@@ -44,7 +46,7 @@ interface IFactory {
 }
 
 // Solidity version of the Vyper contract
-contract YearnV3Vault is IERC20, IERC20Metadata {
+contract YearnV3Vault is IERC20, IERC20Metadata, AccessControl, IVault {
     using SafeMath for uint256;
     using Math for uint256;
 
@@ -180,6 +182,13 @@ contract YearnV3Vault is IERC20, IERC20Metadata {
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant PERMIT_TYPE_HASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
+    // Roles
+    bytes32 public constant ACCOUNTANT_MANAGER = keccak256("ACCOUNTANT_MANAGER");
+    bytes32 public constant QUEUE_MANAGER = keccak256("QUEUE_MANAGER");
+    bytes32 public constant DEPOSIT_LIMIT_MANAGER = keccak256("DEPOSIT_LIMIT_MANAGER");
+    bytes32 public constant WITHDRAW_LIMIT_MANAGER = keccak256("WITHDRAW_LIMIT_MANAGER");
+    bytes32 public constant MINIMUM_IDLE_MANAGER = keccak256("MINIMUM_IDLE_MANAGER");
+    bytes32 public constant PROFIT_UNLOCK_MANAGER = keccak256("PROFIT_UNLOCK_MANAGER");
 
     // EVENTS
     // ERC4626 EVENTS
@@ -624,5 +633,768 @@ contract YearnV3Vault is IERC20, IERC20Metadata {
         }
 
         return maxAssets;
+    }
+
+    // Used for `deposit` calls to transfer the amount of `asset` to the vault, 
+    // issue the corresponding shares to the `recipient` and update all needed 
+    // vault accounting.
+    function _deposit(address sender, address recipient, uint256 assets) internal returns (uint256) {
+        require(!shutdown, "shutdown"); // dev: shutdown
+        require(assets <= _maxDeposit(recipient), "exceed deposit limit");
+
+        // Transfer the tokens to the vault first.
+        ASSET.transferFrom(msg.sender, address(this), assets);
+        // Record the change in total assets.
+        totalIdle += assets;
+
+        // Issue the corresponding shares for assets.
+        uint256 shares = _issueSharesForAmount(assets, recipient);
+        require(shares > 0, "cannot mint zero");
+
+        emit Deposit(sender, recipient, assets, shares);
+        return shares;
+    }
+
+    // Used for `mint` calls to issue the corresponding shares to the `recipient`,
+    // transfer the amount of `asset` to the vault, and update all needed vault 
+    // accounting.
+    function _mint(address sender, address recipient, uint256 shares) internal returns (uint256) {
+        require(!shutdown, "shutdown");
+        // Get corresponding amount of assets.
+        uint256 assets = _convertToAssets(shares, Rounding.ROUND_UP);
+
+        require(assets > 0, "cannot deposit zero");
+        require(assets <= _maxDeposit(recipient), "exceed deposit limit");
+
+        // Transfer the tokens to the vault first.
+        ASSET.transferFrom(msg.sender, address(this), assets);
+        // Record the change in total assets.
+        totalIdle += assets;
+
+        // Issue the corresponding shares for assets.
+        _issueShares(shares, recipient); // Assuming _issueShares is defined elsewhere
+
+        emit Deposit(sender, recipient, assets, shares);
+        return assets;
+    }
+
+    // Returns the share of losses that a user would take if withdrawing from this strategy
+    // e.g. if the strategy has unrealised losses for 10% of its current debt and the user 
+    // wants to withdraw 1000 tokens, the losses that he will take are 100 token
+    function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
+        // Minimum of how much debt the debt should be worth.
+        uint256 strategyCurrentDebt = strategies[strategy].currentDebt;
+        // The actual amount that the debt is currently worth.
+        uint256 vaultShares = IStrategy(strategy).balanceOf(address(this));
+        uint256 strategyAssets = IStrategy(strategy).convertToAssets(vaultShares);
+
+        // If no losses, return 0
+        if (strategyAssets >= strategyCurrentDebt || strategyCurrentDebt == 0) {
+            return 0;
+        }
+
+        // Users will withdraw assets_to_withdraw divided by loss ratio (strategy_assets / strategy_current_debt - 1),
+        // but will only receive assets_to_withdraw.
+        // NOTE: If there are unrealised losses, the user will take his share.
+        uint256 numerator = assetsNeeded * strategyAssets;
+        uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
+
+        // Always round up.
+        if (numerator % strategyCurrentDebt != 0) {
+            lossesUserShare += 1;
+        }
+
+        return lossesUserShare;
+    }
+
+    // This takes the amount denominated in asset and performs a {redeem}
+    // with the corresponding amount of shares.
+    // We use {redeem} to natively take on losses without additional non-4626 standard parameters.
+    function _withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) internal {
+        // Need to get shares since we use redeem to be able to take on losses.
+        uint256 sharesToRedeem = Math.min(
+            IStrategy(strategy).previewWithdraw(assetsToWithdraw), // Use previewWithdraw since it should round up.
+            IStrategy(strategy).balanceOf(address(this)) // And check against our actual balance.
+        );
+
+        // Redeem the shares.
+        IStrategy(strategy).redeem(sharesToRedeem, address(this), address(this));
+    }
+
+    // This will attempt to free up the full amount of assets equivalent to
+    // `shares_to_burn` and transfer them to the `receiver`. If the vault does
+    // not have enough idle funds it will go through any strategies provided by
+    // either the withdrawer or the queue_manager to free up enough funds to 
+    // service the request.
+
+    // The vault will attempt to account for any unrealized losses taken on from
+    // strategies since their respective last reports.
+
+    // Any losses realized during the withdraw from a strategy will be passed on
+    // to the user that is redeeming their vault shares.
+    function _redeem(
+        address sender,
+        address receiver,
+        address owner,
+        uint256 assets,
+        uint256 sharesToBurn,
+        uint256 maxLoss,
+        address[MAX_QUEUE] memory strategies
+    ) internal returns (uint256) {
+        require(receiver != address(0), "ZERO ADDRESS");
+        require(maxLoss <= MAX_BPS, "max loss");
+
+        // If there is a withdraw limit module, check the max.
+        if (withdrawLimitModule != address(0)) {
+            require(assets <= _maxWithdraw(owner, maxLoss, strategies), "exceed withdraw limit");
+        }
+
+        uint256 shares = sharesToBurn;
+        uint256 sharesBalance = balanceOf[owner];
+
+        require(shares > 0, "no shares to redeem");
+        require(sharesBalance >= shares, "insufficient shares to redeem");
+
+        if (sender != owner) {
+            _spendAllowance(owner, sender, sharesToBurn);
+        }
+
+        // The amount of the underlying token to withdraw.
+        uint256 requestedAssets = assets;
+        // load to memory to save gas
+        uint256 currTotalIdle = totalIdle;
+
+        // If there are not enough assets in the Vault contract, we try to free
+        // funds from strategies.
+        if (requestedAssets > currTotalIdle) {
+            // Cache the default queue.
+            address[] memory _strategies = defaultQueue;
+
+            // If a custom queue was passed, and we don't force the default queue.
+            if (strategies.length != 0 && !useDefaultQueue) {
+                // Use the custom queue.
+                _strategies = strategies;
+            }
+
+            // load to memory to save gas
+            uint256 currTotalDebt = totalDebt;
+
+            // Withdraw from strategies only what idle doesn't cover.
+            // `assetsNeeded` is the total amount we need to fill the request.
+            uint256 assetsNeeded = requestedAssets.sub(currTotalIdle);
+            // `assetsToWithdraw` is the amount to request from the current strategy.
+            uint256 assetsToWithdraw = 0;
+
+            // To compare against real withdrawals from strategies
+            uint256 previousBalance = ASSET.balanceOf(address(this));
+
+            // Assuming _strategies is an array of addresses representing the strategies
+            for (uint i = 0; i < _strategies.length; i++) {
+                address strategy = _strategies[i];
+                
+                // Make sure we have a valid strategy.
+                require(strategies[strategy].activation != 0, "inactive strategy");
+
+                // How much should the strategy have.
+                uint256 currentDebt = strategies[strategy].currentDebt;
+
+                // What is the max amount to withdraw from this strategy.
+                uint256 assetsToWithdraw = Math.min(assetsNeeded, currentDebt);
+
+                // Cache max_withdraw now for use if unrealized loss > 0
+                // Use maxRedeem and convert since we use redeem.
+                uint256 maxWithdraw = IStrategy(strategy).convertToAssets(
+                    IStrategy(strategy).maxRedeem(address(this))
+                );
+
+                // CHECK FOR UNREALIZED LOSSES
+                // If unrealised losses > 0, then the user will take the proportional share 
+                // and realize it (required to avoid users withdrawing from lossy strategies).
+                // NOTE: strategies need to manage the fact that realising part of the loss can 
+                // mean the realisation of 100% of the loss!! (i.e. if for withdrawing 10% of the
+                // strategy it needs to unwind the whole position, generated losses might be bigger)
+                uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
+                if (unrealisedLossesShare > 0) {
+                    // If max withdraw is limiting the amount to pull, we need to adjust the portion of 
+                    // the unrealized loss the user should take.
+                    if (maxWithdraw < assetsToWithdraw - unrealisedLossesShare) {
+                        // How much would we want to withdraw
+                        uint256 wanted = assetsToWithdraw - unrealisedLossesShare;
+                        // Get the proportion of unrealised comparing what we want vs. what we can get
+                        unrealisedLossesShare = unrealisedLossesShare * maxWithdraw / wanted;
+                        // Adjust assetsToWithdraw so all future calculations work correctly
+                        assetsToWithdraw = maxWithdraw + unrealisedLossesShare;
+                    }
+                    
+                    // User now "needs" less assets to be unlocked (as he took some as losses)
+                    assetsToWithdraw -= unrealisedLossesShare;
+                    requestedAssets -= unrealisedLossesShare;
+                    // NOTE: done here instead of waiting for regular update of these values 
+                    // because it's a rare case (so we can save minor amounts of gas)
+                    assetsNeeded -= unrealisedLossesShare;
+                    currTotalDebt -= unrealisedLossesShare;
+
+                    // If max withdraw is 0 and unrealised loss is still > 0 then the strategy likely
+                    // realized a 100% loss and we will need to realize that loss before moving on.
+                    if (maxWithdraw == 0 && unrealisedLossesShare > 0) {
+                        // Adjust the strategy debt accordingly.
+                        uint256 newDebt = currentDebt - unrealisedLossesShare;
+
+                        // Update strategies storage
+                        strategies[strategy].currentDebt = newDebt;
+
+                        // Log the debt update
+                        emit DebtUpdated(strategy, currentDebt, newDebt);
+                    }
+                }
+
+                // Adjust based on the max withdraw of the strategy.
+                assetsToWithdraw = Math.min(assetsToWithdraw, maxWithdraw);
+
+                // Can't withdraw 0.
+                if (assetsToWithdraw == 0) {
+                    continue;
+                }
+
+                // WITHDRAW FROM STRATEGY
+                _withdrawFromStrategy(strategy, assetsToWithdraw);
+                uint256 postBalance = ASSET.balanceOf(address(this));
+                
+                // Always check withdrawn against the real amounts.
+                uint256 withdrawn = postBalance - previousBalance;
+                uint256 loss = 0;
+                // Check if we redeemed too much.
+                if (withdrawn > assetsToWithdraw) {
+                    // Make sure we don't underflow in debt updates.
+                    if (withdrawn > currentDebt) {
+                        // Can't withdraw more than our debt.
+                        assetsToWithdraw = currentDebt;
+                    } else {
+                        assetsToWithdraw += withdrawn - assetsToWithdraw;
+                    }
+                // If we have not received what we expected, we consider the difference a loss.
+                } else if (withdrawn < assetsToWithdraw) {
+                    loss = assetsToWithdraw - withdrawn;
+                }
+
+                // NOTE: strategy's debt decreases by the full amount but the total idle increases 
+                // by the actual amount only (as the difference is considered lost).
+                currTotalIdle += assetsToWithdraw - loss;
+                requestedAssets -= loss;
+                currTotalDebt -= assetsToWithdraw;
+
+                // Vault will reduce debt because the unrealised loss has been taken by user
+                uint256 newDebt = currentDebt - (assetsToWithdraw + unrealisedLossesShare);
+
+                // Update strategies storage
+                strategies[strategy].currentDebt = newDebt;
+                // Log the debt update
+                emit DebtUpdated(strategy, currentDebt, newDebt);
+
+                // Break if we have enough total idle to serve initial request.
+                if (requestedAssets <= currTotalIdle) {
+                    break;
+                }
+
+                // We update the previous_balance variable here to save gas in next iteration.
+                previousBalance = postBalance;
+
+                // Reduce what we still need. Safe to use assets_to_withdraw 
+                // here since it has been checked against requested_assets
+                assetsNeeded -= assetsToWithdraw;
+            }
+
+            // If we exhaust the queue and still have insufficient total idle, revert.
+            require(currTotalIdle >= requestedAssets, "insufficient assets in vault");
+            // Commit memory to storage.
+            totalDebt = currTotalDebt;
+        }
+
+        // Check if there is a loss and a non-default value was set.
+        if (assets > requestedAssets && maxLoss < MAX_BPS) {
+            // Assure the loss is within the allowed range.
+            require(assets - requestedAssets <= assets * maxLoss / MAX_BPS, "too much loss");
+        }
+
+        // First burn the corresponding shares from the redeemer.
+        _burnShares(shares, owner);
+        // Commit memory to storage.
+        totalIdle = currTotalIdle - requestedAssets;
+        // Transfer the requested amount to the receiver.
+        _erc20SafeTransfer(address(ASSET), receiver, requestedAssets);
+
+        emit Withdraw(sender, receiver, owner, requestedAssets, shares);
+
+        return requestedAssets;
+    }
+
+    // STRATEGY MANAGEMENT
+    function _addStrategy(address newStrategy) internal {
+        require(newStrategy != address(0) && newStrategy != address(this), "strategy cannot be zero address");
+        require(IStrategy(newStrategy).asset() == address(ASSET), "invalid asset");
+        require(strategies[newStrategy].activation == 0, "strategy already active");
+
+        // Add the new strategy to the mapping.
+        strategies[newStrategy] = StrategyParams({
+            activation: block.timestamp,
+            last_report: block.timestamp,
+            current_debt: 0,
+            max_debt: 0
+        });
+
+        // If the default queue has space, add the strategy.
+        uint256 defaultQueueLength = defaultQueue.length;
+        if (defaultQueueLength < MAX_QUEUE) {
+            defaultQueue[defaultQueueLength++] = newStrategy;
+        }
+        
+        emit StrategyChanged(newStrategy, StrategyChangeType.ADDED);
+    }
+
+    function _revokeStrategy(address strategy, bool force) internal {
+        require(strategies[strategy].activation != 0, "strategy not active");
+        
+        // If force revoking a strategy, it will cause a loss.
+        uint256 loss = 0;
+        if (strategies[strategy].currentDebt != 0) {
+            require(force, "strategy has debt");
+            // Vault realizes the full loss of outstanding debt.
+            loss = strategies[strategy].currentDebt;
+            // Adjust total vault debt.
+            totalDebt -= loss;
+            
+            emit StrategyReported(strategy, 0, loss, 0, 0, 0, 0);
+        }
+
+        // Set strategy params all back to 0 (WARNING: it can be re-added).
+        strategies[strategy] = StrategyParams({
+            activation: 0,
+            lastReport: 0,
+            currentDebt: 0,
+            maxDebt: 0
+        });
+
+        // Remove strategy if it is in the default queue.
+        address[MAX_QUEUE] memory newQueue;
+        if (defaultQueue.length > 0) {
+            for (uint i = 0; i < defaultQueue.length; i++) {
+                address _strategy = defaultQueue[i];
+                // Add all strategies to the new queue besides the one revoked.
+                if (_strategy != strategy) {
+                    newQueue[i] = _strategy;
+                }
+            }
+        }
+
+        // Set the default queue to our updated queue.
+        defaultQueue = newQueue;
+
+        emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
+    }
+
+    // DEBT MANAGEMENT
+    // The vault will re-balance the debt vs target debt. Target debt must be
+    // smaller or equal to strategy's max_debt. This function will compare the 
+    // current debt with the target debt and will take funds or deposit new 
+    // funds to the strategy. 
+
+    // The strategy can require a maximum amount of funds that it wants to receive
+    // to invest. The strategy can also reject freeing funds if they are locked.
+    function _updateDebt(address strategy, uint256 targetDebt) internal returns (uint256) {
+        // How much we want the strategy to have.
+        uint256 newDebt = targetDebt;
+        // How much the strategy currently has.
+        uint256 currentDebt = strategies[strategy].currentDebt;
+
+        // If the vault is shutdown we can only pull funds.
+        if (shutdown) {
+            newDebt = 0;
+        }
+
+        require(newDebt != currentDebt, "New debt equals current debt");
+
+        if (currentDebt > newDebt) {
+            // Reduce debt
+            uint256 assetsToWithdraw = currentDebt - newDebt;
+
+            // Respect minimum total idle in vault
+            if (totalIdle + assetsToWithdraw < minimumTotalIdle) {
+                assetsToWithdraw = minimumTotalIdle - totalIdle;
+                // Cant withdraw more than the strategy has.
+                if (assetsToWithdraw > currentDebt) {
+                    assetsToWithdraw = currentDebt;
+                }
+            }
+
+            // Check how much we are able to withdraw.
+            // Use maxRedeem and convert since we use redeem.
+            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
+
+            require(withdrawable > 0, "Nothing to withdraw");
+            // If insufficient withdrawable, withdraw what we can.
+            if (withdrawable < assetsToWithdraw) {
+                assetsToWithdraw = withdrawable;
+            }
+
+            // If there are unrealised losses we don't let the vault reduce its debt until there is a new report
+            uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
+            require(unrealisedLossesShare == 0, "strategy has unrealised losses");
+
+            // Always check the actual amount withdrawn.
+            uint256 preBalance = ASSET.balanceOf(address(this));
+            _withdrawFromStrategy(strategy, assetsToWithdraw);
+            uint256 postBalance = ASSET.balanceOf(address(this));
+
+            // making sure we are changing idle according to the real result no matter what. 
+            // We pull funds with {redeem} so there can be losses or rounding differences.
+            uint256 withdrawn = Math.min(postBalance - preBalance, currentDebt);
+
+            // If we got too much make sure not to increase PPS.
+            if (withdrawn > assetsToWithdraw) {
+                assetsToWithdraw = withdrawn;
+            }
+
+            // Update storage.
+            totalIdle += withdrawn; // actual amount we got.
+            // Amount we tried to withdraw in case of losses
+            totalDebt -= assetsToWithdraw;
+
+            newDebt = currentDebt - assetsToWithdraw;
+        } else {
+            // We are increasing the strategies debt
+
+            // Revert if target_debt cannot be achieved due to configured max_debt for given strategy
+            require(newDebt <= strategies[strategy].maxDebt, "Target debt higher than max debt");
+
+            // Vault is increasing debt with the strategy by sending more funds.
+            uint256 maxDeposit = IStrategy(strategy).maxDeposit(address(this));
+            require(maxDeposit > 0, "Nothing to deposit");
+
+            // Deposit the difference between desired and current.
+            uint256 assetsToDeposit = newDebt - currentDebt;
+            if (assetsToDeposit > maxDeposit) {
+                // Deposit as much as possible.
+                assetsToDeposit = maxDeposit;
+            }
+
+            require(totalIdle > minimumTotalIdle, "No funds to deposit");
+            uint256 availableIdle = totalIdle - minimumTotalIdle;
+
+            // If insufficient funds to deposit, transfer only what is free.
+            if (assetsToDeposit > availableIdle) {
+                assetsToDeposit = availableIdle;
+            }
+
+            // Can't Deposit 0.
+            if (assetsToDeposit > 0) {
+                // Approve the strategy to pull only what we are giving it.
+                _erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
+
+                // Always update based on actual amounts deposited.
+                uint256 preBalance = ASSET.balanceOf(address(this));
+                IStrategy(strategy).deposit(assetsToDeposit, address(this));
+                uint256 postBalance = ASSET.balanceOf(address(this));
+
+                // Make sure our approval is always back to 0.
+                _erc20SafeApprove(address(ASSET), strategy, 0);
+
+                // Making sure we are changing according to the real result no 
+                // matter what. This will spend more gas but makes it more robust.
+                assetsToDeposit = preBalance - postBalance;
+
+                // Update storage.
+                totalIdle -= assetsToDeposit;
+                totalDebt += assetsToDeposit;
+
+                newDebt = currentDebt + assetsToDeposit;
+            }
+        }
+
+        // Commit memory to storage.
+        strategies[strategy].currentDebt = newDebt;
+
+        emit DebtUpdated(strategy, currentDebt, newDebt);
+        return newDebt;
+    }
+
+    // ACCOUNTING MANAGEMENT
+    // Processing a report means comparing the debt that the strategy has taken 
+    // with the current amount of funds it is reporting. If the strategy owes 
+    // less than it currently has, it means it has had a profit, else (assets < debt) 
+    // it has had a loss.
+
+    // Different strategies might choose different reporting strategies: pessimistic, 
+    // only realised P&L, ... The best way to report depends on the strategy.
+
+    // The profit will be distributed following a smooth curve over the vaults 
+    // profit_max_unlock_time seconds. Losses will be taken immediately, first from the 
+    // profit buffer (avoiding an impact in pps), then will reduce pps.
+
+    // Any applicable fees are charged and distributed during the report as well
+    // to the specified recipients.
+    function _processReport(address strategy) internal returns (uint256, uint256) {
+        // Make sure we have a valid strategy.
+        require(strategies[strategy].activation != 0, "inactive strategy");
+
+        // Burn shares that have been unlocked since the last update
+        _burnUnlockedShares();
+
+        // Vault assesses profits using 4626 compliant interface.
+        // NOTE: It is important that a strategies `convertToAssets` implementation
+        // cannot be manipulated or else the vault could report incorrect gains/losses.
+        uint256 strategyShares = IStrategy(strategy).balanceOf(address(this));
+        // How much the vaults position is worth.
+        uint256 totalAssets = IStrategy(strategy).convertToAssets(strategyShares);
+        // How much the vault had deposited to the strategy.
+        uint256 currentDebt = strategies[strategy].currentDebt;
+
+        uint256 gain = 0;
+        uint256 loss = 0;
+
+        // Compare reported assets vs. the current debt.
+        if (totalAssets > currentDebt) {
+            // We have a gain.
+            gain = totalAssets - currentDebt;
+        } else {
+            // We have a loss.
+            loss = currentDebt - totalAssets;
+        }
+
+        // For Accountant fee assessment.
+        uint256 totalFees;
+        uint256 totalRefunds;
+        // For Protocol fee assessment.
+        uint256 protocolFees;
+        address protocolFeeRecipient;
+
+        // If accountant is not set, fees and refunds remain unchanged.
+        if (accountant != address(0)) {
+            (totalFees, totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+
+            // Protocol fees will be 0 if accountant fees are 0.
+            if (totalFees > 0) {
+                uint16 protocolFeeBps;
+                // Get the config for this vault.
+                (protocolFeeBps, protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
+                
+                if (protocolFeeBps > 0) {
+                    // Protocol fees are a percent of the fees the accountant is charging.
+                    protocolFees = totalFees * uint256(protocolFeeBps) / MAX_BPS;
+                }
+            }
+        }
+
+        // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
+        // NOTE: this needs to be done before any pps changes
+        uint256 sharesToBurn;
+        uint256 accountantFeesShares;
+        uint256 protocolFeesShares;
+        // Only need to burn shares if there is a loss or fees.
+        if (loss + totalFees > 0) {
+            // The amount of shares we will want to burn to offset losses and fees.
+            sharesToBurn += _convertToShares(loss + totalFees, Rounding.ROUND_UP);
+
+            // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
+            if (totalFees > 0) {
+                // Accountant fees are total fees - protocol fees.
+                accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
+                if (protocolFees > 0) {
+                    protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
+                }
+            }
+        }
+
+        // Shares to lock is any amounts that would otherwise increase the vaults PPS.
+        uint256 newlyLockedShares;
+        if (totalRefunds > 0) {
+            // Make sure we have enough approval and enough asset to pull.
+            totalRefunds = Math.min(totalRefunds, Math.min(ASSET.balanceOf(accountant), ASSET.allowance(accountant, address(this))));
+            // Transfer the refunded amount of asset to the vault.
+            _erc20SafeTransferFrom(address(ASSET), accountant, address(this), totalRefunds);
+            // Update storage to increase total assets.
+            totalIdle += totalRefunds;
+        }
+
+        // Record any reported gains.
+        if (gain > 0) {
+            // NOTE: this will increase total_assets
+            strategies[strategy].currentDebt += gain;
+            totalDebt += gain;
+        }
+
+        // Mint anything we are locking to the vault.
+        if (gain + totalRefunds > 0 && profitMaxUnlockTime != 0) {
+            newlyLockedShares = _issueSharesForAmount(gain + totalRefunds, address(this));
+        }
+
+        // Strategy is reporting a loss
+        if (loss > 0) {
+            strategies[strategy].currentDebt -= loss;
+            totalDebt -= loss;
+        }
+
+        // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
+        // newly_locked_shares have already been minted / transferred to the vault, so they need to be subtracted
+        // no risk of underflow because they have just been minted.
+        uint256 previouslyLockedShares = balanceOf[address(this)] - newlyLockedShares;
+
+        // Now that pps has updated, we can burn the shares we intended to burn as a result of losses/fees.
+        // NOTE: If a value reduction (losses / fees) has occurred, prioritize burning locked profit to avoid
+        // negative impact on price per share. Price per share is reduced only if losses exceed locked value.
+        if (sharesToBurn > 0) {
+            // Cant burn more than the vault owns.
+            sharesToBurn = Math.min(sharesToBurn, previouslyLockedShares + newlyLockedShares);
+            _burnShares(sharesToBurn, address(this));
+
+            // We burn first the newly locked shares, then the previously locked shares.
+            uint256 sharesNotToLock = Math.min(sharesToBurn, newlyLockedShares);
+            // Reduce the amounts to lock by how much we burned
+            newlyLockedShares -= sharesNotToLock;
+            previouslyLockedShares -= (sharesToBurn - sharesNotToLock);
+        }
+
+        // Issue shares for fees that were calculated above if applicable.
+        if (accountantFeesShares > 0) {
+            _issueShares(accountantFeesShares, accountant);
+        }
+
+        if (protocolFeesShares > 0) {
+            _issueShares(protocolFeesShares, protocolFeeRecipient);
+        }
+
+        // Update unlocking rate and time to fully unlocked.
+        uint256 totalLockedShares = previouslyLockedShares + newlyLockedShares;
+        if (totalLockedShares > 0) {
+            uint256 previouslyLockedTime = 0;
+            // Check if we need to account for shares still unlocking.
+            if (fullProfitUnlockDate > block.timestamp) {
+                // There will only be previously locked shares if time remains.
+                // We calculate this here since it will not occur every time we lock shares.
+                previouslyLockedTime = previouslyLockedShares * (fullProfitUnlockDate - block.timestamp);
+            }
+
+            // new_profit_locking_period is a weighted average between the remaining time of the previously locked shares and the profit_max_unlock_time
+            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * profitMaxUnlockTime) / totalLockedShares;
+            // Calculate how many shares unlock per second.
+            profitUnlockingRate = totalLockedShares * MAX_BPS_EXTENDED / newProfitLockingPeriod;
+            // Calculate how long until the full amount of shares is unlocked.
+            fullProfitUnlockDate = block.timestamp + newProfitLockingPeriod;
+            // Update the last profitable report timestamp.
+            lastProfitUpdate = block.timestamp;
+        } else {
+            // NOTE: only setting this to 0 will turn in the desired effect, no need 
+            // to update last_profit_update or full_profit_unlock_date
+            profitUnlockingRate = 0;
+        }
+
+        // Record the report of profit timestamp.
+        strategies[strategy].lastReport = block.timestamp;
+
+        // We have to recalculate the fees paid for cases with an overall loss.
+        emit StrategyReported(
+            strategy,
+            gain,
+            loss,
+            strategies[strategy].currentDebt,
+            _convertToAssets(protocolFeesShares, Rounding.ROUND_DOWN),
+            _convertToAssets(protocolFeesShares + accountantFeesShares, Rounding.ROUND_DOWN),
+            totalRefunds
+        );
+
+        return (gain, loss);
+    }
+
+    // SETTERS
+    // @notice Set the new accountant address.
+    // @param new_accountant The new accountant address.
+    function setAccountant(address newAccountant) external override onlyRole(Roles.ACCOUNTANT_MANAGER) {
+        accountant = newAccountant;
+        emit UpdateAccountant(newAccountant);
+    }
+
+    // @notice Set the new default queue array.
+    // @dev Will check each strategy to make sure it is active.
+    // @param new_default_queue The new default queue array.
+    function setDefaultQueue(address[MAX_QUEUE] calldata newDefaultQueue) external override onlyRole(Roles.QUEUE_MANAGER) {
+        // Make sure every strategy in the new queue is active.
+        for (uint i = 0; i < newDefaultQueue.length; i++) {
+            address strategy = newDefaultQueue[i];
+            require(strategies[strategy].activation != 0, "Inactive strategy");
+        }
+        // Save the new queue.
+        defaultQueue = newDefaultQueue;
+        emit UpdateDefaultQueue(newDefaultQueue);
+    }
+
+    // @notice Set a new value for `use_default_queue`.
+    // @dev If set `True` the default queue will always be
+    //  used no matter whats passed in.
+    // @param use_default_queue new value.
+    function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(Roles.QUEUE_MANAGER) {
+        useDefaultQueue = _useDefaultQueue;
+        emit UpdateUseDefaultQueue(_useDefaultQueue);
+    }
+
+    // @notice Set the new deposit limit.
+    // @dev Can not be changed if a deposit_limit_module
+    //  is set or if shutdown.
+    // @param deposit_limit The new deposit limit.
+    function setDepositLimit(uint256 _depositLimit) external override onlyRole(Roles.DEPOSIT_LIMIT_MANAGER) {
+        require(shutdown == false, "Contract is shut down");
+        require(depositLimitModule == address(0), "using module");
+        depositLimit = _depositLimit;
+        emit UpdateDepositLimit(_depositLimit);
+    }
+
+    // @notice Set a contract to handle the deposit limit.
+    // @dev The default `deposit_limit` will need to be set to
+    //  max uint256 since the module will override it.
+    // @param deposit_limit_module Address of the module.
+    function setDepositLimitModule(address _depositLimitModule) external override onlyRole(Roles.DEPOSIT_LIMIT_MANAGER) {
+        require(shutdown == false, "Contract is shut down");
+        require(depositLimit == type(uint256).max, "using deposit limit");
+        depositLimitModule = _depositLimitModule;
+        emit UpdateDepositLimitModule(_depositLimitModule);
+    }
+
+    // @notice Set a contract to handle the withdraw limit.
+    // @dev This will override the default `max_withdraw`.
+    // @param withdraw_limit_module Address of the module.
+    function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(Roles.WITHDRAW_LIMIT_MANAGER) {
+        withdrawLimitModule = _withdrawLimitModule;
+        emit UpdateWithdrawLimitModule(_withdrawLimitModule);
+    }
+
+    // @notice Set the new minimum total idle.
+    // @param minimum_total_idle The new minimum total idle.
+    function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(Roles.MINIMUM_IDLE_MANAGER) {
+        minimumTotalIdle = _minimumTotalIdle;
+        emit UpdateMinimumTotalIdle(_minimumTotalIdle);
+    }
+
+    // @notice Set the new profit max unlock time.
+    // @dev The time is denominated in seconds and must be less than 1 year.
+    //  We only need to update locking period if setting to 0,
+    //  since the current period will use the old rate and on the next
+    //  report it will be reset with the new unlocking time.
+    
+    //  Setting to 0 will cause any currently locked profit to instantly
+    //  unlock and an immediate increase in the vaults Price Per Share.
+
+    // @param new_profit_max_unlock_time The new profit max unlock time.
+    function setProfitMaxUnlockTime(uint256 _newProfitMaxUnlockTime) external override onlyRole(Roles.PROFIT_UNLOCK_MANAGER) {
+        // Must be less than one year for report cycles
+        require(_newProfitMaxUnlockTime <= ONE_YEAR, "Profit unlock time too long");
+
+        // If setting to 0 we need to reset any locked values.
+        if (_newProfitMaxUnlockTime == 0) {
+            // Burn any shares the vault still has.
+            burnShares(balanceOf(address(this)), address(this));
+            // Reset unlocking variables to 0.
+            profitUnlockingRate = 0;
+            fullProfitUnlockDate = 0;
+        }
+        profitMaxUnlockTime = _newProfitMaxUnlockTime;
+        emit UpdateProfitMaxUnlockTime(_newProfitMaxUnlockTime);
     }
 }
