@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.18;
+pragma solidity ^0.8.16;
 
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
@@ -10,6 +10,27 @@ interface IVault is IERC4626 {
         uint256 currentDebt;
         uint256 maxDebt;
     }
+
+    // ENUMS
+    // Each permissioned function has its own Role.
+    // Roles can be combined in any combination or all kept separate.
+    // Follows python Enum patterns so the first Enum == 1 and doubles each time.
+    enum Roles {
+            ADD_STRATEGY_MANAGER, // Can add strategies to the vault.
+            REVOKE_STRATEGY_MANAGER, // Can remove strategies from the vault.
+            FORCE_REVOKE_MANAGER, // Can force remove a strategy causing a loss.
+            ACCOUNTANT_MANAGER, // Can set the accountant that assess fees.
+            QUEUE_MANAGER, // Can set the default withdrawal queue.
+            REPORTING_MANAGER, // Calls report for strategies.
+            DEBT_MANAGER, // Adds and removes debt from strategies.
+            MAX_DEBT_MANAGER, // Can set the max debt for a strategy.
+            DEPOSIT_LIMIT_MANAGER, // Sets deposit limit and module for the vault.
+            WITHDRAW_LIMIT_MANAGER, // Sets the withdraw limit module.
+            MINIMUM_IDLE_MANAGER, // Sets the minimum total idle the vault should keep.
+            PROFIT_UNLOCK_MANAGER, // Sets the profit_max_unlock_time.
+            DEBT_PURCHASER, // Can purchase bad debt from the vault.
+            EMERGENCY_MANAGER // Can shutdown vault in an emergency.
+        }
 
     // STRATEGY EVENTS
     event StrategyChanged(address indexed strategy, uint256 changeType);
@@ -69,8 +90,6 @@ interface IVault is IERC4626 {
         uint256 newProfitMaxUnlockTime
     ) external;
 
-    function setRole(address account, uint256 role) external;
-
     function addRole(address account, uint256 role) external;
 
     function removeRole(address account, uint256 role) external;
@@ -128,13 +147,6 @@ interface IVault is IERC4626 {
         uint256 shares,
         address receiver,
         address owner,
-        uint256 maxLoss
-    ) external returns (uint256);
-
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner,
         uint256 maxLoss,
         address[] memory strategies
     ) external returns (uint256);
@@ -161,6 +173,12 @@ interface IVault is IERC4626 {
         bytes32 s
     ) external returns (bool);
 
+    function addRole(address, Roles) external;
+
+    function removeRole(address, Roles) external;
+
+    function setOpenRole(Roles) external;
+
     function maxWithdraw(
         address owner,
         uint256 maxLoss
@@ -183,17 +201,11 @@ interface IVault is IERC4626 {
         address[] memory strategies
     ) external view returns (uint256);
 
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-
-     function unlockedShares() external view returns (uint256);
+    function unlockedShares() external view returns (uint256);
 
     function pricePerShare() external view returns (uint256);
 
     function getDefaultQueue() external view returns (address[] memory);
-
-    function FACTORY() external view returns (uint256);
-
-    function strategies(address) external view returns (StrategyParams memory);
 
     function defaultQueue(uint256) external view returns (address);
 
@@ -210,10 +222,6 @@ interface IVault is IERC4626 {
     function withdrawLimitModule() external view returns (address);
 
     function accountant() external view returns (address);
-
-    function roles(address) external view returns (uint256);
-
-    function openRoles(uint256) external view returns (bool);
 
     function roleManager() external view returns (address);
 
@@ -233,12 +241,4 @@ interface IVault is IERC4626 {
         address strategy,
         uint256 assetsNeeded
     ) external view returns (uint256);
-
-    function profitMaxUnlockTime() external view returns (uint256);
-
-    function fullProfitUnlockDate() external view returns (uint256);
-
-    function profitUnlockingRate() external view returns (uint256);
-
-    function lastProfitUpdate() external view returns (uint256);
 }
