@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.16;
 
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {IERC4626} from "./IERC4626.sol";
 
 interface IVault is IERC4626 {
     struct StrategyParams {
@@ -9,6 +9,28 @@ interface IVault is IERC4626 {
         uint256 lastReport;
         uint256 currentDebt;
         uint256 maxDebt;
+    }
+
+    struct FeeAssessment {
+        uint256 totalFees;
+        uint256 totalRefunds;
+        uint256 protocolFees;
+        address protocolFeeRecipient;
+    }
+
+    struct ShareManagement {
+        uint256 sharesToBurn;
+        uint256 accountantFeesShares;
+        uint256 protocolFeesShares;
+    }
+
+    struct WithdrawalState {
+        uint256 requestedAssets;
+        uint256 currTotalIdle;
+        uint256 currTotalDebt;
+        uint256 assetsNeeded;
+        uint256 previousBalance;
+        uint256 unrealisedLossesShare;
     }
 
     // ENUMS
@@ -32,8 +54,18 @@ interface IVault is IERC4626 {
             EMERGENCY_MANAGER // Can shutdown vault in an emergency.
         }
 
+    enum StrategyChangeType {
+        ADDED, // Corresponds to the strategy being added.
+        REVOKED // Corresponds to the strategy being revoked.
+    }
+
+    enum RoleStatusChange {
+        OPENED, // Corresponds to a role being opened.
+        CLOSED // Corresponds to a role being closed.
+    }
+
     // STRATEGY EVENTS
-    event StrategyChanged(address indexed strategy, uint256 changeType);
+    event StrategyChanged(address indexed strategy, StrategyChangeType changeType);
     event StrategyReported(
         address indexed strategy,
         uint256 gain,
@@ -50,8 +82,8 @@ interface IVault is IERC4626 {
         uint256 newDebt
     );
     // ROLE UPDATES
-    event RoleSet(address indexed account, uint256 role);
-    event RoleStatusChanged(uint256 role, uint256 status);
+    event RoleSet(address indexed account, bytes32 role);
+    event RoleStatusChanged(bytes32 indexed role, RoleStatusChange indexed status);
     event UpdateRoleManager(address indexed roleManager);
 
     event UpdateAccountant(address indexed accountant);
@@ -90,13 +122,13 @@ interface IVault is IERC4626 {
         uint256 newProfitMaxUnlockTime
     ) external;
 
-    function addRole(address account, uint256 role) external;
+    function addRole(address account, bytes32 role) external;
 
-    function removeRole(address account, uint256 role) external;
+    function removeRole(address account, bytes32 role) external;
 
-    function setOpenRole(uint256 role) external;
+    function setOpenRole(bytes32 role) external;
 
-    function closeOpenRole(uint256 role) external;
+    function closeOpenRole(bytes32 role) external;
 
     function transferRoleManager(address roleManager) external;
 
@@ -127,13 +159,6 @@ interface IVault is IERC4626 {
     function shutdownVault() external;
 
     //// NON-STANDARD ERC-4626 FUNCTIONS \\\\
-
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner,
-        uint256 maxLoss
-    ) external returns (uint256);
 
     function withdraw(
         uint256 assets,
@@ -173,33 +198,17 @@ interface IVault is IERC4626 {
         bytes32 s
     ) external returns (bool);
 
-    function addRole(address, Roles) external;
-
-    function removeRole(address, Roles) external;
-
-    function setOpenRole(Roles) external;
-
-    function maxWithdraw(
-        address owner,
-        uint256 maxLoss
-    ) external view returns (uint256);
-
     function maxWithdraw(
         address owner,
         uint256 maxLoss,
         address[] memory strategies
-    ) external view returns (uint256);
-
-    function maxRedeem(
-        address owner,
-        uint256 maxLoss
-    ) external view returns (uint256);
+    ) external returns (uint256);
 
     function maxRedeem(
         address owner,
         uint256 maxLoss,
         address[] memory strategies
-    ) external view returns (uint256);
+    ) external returns (uint256);
 
     function unlockedShares() external view returns (uint256);
 
