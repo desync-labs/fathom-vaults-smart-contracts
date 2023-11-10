@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IDepositLimitModule",
-  "sourceName": "contracts/VaultV3.sol",
+  "sourceName": "contracts/Interfaces/IDepositLimitModule.sol",
   "abi": [
     {
       "inputs": [

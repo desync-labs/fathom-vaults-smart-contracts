@@ -1,28 +1,33 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "IWithdrawLimitModule",
-  "sourceName": "contracts/VaultV3.sol",
+  "contractName": "IAccountant",
+  "sourceName": "contracts/Interfaces/IAccountant.sol",
   "abi": [
     {
       "inputs": [
         {
           "internalType": "address",
-          "name": "owner",
+          "name": "strategy",
           "type": "address"
         },
         {
           "internalType": "uint256",
-          "name": "maxLoss",
+          "name": "gain",
           "type": "uint256"
         },
         {
-          "internalType": "address[]",
-          "name": "strategies",
-          "type": "address[]"
+          "internalType": "uint256",
+          "name": "loss",
+          "type": "uint256"
         }
       ],
-      "name": "availableWithdrawLimit",
+      "name": "report",
       "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
         {
           "internalType": "uint256",
           "name": "",

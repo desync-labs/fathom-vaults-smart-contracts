@@ -13,6 +13,8 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
  * _Available since v4.7._
  */
 interface IERC4626 is IERC20, IERC20Metadata {
+    // solhint-disable ordering
+    // solhint-disable max-line-length
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
 
     event Withdraw(

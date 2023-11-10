@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IStrategy",
-  "sourceName": "contracts/VaultV3.sol",
+  "sourceName": "contracts/Interfaces/IStrategy.sol",
   "abi": [
     {
       "inputs": [],

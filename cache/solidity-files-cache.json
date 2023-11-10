@@ -2,15 +2,15 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IERC4626.sol": {
-      "lastModificationDate": 1699555918837,
-      "contentHash": "ecd41545e7f5c2af83fcb0c98f7f515a",
+      "lastModificationDate": 1699647781819,
+      "contentHash": "2bdf95b6fff479d8b9e5f2d986c949b5",
       "sourceName": "contracts/Interfaces/IERC4626.sol",
       "solcConfig": {
         "version": "0.8.16",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -51,7 +51,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -89,7 +89,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -121,15 +121,15 @@
       ]
     },
     "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IVault.sol": {
-      "lastModificationDate": 1699562339958,
-      "contentHash": "b16c6ec4a8ebe98f4e76f44c67984006",
+      "lastModificationDate": 1699632989038,
+      "contentHash": "73829c222b9e81a53350fb0ec981779b",
       "sourceName": "contracts/Interfaces/IVault.sol",
       "solcConfig": {
         "version": "0.8.16",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -151,7 +151,8 @@
         }
       },
       "imports": [
-        "./IERC4626.sol"
+        "./IERC4626.sol",
+        "../VaultStructs.sol"
       ],
       "versionPragmas": [
         "^0.8.16"
@@ -161,15 +162,15 @@
       ]
     },
     "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/VaultV3.sol": {
-      "lastModificationDate": 1699562669417,
-      "contentHash": "7ba3aa0de31b0661133e169adc831c8b",
+      "lastModificationDate": 1699647661982,
+      "contentHash": "a61ab23056817db6bfa7096832bad909",
       "sourceName": "contracts/VaultV3.sol",
       "solcConfig": {
         "version": "0.8.16",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -193,21 +194,22 @@
       "imports": [
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
-        "@openzeppelin/contracts/utils/math/SafeMath.sol",
         "@openzeppelin/contracts/utils/math/Math.sol",
         "@openzeppelin/contracts/access/AccessControl.sol",
         "./Interfaces/IVault.sol",
-        "@openzeppelin/contracts/security/ReentrancyGuard.sol"
+        "@openzeppelin/contracts/security/ReentrancyGuard.sol",
+        "./VaultStorage.sol",
+        "./Interfaces/IVaultEvents.sol",
+        "./Interfaces/IAccountant.sol",
+        "./Interfaces/IStrategy.sol",
+        "./Interfaces/IDepositLimitModule.sol",
+        "./Interfaces/IWithdrawLimitModule.sol",
+        "./Interfaces/IFactory.sol"
       ],
       "versionPragmas": [
         "^0.8.16"
       ],
       "artifacts": [
-        "IAccountant",
-        "IDepositLimitModule",
-        "IFactory",
-        "IStrategy",
-        "IWithdrawLimitModule",
         "YearnV3Vault"
       ]
     },
@@ -220,7 +222,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -258,7 +260,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -301,7 +303,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -339,7 +341,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -377,7 +379,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -415,7 +417,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -456,7 +458,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -494,7 +496,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -534,7 +536,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -572,7 +574,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -601,16 +603,16 @@
         "IERC165"
       ]
     },
-    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Lock.sol": {
-      "lastModificationDate": 1699561693494,
-      "contentHash": "ae66265769cc28ebdaa34881df95bc5e",
-      "sourceName": "contracts/Lock.sol",
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/VaultStructs.sol": {
+      "lastModificationDate": 1699641741370,
+      "contentHash": "1ea1f3bea87b90dc849c722db27a5d14",
+      "sourceName": "contracts/VaultStructs.sol",
       "solcConfig": {
         "version": "0.8.16",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 100,
+            "runs": 10,
             "details": {
               "yul": false
             }
@@ -633,10 +635,401 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.9"
+        "^0.8.16"
+      ],
+      "artifacts": []
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/VaultStorage.sol": {
+      "lastModificationDate": 1699643130683,
+      "contentHash": "926d62a66bc0399557ac2a784b08ed82",
+      "sourceName": "contracts/VaultStorage.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "./VaultStructs.sol",
+        "./StrategyManager.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.16"
       ],
       "artifacts": [
-        "Lock"
+        "VaultStorage"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IVaultEvents.sol": {
+      "lastModificationDate": 1699642141309,
+      "contentHash": "732404a460d5c0d1761ea0a902460b89",
+      "sourceName": "contracts/Interfaces/IVaultEvents.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../VaultStructs.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IVaultEvents"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IAccountant.sol": {
+      "lastModificationDate": 1699627044207,
+      "contentHash": "930713468d139bc7d33f3cfa299af405",
+      "sourceName": "contracts/Interfaces/IAccountant.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IAccountant"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IStrategy.sol": {
+      "lastModificationDate": 1699627044207,
+      "contentHash": "b5c820e0d1a9d17e14c63115b0c34e66",
+      "sourceName": "contracts/Interfaces/IStrategy.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IStrategy"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IWithdrawLimitModule.sol": {
+      "lastModificationDate": 1699627044207,
+      "contentHash": "9b9dd38dbfe72b22f71cd6100289afb4",
+      "sourceName": "contracts/Interfaces/IWithdrawLimitModule.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IWithdrawLimitModule"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IDepositLimitModule.sol": {
+      "lastModificationDate": 1699627044207,
+      "contentHash": "16611b441abbc4bc3c9ff586ef88420b",
+      "sourceName": "contracts/Interfaces/IDepositLimitModule.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IDepositLimitModule"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IFactory.sol": {
+      "lastModificationDate": 1699627044207,
+      "contentHash": "a346980e8d52494f2e03fd0cbf90f269",
+      "sourceName": "contracts/Interfaces/IFactory.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IFactory"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/StrategyManager.sol": {
+      "lastModificationDate": 1699643414524,
+      "contentHash": "6e1ce5a3c20f2fc9851a1d8a655b3945",
+      "sourceName": "contracts/StrategyManager.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./VaultStorage.sol",
+        "./Interfaces/IVaultEvents.sol",
+        "./Interfaces/IStrategyManager.sol",
+        "./Interfaces/IStrategy.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "StrategyManager"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/IStrategyManager.sol": {
+      "lastModificationDate": 1699643371164,
+      "contentHash": "83ed584092ca6f581c4a8ad992b96aa8",
+      "sourceName": "contracts/Interfaces/IStrategyManager.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "IStrategyManager"
+      ]
+    },
+    "/Users/vinicius.tenente/Documents/fathom-vaults-smart-contracts/contracts/Interfaces/ISharesManager.sol": {
+      "lastModificationDate": 1699644403280,
+      "contentHash": "e4ddf08ab34f06d6559507b699c9412e",
+      "sourceName": "contracts/Interfaces/ISharesManager.sol",
+      "solcConfig": {
+        "version": "0.8.16",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 10,
+            "details": {
+              "yul": false
+            }
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../VaultStructs.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.16"
+      ],
+      "artifacts": [
+        "ISharesManager"
       ]
     }
   }

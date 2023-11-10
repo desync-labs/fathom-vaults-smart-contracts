@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IFactory",
-  "sourceName": "contracts/VaultV3.sol",
+  "sourceName": "contracts/Interfaces/IFactory.sol",
   "abi": [
     {
       "inputs": [],
