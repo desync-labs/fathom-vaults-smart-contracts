@@ -14,6 +14,7 @@ import "./Interfaces/IStrategy.sol";
 import "./Interfaces/IDepositLimitModule.sol";
 import "./Interfaces/IWithdrawLimitModule.sol";
 import "./Interfaces/IFactory.sol";
+import "./Interfaces/IStrategyManager.sol";
 
 /**
 @title Yearn V3 Vault
@@ -23,7 +24,7 @@ and manage accounting in a robust way.
 */
 
 // Solidity version of the Vyper contract
-contract YearnV3Vault is IERC20, IERC20Metadata, AccessControl, IVault, ReentrancyGuard, VaultStorage, IVaultEvents {
+contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, ReentrancyGuard, VaultStorage, IVaultEvents {
     // solhint-disable not-rely-on-time
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
@@ -108,7 +109,7 @@ contract YearnV3Vault is IERC20, IERC20Metadata, AccessControl, IVault, Reentran
             )
         );
 
-        strategyManager = StrategyManager(_strategyManagerAddress);
+        strategyManager = _strategyManagerAddress;
     }
 
     // SHARE MANAGEMENT
@@ -842,12 +843,12 @@ contract YearnV3Vault is IERC20, IERC20Metadata, AccessControl, IVault, Reentran
     // STRATEGY MANAGEMENT
     function _addStrategy(address newStrategy) internal {
         // Delegate call to StrategyManager
-        strategyManager.addStrategy(newStrategy);
+        IStrategyManager(strategyManager).addStrategy(newStrategy);
     }
 
     function _revokeStrategy(address strategy, bool force) internal {
         // Delegate call to StrategyManager
-        strategyManager.revokeStrategy(strategy, force);
+        IStrategyManager(strategyManager).revokeStrategy(strategy, force);
     }
 
     // DEBT MANAGEMENT

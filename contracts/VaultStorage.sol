@@ -5,7 +5,6 @@ pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./VaultStructs.sol";
-import "./StrategyManager.sol";
 
 contract VaultStorage {
     // CONSTANTS
@@ -16,9 +15,9 @@ contract VaultStorage {
     // Extended for profit locking calculations.
     uint256 public constant MAX_BPS_EXTENDED = 1000000000000;
     // The version of this vault.
-    string public constant API_VERSION = "3.0.1";
+    string public constant API_VERSION = "1.0.0";
 
-    StrategyManager internal strategyManager;
+    address internal strategyManager;
 
     // STORAGE
     // HashMap that records all the strategies that are allowed to receive assets from the vault.
