@@ -518,6 +518,9 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
         if (assets > _maxDeposit(recipient)) {
             revert ExceedDepositLimit();
         }
+        if (assets <= 0) {
+            revert ZeroValue();
+        }
 
         // Transfer the tokens to the vault first.
         ASSET.transferFrom(msg.sender, address(this), assets);
@@ -526,7 +529,7 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
 
         // Issue the corresponding shares for assets.
         uint256 shares = _issueSharesForAmount(assets, recipient);
-        if (shares < 0) {
+        if (shares <= 0) {
             revert ZeroValue();
         }
 

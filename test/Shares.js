@@ -30,12 +30,19 @@ describe("Vault Contract", function () {
         return { vault, owner, otherAccount };
     }
 
-    it("should revert with invalid recipient", async function () {
-        const amount = 1000;
+    it("should revert deposit with invalid recipient", async function () {
         const { vault, otherAccount } = await loadFixture(deployVault);
+        const amount = 1000;
 
         await expect(vault.connect(otherAccount).deposit(amount, vault.target)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
         await expect(vault.connect(otherAccount).deposit(amount, ethers.ZeroAddress)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
-  });
+    });
+
+    it("should revert deposit with zero funds", async function () {
+        const { vault, otherAccount } = await loadFixture(deployVault);
+        const amount = 0;
+
+        await expect(vault.connect(otherAccount).deposit(amount, otherAccount.address)).to.be.revertedWithCustomError(vault, "ZeroValue");
+    });
 
 });
