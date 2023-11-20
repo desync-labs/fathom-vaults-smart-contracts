@@ -12,5 +12,6 @@ bin
 addresses.*.json
 /config/*
 !/config/config.js
-
+artifacts/
+cache
 

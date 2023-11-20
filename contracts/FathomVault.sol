@@ -67,29 +67,30 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
     // Address of the underlying token used by the vault
     IERC20 public immutable ASSET;
     // Token decimals
-    uint256 public immutable DECIMALS;
+    uint8 public immutable DECIMALS;
     // Factory address
     address public immutable FACTORY;
     uint256 public immutable ONE_YEAR = 31556952;
 
     // Constructor
     constructor(
-        IERC20 _asset,
+        address _asset,
         string memory _name,
         string memory _symbol,
+        uint8 _decimals,
         address _roleManager,
         uint256 _profitMaxUnlockTime,
         address _strategyManagerAddress
     ) {
-        ASSET = _asset;
-        DECIMALS = IERC20Metadata(address(_asset)).decimals();
+        ASSET = IERC20(_asset);
+        DECIMALS = _decimals;
         if (DECIMALS >= 256) {
             revert InvalidAssetDecimals();
         }
 
         FACTORY = msg.sender;
         // Must be less than one year for report cycles
-        if (_profitMaxUnlockTime > 31556952) {
+        if (_profitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
         }
 

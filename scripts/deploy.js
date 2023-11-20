@@ -5,6 +5,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const assetAddress = '0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96'; // FXD Token on Apothem
   const vaultName = 'FathomVault';
   const vaultSymbol = 'FTHVT';
+  const vaultDecimals = 18;
   const roleManagerAddress = '0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6';
   const profitMaxUnlockTime = 31536000; // 1 year in seconds
   const strategyManagerAddress = '0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6';
@@ -15,6 +16,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
       assetAddress,
       vaultName,
       vaultSymbol,
+      vaultDecimals,
       roleManagerAddress,
       profitMaxUnlockTime,
       strategyManagerAddress
