@@ -25,10 +25,11 @@ describe("Vault Contract", function () {
 
         const StrategyManager = await ethers.getContractFactory("StrategyManager");
         const strategyManager = await StrategyManager.deploy(assetAddress, { gasLimit: "0x1000000" });
+        // const strategyManager = await ethers.getContractAt("StrategyManager", "0xEAf81a05C7bf87ba57A5265ff5aF6F37958118Da");
 
         const Vault = await ethers.getContractFactory("FathomVault");
         const vault = await Vault.deploy(assetAddress, vaultName, vaultSymbol, vaultDecimals, profitMaxUnlockTime, strategyManager.target, { gasLimit: "0x1000000" });
-        // const vault = await ethers.deployContract("FathomVault", [assetAddress, vaultName, vaultSymbol, vaultDecimals, roleManagerAddress, profitMaxUnlockTime, strategyManagerAddress], { gasLimit: "0x1000000" });
+        // const vault = await ethers.getContractAt("FathomVault", "0x9989D6191dcc00382AA719B8F0Cc800464f300f1");
 
         return { vault, owner, otherAccount, asset, strategyManager };
     }

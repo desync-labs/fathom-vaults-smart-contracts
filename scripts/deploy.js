@@ -8,10 +8,19 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const vaultDecimals = 18;
   const profitMaxUnlockTime = 31536000; // 1 year in seconds
 
+  const asset = await deploy('Token', {
+    from: deployer,
+    args: [
+      vaultSymbol,
+      vaultDecimals
+    ],
+    log: true,
+  });
+
   const strategyManager = await deploy('StrategyManager', {
     from: deployer,
     args: [
-      assetAddress
+      asset.address
     ],
     log: true,
   });
@@ -19,7 +28,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   await deploy('FathomVault', {
     from: deployer,
     args: [
-      assetAddress,
+      asset.address,
       vaultName,
       vaultSymbol,
       vaultDecimals,

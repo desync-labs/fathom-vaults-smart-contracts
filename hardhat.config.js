@@ -23,7 +23,7 @@ module.exports = {
     ganache: {
       url: `http://127.0.0.1:8545`,
       accounts: [fs.readFileSync("./privateKey").toString()]
-    }
+    },
   },
   namedAccounts: {
     deployer: 0,
