@@ -19,6 +19,10 @@ module.exports = {
     apothem: {
       url: `https://erpc.apothem.network`,
       accounts: [fs.readFileSync("./privateKey").toString()]
+    },
+    ganache: {
+      url: `http://127.0.0.1:8545`,
+      accounts: [fs.readFileSync("./privateKey").toString()]
     }
   },
   namedAccounts: {

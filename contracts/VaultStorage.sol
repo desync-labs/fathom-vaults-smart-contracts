@@ -17,7 +17,8 @@ contract VaultStorage {
     // The version of this vault.
     string public constant API_VERSION = "1.0.0";
 
-    address internal strategyManager;
+    address public strategyManager;
+    address public sharesManager;
 
     // STORAGE
     // HashMap that records all the strategies that are allowed to receive assets from the vault.

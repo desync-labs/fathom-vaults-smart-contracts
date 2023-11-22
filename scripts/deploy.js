@@ -6,9 +6,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const vaultName = 'FathomVault';
   const vaultSymbol = 'FTHVT';
   const vaultDecimals = 18;
-  const roleManagerAddress = '0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6';
   const profitMaxUnlockTime = 31536000; // 1 year in seconds
-  const strategyManagerAddress = '0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6';
+
+  const strategyManager = await deploy('StrategyManager', {
+    from: deployer,
+    args: [
+      assetAddress
+    ],
+    log: true,
+  });
 
   await deploy('FathomVault', {
     from: deployer,
@@ -17,9 +23,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
       vaultName,
       vaultSymbol,
       vaultDecimals,
-      roleManagerAddress,
       profitMaxUnlockTime,
-      strategyManagerAddress
+      strategyManager.address
     ],
     log: true,
   });

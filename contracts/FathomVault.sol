@@ -55,7 +55,6 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
     error DebtHigherThanMaxDebt();
     error UsingModule();
     error UsingDepositLimit();
-    error CallerIsNotTheFutureRoleManager();
     error StrategyDebtIsLessThanAssetsNeeded();
 
     // ERC20 - name of the vault's token
@@ -78,7 +77,6 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
         string memory _name,
         string memory _symbol,
         uint8 _decimals,
-        address _roleManager,
         uint256 _profitMaxUnlockTime,
         address _strategyManagerAddress
     ) {
@@ -95,10 +93,14 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
         }
 
         profitMaxUnlockTime = _profitMaxUnlockTime;
-
         name = _name;
         symbol = _symbol;
-        roleManager = _roleManager;
+
+        strategyManager = _strategyManagerAddress;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEPOSIT_LIMIT_MANAGER, msg.sender);
+        _grantRole(ADD_STRATEGY_MANAGER, msg.sender);
+        _grantRole(MAX_DEBT_MANAGER, msg.sender);
 
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
@@ -110,7 +112,6 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
             )
         );
 
-        strategyManager = _strategyManagerAddress;
     }
 
     // SHARE MANAGEMENT
@@ -547,7 +548,7 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
         // Get corresponding amount of assets.
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_UP);
 
-        if (assets < 0) {
+        if (assets <= 0) {
             revert ZeroValue();
         }
         if (assets > _maxDeposit(recipient)) {
@@ -1355,25 +1356,6 @@ contract FathomVault is IERC20, IERC20Metadata, AccessControl, IVault, Reentranc
     function closeOpenRole(bytes32 role) external override onlyRole(ROLE_MANAGER) {
         openRoles[role] = false;
         emit RoleStatusChanged(role, RoleStatusChange.CLOSED);
-    }
-
-    // @notice Step 1 of 2 in order to transfer the 
-    //    role manager to a new address. This will set
-    //    the future_role_manager. Which will then need
-    //    to be accepted by the new manager.
-    // @param role_manager The new role manager address.
-    function transferRoleManager(address newRoleManager) external override onlyRole(ROLE_MANAGER) {
-        futureRoleManager = newRoleManager;
-    }
-
-    // @notice Accept the role manager transfer.
-    function acceptRoleManager() external override {
-        if (msg.sender != futureRoleManager) {
-            revert CallerIsNotTheFutureRoleManager();
-        }
-        roleManager = msg.sender;
-        futureRoleManager = address(0);
-        emit UpdateRoleManager(msg.sender);
     }
 
     // VAULT STATUS VIEWS

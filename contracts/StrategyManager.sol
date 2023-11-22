@@ -25,9 +25,9 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     IERC20 public immutable ASSET;
 
     constructor(
-        IERC20 _asset
+        address _asset
     ) {
-        ASSET = _asset;
+        ASSET = IERC20(_asset);
     }
 
 
@@ -53,7 +53,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         // If the default queue has space, add the strategy.
         uint256 defaultQueueLength = defaultQueue.length;
         if (defaultQueueLength < MAX_QUEUE) {
-            defaultQueue[defaultQueueLength++] = newStrategy;
+            defaultQueue.push(newStrategy);
         }
         
         emit StrategyChanged(newStrategy, StrategyChangeType.ADDED);

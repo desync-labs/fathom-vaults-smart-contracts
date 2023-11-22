@@ -35,10 +35,6 @@ interface IVault is IERC4626 {
 
     function closeOpenRole(bytes32 role) external;
 
-    function transferRoleManager(address roleManager) external;
-
-    function acceptRoleManager() external;
-
     function processReport(
         address strategy
     ) external returns (uint256, uint256);
