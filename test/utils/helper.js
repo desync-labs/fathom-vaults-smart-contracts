@@ -33,11 +33,12 @@ async function checkVaultEmpty(vault) {
 
 async function createProfit(asset, strategy, owner, vault, profit, totalFees, totalRefunds, byPassFees) {
     // We create a virtual profit
-    const initialDebt = await vault.strategies(strategy.address).currentDebt;
+    const initialDebt = await vault.strategies(strategy.target).currentDebt;
 
-    await asset.connect(owner).transfer(strategy.address, profit);
+    await asset.connect(owner).transfer(strategy.target, profit);
     await strategy.connect(owner).report();
-    const tx = await vault.connect(owner).processReport(strategy.address);
+    const tx = await vault.connect(owner).processReport(strategy.target);
+    console.log("we reached here");
 
     const receipt = await tx.wait();
     const event = receipt.events.find(e => e.event === 'StrategyReported');
@@ -55,29 +56,12 @@ async function createStrategy(owner, vault) {
 }
 
 async function addStrategyToVault(owner, strategy, vault, strategyManager) {
-    const addStrategyTx = await vault.connect(owner).addStrategy(strategy.target);
-    const receipt = await addStrategyTx.wait(); // Wait for the transaction to be confirmed
-    console.log(receipt);
-
-    const event = receipt.events?.find(
-        (e) => e.address === vault.address,
-      );
-    if (event) {
-        const decodedEvent = strategy.interface.decodeEventLog(
-            'StrategyChanged',
-            event.data,
-            event.topics,
-        );
-        console.log(decodedEvent);
-    }
-
-    // await expect(vault.connect(owner).addStrategy(strategy.target))
-    //     .to.emit(vault, 'StrategyChanged')
-    //     .withArgs(strategy.target, 0);
+    await expect(vault.connect(owner).addStrategy(strategy.target))
+        .to.emit(strategyManager, 'StrategyChanged')
+        .withArgs(strategy.target, 0);
 
     // Access the mapping with the strategy's address as the key
-    const strategyParams = await vault.strategies(strategy.target);
-    console.log(strategyParams);
+    const strategyParams = await strategyManager.strategies(strategy.target);
 
     console.log("Activation Timestamp:", strategyParams.activation.toString());
     console.log("Last Report Timestamp:", strategyParams.lastReport.toString());
@@ -85,11 +69,21 @@ async function addStrategyToVault(owner, strategy, vault, strategyManager) {
     console.log("Max Debt:", strategyParams.maxDebt.toString());
 
     await strategy.connect(owner).setMaxDebt(ethers.MaxUint256);
+
+    return strategyParams;
 }
 
-async function addDebtToStrategy(owner, strategy, vault, debt) {
-    await vault.connect(owner).updateMaxDebtForStrategy(strategy.target, debt);
-    await vault.connect(owner).updateDebt(strategy.target, debt);
+async function addDebtToStrategy(owner, strategy, vault, debt, strategyManager, strategyParams) {
+    const totalIdle = await vault.connect(owner).totalIdleAmount();
+    const minimumTotalIdle = await vault.connect(owner).minimumTotalIdle();
+    console.log(totalIdle);
+    console.log(minimumTotalIdle);
+    await expect(vault.connect(owner).updateMaxDebtForStrategy(strategy.target, debt))
+        .to.emit(strategyManager, 'UpdatedMaxDebtForStrategy')
+        .withArgs(vault.target, strategy.target, debt);
+    await expect(vault.connect(owner).updateDebt(strategy.target, debt))
+        .to.emit(strategyManager, 'DebtUpdated')
+        .withArgs(strategy.target, strategyParams.currentDebt, debt);
 }
 
 async function initialSetup(asset, vault, owner, debt, amount, strategyManager) {
@@ -98,8 +92,8 @@ async function initialSetup(asset, vault, owner, debt, amount, strategyManager) 
     
     // Deposit assets to vault and get strategy ready
     await userDeposit(owner, vault, asset, amount);
-    await addStrategyToVault(owner, strategy, vault, strategyManager);
-    await addDebtToStrategy(owner, strategy, vault, debt);
+    const strategyParams = await addStrategyToVault(owner, strategy, vault, strategyManager);
+    await addDebtToStrategy(owner, strategy, vault, debt, strategyManager, strategyParams);
 
     return strategy;
 }

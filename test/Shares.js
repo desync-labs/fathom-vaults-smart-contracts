@@ -4,7 +4,7 @@ const {
   } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { userDeposit, checkVaultEmpty, initialSetup } = require("./utils/helper");
+const { userDeposit, checkVaultEmpty, initialSetup, createProfit } = require("./utils/helper");
 
 describe("Vault Contract", function () {   
     
@@ -366,40 +366,40 @@ describe("Vault Contract", function () {
 
     // Not working due to delegate call issues with hardhat
     // Needs attention
-    // it("should mint shares with zero total supply and positive assets", async function () {
-    //     const { vault, owner, asset, strategyManager } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
-    //     const amount = 1000;
-    //     await vault.setDepositLimit(amount);
-    //     const debt = amount / 10;
-    //     const firstProfit = amount / 10;
-    //     const elapsedTime = 14 * 24 * 3600;
+    it("should mint shares with zero total supply and positive assets", async function () {
+        const { vault, owner, asset, strategyManager } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
+        const amount = 1000;
+        await vault.setDepositLimit(amount);
+        const debt = amount / 10;
+        const firstProfit = amount / 10;
+        const elapsedTime = 14 * 24 * 3600;
 
-    //     // Simulate time passing
-    //     await time.increase(elapsedTime);
+        // Simulate time passing
+        await time.increase(elapsedTime);
     
-    //     const strategy = await initialSetup(asset, vault, owner, debt, amount, strategyManager);
-    //     await createProfit(asset, strategy, owner, vault, firstProfit);
-    //     await vault.connect(owner).updateDebt(strategy.target, 0);
+        const strategy = await initialSetup(asset, vault, owner, debt, amount, strategyManager);
+        await createProfit(asset, strategy, owner, vault, firstProfit);
+        await vault.connect(owner).updateDebt(strategy.target, 0);
     
-    //     // there are more shares than deposits (due to profit unlock)
-    //     expect(await vault.totalSupply()).to.be.gt(amount);
+        // there are more shares than deposits (due to profit unlock)
+        expect(await vault.totalSupply()).to.be.gt(amount);
     
-    //     // User redeems shares
-    //     await vault.connect(owner).redeem(await vault.balanceOf(owner.address), owner.address, owner.address);
+        // User redeems shares
+        await vault.connect(owner).redeem(await vault.balanceOf(owner.address), owner.address, owner.address);
     
-    //     expect(await vault.totalSupply()).to.be.gt(0);
+        expect(await vault.totalSupply()).to.be.gt(0);
     
-    //     // Simulate time passing
-    //     await time.increase(14 * 24 * 3600);
+        // Simulate time passing
+        await time.increase(14 * 24 * 3600);
     
-    //     expect(await vault.totalSupply()).to.equal(0);
+        expect(await vault.totalSupply()).to.equal(0);
     
-    //     await vault.connect(owner).deposit(amount, owner.address);
+        await vault.connect(owner).deposit(amount, owner.address);
     
-    //     // shares should be minted at 1:1
-    //     expect(await vault.balanceOf(owner.address)).to.equal(amount);
-    //     expect(await vault.pricePerShare()).to.be.gt(ethers.parseUnits("10", await vault.decimals()));
-    // });
+        // shares should be minted at 1:1
+        expect(await vault.balanceOf(owner.address)).to.equal(amount);
+        expect(await vault.pricePerShare()).to.be.gt(ethers.parseUnits("10", await vault.decimals()));
+    });
     
     
 

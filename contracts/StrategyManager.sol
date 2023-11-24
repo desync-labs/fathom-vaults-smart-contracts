@@ -5,6 +5,8 @@ import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
 import "./Interfaces/IStrategyManager.sol";
 import "./Interfaces/IStrategy.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
 @title STRATEGY MANAGEMENT
@@ -13,12 +15,22 @@ import "./Interfaces/IStrategy.sol";
 contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     // solhint-disable not-rely-on-time
     // solhint-disable var-name-mixedcase
+    // solhint-disable function-max-lines
+    // solhint-disable code-complexity
+
+    using Math for uint256;
 
     error ZeroAddress();
     error InactiveStrategy();
     error InvalidAsset();
     error StrategyAlreadyActive();
     error StrategyHasDebt();
+    error DebtDidntChange();
+    error ZeroValue();
+    error StrategyHasUnrealisedLosses();
+    error DebtHigherThanMaxDebt();
+    error InsufficientFunds();
+    error StrategyDebtIsLessThanAssetsNeeded();
 
     // IMMUTABLE
     // Address of the underlying token used by the vault
@@ -101,6 +113,193 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         defaultQueue = newQueue;
 
         emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
+    }
+
+    function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override {
+        if (strategies[strategy].activation == 0) {
+            revert InactiveStrategy();
+        }
+        strategies[strategy].maxDebt = newMaxDebt;
+        emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
+    }
+
+    function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {
+        // How much we want the strategy to have.
+        uint256 newDebt = targetDebt;
+        // How much the strategy currently has.
+        uint256 currentDebt = strategies[strategy].currentDebt;
+
+        // If the vault is shutdown we can only pull funds.
+        if (shutdown == true) {
+            newDebt = 0;
+        }
+
+        if (newDebt == currentDebt) {
+            revert DebtDidntChange();
+        }
+
+        if (currentDebt > newDebt) {
+            // Reduce debt
+            uint256 assetsToWithdraw = currentDebt - newDebt;
+
+            // Respect minimum total idle in vault
+            if (totalIdleAmount + assetsToWithdraw < minimumTotalIdle) {
+                assetsToWithdraw = minimumTotalIdle - totalIdleAmount;
+                // Cant withdraw more than the strategy has.
+                if (assetsToWithdraw > currentDebt) {
+                    assetsToWithdraw = currentDebt;
+                }
+            }
+
+            // Check how much we are able to withdraw.
+            // Use maxRedeem and convert since we use redeem.
+            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
+
+            if (withdrawable <= 0) {
+                revert ZeroValue();
+            }
+
+            // If insufficient withdrawable, withdraw what we can.
+            if (withdrawable < assetsToWithdraw) {
+                assetsToWithdraw = withdrawable;
+            }
+
+            // If there are unrealised losses we don't let the vault reduce its debt until there is a new report
+            uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
+            if (unrealisedLossesShare != 0) {
+                revert StrategyHasUnrealisedLosses();
+            }
+
+            // Always check the actual amount withdrawn.
+            uint256 preBalance = ASSET.balanceOf(address(this));
+            _withdrawFromStrategy(strategy, assetsToWithdraw);
+            uint256 postBalance = ASSET.balanceOf(address(this));
+
+            // making sure we are changing idle according to the real result no matter what. 
+            // We pull funds with {redeem} so there can be losses or rounding differences.
+            uint256 withdrawn = Math.min(postBalance - preBalance, currentDebt);
+
+            // If we got too much make sure not to increase PPS.
+            if (withdrawn > assetsToWithdraw) {
+                assetsToWithdraw = withdrawn;
+            }
+
+            // Update storage.
+            totalIdleAmount += withdrawn; // actual amount we got.
+            // Amount we tried to withdraw in case of losses
+            totalDebtAmount -= assetsToWithdraw;
+
+            newDebt = currentDebt - assetsToWithdraw;
+        } else {
+            // We are increasing the strategies debt
+
+            // Revert if target_debt cannot be achieved due to configured max_debt for given strategy
+            if (newDebt > strategies[strategy].maxDebt) {
+                revert DebtHigherThanMaxDebt();
+            }
+
+            // Vault is increasing debt with the strategy by sending more funds.
+            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(address(this));
+            if (currentMaxDeposit <= 0) {
+                revert ZeroValue();
+            }
+
+            // Deposit the difference between desired and current.
+            uint256 assetsToDeposit = newDebt - currentDebt;
+            if (assetsToDeposit > currentMaxDeposit) {
+                // Deposit as much as possible.
+                assetsToDeposit = currentMaxDeposit;
+            }
+
+            uint256 availableIdle = totalIdleAmount - minimumTotalIdle;
+
+            // If insufficient funds to deposit, transfer only what is free.
+            if (assetsToDeposit > availableIdle) {
+                assetsToDeposit = availableIdle;
+            }
+
+            // Can't Deposit 0.
+            if (assetsToDeposit > 0) {
+                // Approve the strategy to pull only what we are giving it.
+                _erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
+
+                // Always update based on actual amounts deposited.
+                uint256 preBalance = ASSET.balanceOf(address(this));
+                IStrategy(strategy).deposit(assetsToDeposit, address(this));
+                uint256 postBalance = ASSET.balanceOf(address(this));
+
+                // Make sure our approval is always back to 0.
+                _erc20SafeApprove(address(ASSET), strategy, 0);
+
+                // Making sure we are changing according to the real result no 
+                // matter what. This will spend more gas but makes it more robust.
+                assetsToDeposit = preBalance - postBalance;
+
+                // Update storage.
+                totalIdleAmount -= assetsToDeposit;
+                totalDebtAmount += assetsToDeposit;
+
+                newDebt = currentDebt + assetsToDeposit;
+            }
+        }
+
+        // Commit memory to storage.
+        strategies[strategy].currentDebt = newDebt;
+
+        emit DebtUpdated(strategy, currentDebt, newDebt);
+        return newDebt;
+    }
+
+    function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
+        // Minimum of how much debt the debt should be worth.
+        uint256 strategyCurrentDebt = strategies[strategy].currentDebt;
+        // The actual amount that the debt is currently worth.
+        uint256 vaultShares = IStrategy(strategy).balanceOf(address(this));
+        uint256 strategyAssets = IStrategy(strategy).convertToAssets(vaultShares);
+
+        // If no losses, return 0
+        if (strategyAssets >= strategyCurrentDebt || strategyCurrentDebt == 0) {
+            return 0;
+        }
+
+        // Users will withdraw assets_to_withdraw divided by loss ratio (strategy_assets / strategy_current_debt - 1),
+        // but will only receive assets_to_withdraw.
+        // NOTE: If there are unrealised losses, the user will take his share.
+        uint256 numerator = assetsNeeded * strategyAssets;
+        uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
+
+        // Always round up.
+        if (numerator % strategyCurrentDebt != 0) {
+            lossesUserShare += 1;
+        }
+
+        return lossesUserShare;
+    }
+
+    function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view override returns (uint256) {
+        // Assuming strategies mapping and _assess_share_of_unrealised_losses are defined
+        if (strategies[strategy].currentDebt < assetsNeeded) {
+            revert StrategyDebtIsLessThanAssetsNeeded();
+        }
+        return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
+    }
+
+    function _withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) internal {
+        // Need to get shares since we use redeem to be able to take on losses.
+        uint256 sharesToRedeem = Math.min(
+            IStrategy(strategy).previewWithdraw(assetsToWithdraw), // Use previewWithdraw since it should round up.
+            IStrategy(strategy).balanceOf(address(this)) // And check against our actual balance.
+        );
+
+        // Redeem the shares.
+        IStrategy(strategy).redeem(sharesToRedeem, address(this), address(this));
+    }
+
+    function _erc20SafeApprove(address token, address spender, uint256 amount) internal {
+        if (token == address(0) || spender == address(0)) {
+            revert ZeroAddress();
+        }
+        require(IERC20(token).approve(spender, amount), "approval failed");
     }
 }
     
