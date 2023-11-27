@@ -5,6 +5,7 @@ import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
 import "./Interfaces/IStrategyManager.sol";
 import "./Interfaces/IStrategy.sol";
+import "./Interfaces/ISharesManager.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -123,7 +124,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
     }
 
-    function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {
+    function updateDebt(address strategy, uint256 targetDebt, address sharesManager) external override returns (uint256) {
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -165,14 +166,14 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             }
 
             // If there are unrealised losses we don't let the vault reduce its debt until there is a new report
-            uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
+            uint256 unrealisedLossesShare = ISharesManager(sharesManager).assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
             if (unrealisedLossesShare != 0) {
                 revert StrategyHasUnrealisedLosses();
             }
 
             // Always check the actual amount withdrawn.
             uint256 preBalance = ASSET.balanceOf(address(this));
-            _withdrawFromStrategy(strategy, assetsToWithdraw);
+            ISharesManager(sharesManager).withdrawFromStrategy(strategy, assetsToWithdraw);
             uint256 postBalance = ASSET.balanceOf(address(this));
 
             // making sure we are changing idle according to the real result no matter what. 
@@ -248,51 +249,6 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
 
         emit DebtUpdated(strategy, currentDebt, newDebt);
         return newDebt;
-    }
-
-    function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
-        // Minimum of how much debt the debt should be worth.
-        uint256 strategyCurrentDebt = strategies[strategy].currentDebt;
-        // The actual amount that the debt is currently worth.
-        uint256 vaultShares = IStrategy(strategy).balanceOf(address(this));
-        uint256 strategyAssets = IStrategy(strategy).convertToAssets(vaultShares);
-
-        // If no losses, return 0
-        if (strategyAssets >= strategyCurrentDebt || strategyCurrentDebt == 0) {
-            return 0;
-        }
-
-        // Users will withdraw assets_to_withdraw divided by loss ratio (strategy_assets / strategy_current_debt - 1),
-        // but will only receive assets_to_withdraw.
-        // NOTE: If there are unrealised losses, the user will take his share.
-        uint256 numerator = assetsNeeded * strategyAssets;
-        uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
-
-        // Always round up.
-        if (numerator % strategyCurrentDebt != 0) {
-            lossesUserShare += 1;
-        }
-
-        return lossesUserShare;
-    }
-
-    function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view override returns (uint256) {
-        // Assuming strategies mapping and _assess_share_of_unrealised_losses are defined
-        if (strategies[strategy].currentDebt < assetsNeeded) {
-            revert StrategyDebtIsLessThanAssetsNeeded();
-        }
-        return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
-    }
-
-    function _withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) internal {
-        // Need to get shares since we use redeem to be able to take on losses.
-        uint256 sharesToRedeem = Math.min(
-            IStrategy(strategy).previewWithdraw(assetsToWithdraw), // Use previewWithdraw since it should round up.
-            IStrategy(strategy).balanceOf(address(this)) // And check against our actual balance.
-        );
-
-        // Redeem the shares.
-        IStrategy(strategy).redeem(sharesToRedeem, address(this), address(this));
     }
 
     function _erc20SafeApprove(address token, address spender, uint256 amount) internal {

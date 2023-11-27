@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.16;
 
-import {IERC4626} from "./IERC4626.sol";
 import "../VaultStructs.sol";
 
-interface IVault is IERC4626 {
+interface IVault {
     function setAccountant(address newAccountant) external;
 
     function setDefaultQueue(address[] memory newDefaultQueue) external;
@@ -121,4 +120,40 @@ interface IVault is IERC4626 {
         address strategy,
         uint256 assetsNeeded
     ) external view returns (uint256);
+
+    function deposit(uint256 assets, address receiver) external returns (uint256);
+
+    function mint(uint256 shares, address receiver) external returns (uint256);
+
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    function transfer(address receiver, uint256 amount) external returns (bool);
+
+    function transferFrom(address sender, address receiver, uint256 amount) external returns (bool);
+
+    function balanceOf(address addr) external view returns (uint256);
+
+    function asset() external view returns (address);
+
+    function decimals() external view returns (uint8);
+
+    function totalAssets() external view returns (uint256);
+
+    function convertToShares(uint256 assets) external view returns (uint256);
+
+    function previewDeposit(uint256 assets) external view returns (uint256);
+
+    function previewMint(uint256 shares) external view returns (uint256);
+
+    function convertToAssets(uint256 shares) external view returns (uint256);
+
+    function maxDeposit(address receiver) external view returns (uint256);
+
+    function maxMint(address receiver) external view returns (uint256);
+
+    function previewWithdraw(uint256 assets) external view returns (uint256);
+
+    function previewRedeem(uint256 shares) external view returns (uint256);
+
+    function allowance(address owner, address spender) external view returns (uint256);
 }

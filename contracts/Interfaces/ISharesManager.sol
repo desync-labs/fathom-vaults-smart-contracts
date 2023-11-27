@@ -2,11 +2,14 @@
 pragma solidity ^0.8.16;
 
 import "../VaultStructs.sol";
+import {IERC4626} from "./IERC4626.sol";
 
-interface ISharesManager {
+interface ISharesManager is IERC4626 {
     // solhint-disable max-line-length
     // solhint-disable ordering
 
+    function balanceOf(address addr) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
     function spendAllowance(address owner, address spender, uint256 amount) external;
     function transfer(address sender, address receiver, uint256 amount) external;
     function transferFrom(address sender, address receiver, uint256 amount) external returns (bool);
@@ -32,11 +35,4 @@ interface ISharesManager {
     function mint(address sender, address recipient, uint256 shares) external returns (uint256);
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view returns (uint256);
     function withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) external;
-    function redeem(address sender, address receiver, address owner, uint256 assets, uint256 sharesToBurn, uint256 maxLoss, address[] memory _strategies) external returns (uint256);
-    function validateRedeem(address receiver, address owner, uint256 sharesToBurn, uint256 maxLoss) external view;
-    function handleAllowance(address owner, address sender, uint256 sharesToBurn) external;
-    function withdrawAssets(uint256 assets, address[] memory _strategies) external returns (uint256, uint256);
-    function finalizeRedeem(address receiver, address owner, uint256 sharesToBurn, uint256 assets, uint256 requestedAssets, uint256 currTotalIdle, uint256 maxLoss) external;
-
-
 }
