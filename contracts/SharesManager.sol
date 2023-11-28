@@ -21,6 +21,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // solhint-disable var-name-mixedcase
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
+    // solhint-disable max-line-length
 
     using Math for uint256;
 
@@ -330,11 +331,15 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
 
     // Used only to transfer tokens that are not the type managed by this Vault.
     // Used to handle non-compliant tokens like USDT
-    function erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) external override {
+    function _erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) internal {
         if (token == address(0) || sender == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
         require(IERC20(token).transferFrom(sender, receiver, amount), "transfer failed");
+    }
+
+    function erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) external override {
+        _erc20SafeTransferFrom(token, sender, receiver, amount);
     }
 
     // Used only to send tokens that are not the type managed by this Vault.
@@ -1041,6 +1046,127 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_DOWN);
         // Always return the actual amount of assets withdrawn.
         return _redeem(msg.sender, receiver, owner, assets, shares, maxLoss, _strategies);
+    }
+
+    // Calculate share management based on gains, losses, and fees.
+    function calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees) external override view returns (ShareManagement memory) {
+        // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
+        // NOTE: this needs to be done before any pps changes
+        ShareManagement memory shares;
+
+        // Only need to burn shares if there is a loss or fees.
+        if (loss + totalFees > 0) {
+            // The amount of shares we will want to burn to offset losses and fees.
+            shares.sharesToBurn += _convertToShares(loss + totalFees, Rounding.ROUND_UP);
+
+            // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
+            if (totalFees > 0) {
+                // Accountant fees are total fees - protocol fees.
+                shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
+                if (protocolFees > 0) {
+                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
+                }
+            }
+        }
+
+        return shares;
+    }
+
+    // Handle the burning and issuing of shares based on the strategy's report.
+    function handleShareBurnsAndIssues(
+        ShareManagement memory shares, 
+        FeeAssessment memory fees, 
+        uint256 gain, 
+        uint256 loss, 
+        address strategy
+    ) external override returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
+        // Shares to lock is any amounts that would otherwise increase the vaults PPS.
+        uint256 _newlyLockedShares;
+        if (fees.totalRefunds > 0) {
+            // Make sure we have enough approval and enough asset to pull.
+            fees.totalRefunds = Math.min(fees.totalRefunds, Math.min(ISharesManager(sharesManager).balanceOf(accountant), ISharesManager(sharesManager).allowance(accountant, address(this))));
+            // Transfer the refunded amount of asset to the vault.
+            _erc20SafeTransferFrom(sharesManager, accountant, address(this), fees.totalRefunds);
+            // Update storage to increase total assets.
+            totalIdleAmount += fees.totalRefunds;
+        }
+
+        // Record any reported gains.
+        if (gain > 0) {
+            // NOTE: this will increase total_assets
+            strategies[strategy].currentDebt += gain;
+            totalDebtAmount += gain;
+        }
+
+        // Mint anything we are locking to the vault.
+        if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
+            _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
+        }
+
+        // Strategy is reporting a loss
+        if (loss > 0) {
+            strategies[strategy].currentDebt -= loss;
+            totalDebtAmount -= loss;
+        }
+
+        // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
+        // newly_locked_shares have already been minted / transferred to the vault, so they need to be subtracted
+        // no risk of underflow because they have just been minted.
+        uint256 _previouslyLockedShares = _balanceOf[address(this)] - _newlyLockedShares;
+
+        // Now that pps has updated, we can burn the shares we intended to burn as a result of losses/fees.
+        // NOTE: If a value reduction (losses / fees) has occurred, prioritize burning locked profit to avoid
+        // negative impact on price per share. Price per share is reduced only if losses exceed locked value.
+        if (shares.sharesToBurn > 0) {
+            // Cant burn more than the vault owns.
+            shares.sharesToBurn = Math.min(shares.sharesToBurn, _previouslyLockedShares + _newlyLockedShares);
+            _burnShares(shares.sharesToBurn, address(this));
+
+            // We burn first the newly locked shares, then the previously locked shares.
+            uint256 sharesNotToLock = Math.min(shares.sharesToBurn, _newlyLockedShares);
+            // Reduce the amounts to lock by how much we burned
+            _newlyLockedShares -= sharesNotToLock;
+            _previouslyLockedShares -= (shares.sharesToBurn - sharesNotToLock);
+        }
+
+        // Issue shares for fees that were calculated above if applicable.
+        if (shares.accountantFeesShares > 0) {
+            _issueShares(shares.accountantFeesShares, accountant);
+        }
+
+        if (shares.protocolFeesShares > 0) {
+            _issueShares(shares.protocolFeesShares, fees.protocolFeeRecipient);
+        }
+
+        return (_previouslyLockedShares, _newlyLockedShares);
+    }
+
+    // Manage the unlocking of shares over time based on the vault's configuration.
+    function manageUnlockingOfShares(uint256 previouslyLockedShares, uint256 newlyLockedShares) external override {
+        // Update unlocking rate and time to fully unlocked.
+        uint256 totalLockedShares = previouslyLockedShares + newlyLockedShares;
+        if (totalLockedShares > 0) {
+            uint256 previouslyLockedTime = 0;
+            // Check if we need to account for shares still unlocking.
+            if (fullProfitUnlockDate > block.timestamp) {
+                // There will only be previously locked shares if time remains.
+                // We calculate this here since it will not occur every time we lock shares.
+                previouslyLockedTime = previouslyLockedShares * (fullProfitUnlockDate - block.timestamp);
+            }
+
+            // newProfitLockingPeriod is a weighted average between the remaining time of the previously locked shares and the profitMaxUnlockTime
+            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * profitMaxUnlockTime) / totalLockedShares;
+            // Calculate how many shares unlock per second.
+            profitUnlockingRate = totalLockedShares * MAX_BPS_EXTENDED / newProfitLockingPeriod;
+            // Calculate how long until the full amount of shares is unlocked.
+            fullProfitUnlockDate = block.timestamp + newProfitLockingPeriod;
+            // Update the last profitable report timestamp.
+            lastProfitUpdate = block.timestamp;
+        } else {
+            // NOTE: only setting this to 0 will turn in the desired effect, no need 
+            // to update last_profit_update or full_profit_unlock_date
+            profitUnlockingRate = 0;
+        }
     }
 }
     

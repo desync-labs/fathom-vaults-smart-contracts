@@ -16,9 +16,12 @@ contract VaultStorage {
     uint256 public constant MAX_BPS_EXTENDED = 1000000000000;
     // The version of this vault.
     string public constant API_VERSION = "1.0.0";
+    uint256 public immutable ONE_YEAR = 31556952;
 
     address public strategyManager;
     address public sharesManager;
+    address public setters;
+    address public governance;
 
     // STORAGE
     // HashMap that records all the strategies that are allowed to receive assets from the vault.

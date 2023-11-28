@@ -6,6 +6,8 @@ import "./Interfaces/IVaultEvents.sol";
 import "./Interfaces/IStrategyManager.sol";
 import "./Interfaces/IStrategy.sol";
 import "./Interfaces/ISharesManager.sol";
+import "./Interfaces/IAccountant.sol";
+import "./Interfaces/IFactory.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -18,6 +20,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     // solhint-disable var-name-mixedcase
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
+    // solhint-disable max-line-length
 
     using Math for uint256;
 
@@ -36,11 +39,16 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     // IMMUTABLE
     // Address of the underlying token used by the vault
     IERC20 public immutable ASSET;
+    // Factory address
+    address public immutable FACTORY;
 
     constructor(
-        address _asset
+        address _asset,
+        address _sharesManager
     ) {
         ASSET = IERC20(_asset);
+        FACTORY = msg.sender;
+        sharesManager = _sharesManager;
     }
 
 
@@ -124,7 +132,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
     }
 
-    function updateDebt(address strategy, uint256 targetDebt, address sharesManager) external override returns (uint256) {
+    function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -222,7 +230,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             // Can't Deposit 0.
             if (assetsToDeposit > 0) {
                 // Approve the strategy to pull only what we are giving it.
-                _erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
+                ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
 
                 // Always update based on actual amounts deposited.
                 uint256 preBalance = ASSET.balanceOf(address(this));
@@ -230,7 +238,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
                 uint256 postBalance = ASSET.balanceOf(address(this));
 
                 // Make sure our approval is always back to 0.
-                _erc20SafeApprove(address(ASSET), strategy, 0);
+                ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, 0);
 
                 // Making sure we are changing according to the real result no 
                 // matter what. This will spend more gas but makes it more robust.
@@ -251,11 +259,104 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         return newDebt;
     }
 
-    function _erc20SafeApprove(address token, address spender, uint256 amount) internal {
-        if (token == address(0) || spender == address(0)) {
-            revert ZeroAddress();
+    // Processing a report means comparing the debt that the strategy has taken 
+    // with the current amount of funds it is reporting. If the strategy owes 
+    // less than it currently has, it means it has had a profit, else (assets < debt) 
+    // it has had a loss.
+
+    // Different strategies might choose different reporting strategies: pessimistic, 
+    // only realised P&L, ... The best way to report depends on the strategy.
+
+    // The profit will be distributed following a smooth curve over the vaults 
+    // profit_max_unlock_time seconds. Losses will be taken immediately, first from the 
+    // profit buffer (avoiding an impact in pps), then will reduce pps.
+
+    // Any applicable fees are charged and distributed during the report as well
+    // to the specified recipients.
+    function processReport(address strategy) external override returns (uint256, uint256) {
+        // Make sure we have a valid strategy.
+        if (strategies[strategy].activation == 0) {
+            revert InactiveStrategy();
         }
-        require(IERC20(token).approve(spender, amount), "approval failed");
+
+        // Burn shares that have been unlocked since the last update
+        ISharesManager(sharesManager).burnUnlockedShares();
+
+        (uint256 gain, uint256 loss) = _assessProfitAndLoss(strategy);
+
+        FeeAssessment memory fees = _assessFees(strategy, gain, loss);
+
+        ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(loss, fees.totalFees, fees.protocolFees);
+
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain, loss, strategy);
+
+        ISharesManager(sharesManager).manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
+
+        // Record the report of profit timestamp.
+        strategies[strategy].lastReport = block.timestamp;
+
+        // We have to recalculate the fees paid for cases with an overall loss.
+        emit StrategyReported(
+            strategy,
+            gain,
+            loss,
+            strategies[strategy].currentDebt,
+            ISharesManager(sharesManager).convertToAssets(shares.protocolFeesShares, Rounding.ROUND_DOWN),
+            ISharesManager(sharesManager).convertToAssets(shares.protocolFeesShares + shares.accountantFeesShares, Rounding.ROUND_DOWN),
+            fees.totalRefunds
+        );
+
+        return (gain, loss);
+    }
+
+    // Assess the profit and loss of a strategy.
+    function _assessProfitAndLoss(address strategy) internal view returns (uint256 gain, uint256 loss) {
+        // Vault assesses profits using 4626 compliant interface.
+        // NOTE: It is important that a strategies `convertToAssets` implementation
+        // cannot be manipulated or else the vault could report incorrect gains/losses.
+        uint256 strategyShares = IStrategy(strategy).balanceOf(address(this));
+        // How much the vaults position is worth.
+        uint256 currentTotalAssets = IStrategy(strategy).convertToAssets(strategyShares);
+        // How much the vault had deposited to the strategy.
+        uint256 currentDebt = strategies[strategy].currentDebt;
+
+        uint256 _gain = 0;
+        uint256 _loss = 0;
+
+        // Compare reported assets vs. the current debt.
+        if (currentTotalAssets > currentDebt) {
+            // We have a gain.
+            _gain = currentTotalAssets - currentDebt;
+        } else {
+            // We have a loss.
+            _loss = currentDebt - currentTotalAssets;
+        }
+
+        return (_gain, _loss);
+    }
+
+    // Calculate and distribute any fees and refunds from the strategy's performance.
+    function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
+        FeeAssessment memory fees;
+
+        // If accountant is not set, fees and refunds remain unchanged.
+        if (accountant != address(0)) {
+            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+
+            // Protocol fees will be 0 if accountant fees are 0.
+            if (fees.totalFees > 0) {
+                uint16 protocolFeeBps;
+                // Get the config for this vault.
+                (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
+                
+                if (protocolFeeBps > 0) {
+                    // Protocol fees are a percent of the fees the accountant is charging.
+                    fees.protocolFees = fees.totalFees * uint256(protocolFeeBps) / MAX_BPS;
+                }
+            }
+        }
+
+        return fees;
     }
 }
     

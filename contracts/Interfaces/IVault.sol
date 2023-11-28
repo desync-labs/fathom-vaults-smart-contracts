@@ -26,14 +26,6 @@ interface IVault {
         uint256 newProfitMaxUnlockTime
     ) external;
 
-    function addRole(address account, bytes32 role) external;
-
-    function removeRole(address account, bytes32 role) external;
-
-    function setOpenRole(bytes32 role) external;
-
-    function closeOpenRole(bytes32 role) external;
-
     function processReport(
         address strategy
     ) external returns (uint256, uint256);
@@ -115,11 +107,6 @@ interface IVault {
     function pricePerShare() external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
-
-    function assessShareOfUnrealisedLosses(
-        address strategy,
-        uint256 assetsNeeded
-    ) external view returns (uint256);
 
     function deposit(uint256 assets, address receiver) external returns (uint256);
 
