@@ -6,11 +6,10 @@ import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
 import "./Interfaces/ISharesManager.sol";
 import "./Interfaces/IStrategy.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "./Interfaces/IDepositLimitModule.sol";
 import "./Interfaces/IWithdrawLimitModule.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
 @title STRATEGY MANAGEMENT
@@ -22,8 +21,19 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
     // solhint-disable max-line-length
+    // solhint-disable ordering
 
     using Math for uint256;
+
+    // IMMUTABLE
+    // Address of the underlying token used by the vault
+    IERC20 public immutable ASSET;
+    uint8 public immutable DECIMALS;
+
+    // ERC20 - name of the vault's token
+    string public override name;
+    // ERC20 - symbol of the vault's token
+    string public override symbol;
 
     error ERC20InsufficientAllowance();
     error InsufficientFunds();
@@ -40,16 +50,6 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     error InsufficientAssets();
     error TooMuchLoss();
     error InvalidAssetDecimals();
-
-    // IMMUTABLE
-    // Address of the underlying token used by the vault
-    IERC20 public immutable ASSET;
-    uint8 public immutable DECIMALS;
-
-    // ERC20 - name of the vault's token
-    string public override name;
-    // ERC20 - symbol of the vault's token
-    string public override symbol;
 
     constructor(
         address _asset,
@@ -809,7 +809,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             state.assetsNeeded = state.requestedAssets - state.currTotalIdle;
 
             // Assuming _strategies is an array of addresses representing the strategies
-            for (uint i = 0; i < currentStrategies.length; i++) {
+            for (uint256 i = 0; i < currentStrategies.length; i++) {
                 address strategy = currentStrategies[i];
                 
                 // Make sure we have a valid strategy.

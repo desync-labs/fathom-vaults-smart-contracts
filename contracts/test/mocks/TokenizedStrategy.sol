@@ -72,6 +72,15 @@ import {IBaseStrategy} from "../../Interfaces/IBaseStrategy.sol";
  *  deploy their own permissionless 4626 compliant vault.
  */
 contract TokenizedStrategy {
+    // solhint-disable ordering
+    // solhint-disable var-name-mixedcase
+    // solhint-disable not-rely-on-time
+    // solhint-disable custom-errors
+    // solhint-disable comprehensive-interface
+    // solhint-disable code-complexity
+    // solhint-disable func-name-mixedcase
+    // solhint-disable function-max-lines
+
     using Math for uint256;
     using SafeERC20 for ERC20;
 

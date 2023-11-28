@@ -4,6 +4,12 @@ pragma solidity ^0.8.16;
 import {TokenizedStrategy, ERC20} from "./TokenizedStrategy.sol";
 
 contract MockTokenizedStrategy is TokenizedStrategy {
+    // solhint-disable ordering
+    // solhint-disable var-name-mixedcase
+    // solhint-disable not-rely-on-time
+    // solhint-disable custom-errors
+    // solhint-disable comprehensive-interface
+
     uint256 public minDebt;
     uint256 public maxDebt = type(uint256).max;
 

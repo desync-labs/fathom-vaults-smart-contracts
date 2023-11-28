@@ -21,8 +21,15 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
     // solhint-disable max-line-length
+    // solhint-disable ordering
 
     using Math for uint256;
+
+    // IMMUTABLE
+    // Address of the underlying token used by the vault
+    IERC20 public immutable ASSET;
+    // Factory address
+    address public immutable FACTORY;
 
     error ZeroAddress();
     error InactiveStrategy();
@@ -36,11 +43,6 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
     error InsufficientFunds();
     error StrategyDebtIsLessThanAssetsNeeded();
 
-    // IMMUTABLE
-    // Address of the underlying token used by the vault
-    IERC20 public immutable ASSET;
-    // Factory address
-    address public immutable FACTORY;
 
     constructor(
         address _asset,
@@ -109,7 +111,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         // Remove strategy if it is in the default queue.
         address[] memory newQueue;
         if (defaultQueue.length > 0) {
-            for (uint i = 0; i < defaultQueue.length; i++) {
+            for (uint256 i = 0; i < defaultQueue.length; i++) {
                 address _strategy = defaultQueue[i];
                 // Add all strategies to the new queue besides the one revoked.
                 if (_strategy != strategy) {

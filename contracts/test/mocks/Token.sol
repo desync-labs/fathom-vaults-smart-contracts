@@ -4,6 +4,9 @@ pragma solidity ^0.8.16;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract Token is ERC20 {
+    // solhint-disable ordering
+    // solhint-disable comprehensive-interface
+
     uint8 public decimals_;
 
     constructor(string memory _name, uint8 _decimals) ERC20(_name, _name) {

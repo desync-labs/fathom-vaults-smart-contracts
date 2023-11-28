@@ -32,14 +32,16 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     // solhint-disable code-complexity
     // solhint-disable var-name-mixedcase
     // solhint-disable max-line-length
+    // solhint-disable ordering
+
+    // Factory address
+    address public immutable FACTORY;
 
     error ProfitUnlockTimeTooLong();
     error InsufficientFunds();
     error ZeroAddress();
     error MaxLoss();
 
-    // Factory address
-    address public immutable FACTORY;
 
     // Constructor
     constructor(

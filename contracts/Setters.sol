@@ -42,7 +42,7 @@ contract Setters is AccessControl, VaultStorage, IVaultEvents, ISetters {
     // @param new_default_queue The new default queue array.
     function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
         // Make sure every strategy in the new queue is active.
-        for (uint i = 0; i < newDefaultQueue.length; i++) {
+        for (uint256 i = 0; i < newDefaultQueue.length; i++) {
             address strategy = newDefaultQueue[i];
             if (strategies[strategy].activation == 0) {
                 revert InactiveStrategy();
