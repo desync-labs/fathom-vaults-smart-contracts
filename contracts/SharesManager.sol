@@ -50,6 +50,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     error InsufficientAssets();
     error TooMuchLoss();
     error InvalidAssetDecimals();
+    error UsingModule();
 
     constructor(
         address _asset,
@@ -572,7 +573,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         address[] memory _strategies
     ) external override returns (uint256) {
         uint256 shares = _convertToShares(assets, Rounding.ROUND_UP);
-        _redeem(msg.sender, receiver, owner, assets, shares, maxLoss, _strategies);
+        _redeem(tx.origin, receiver, owner, assets, shares, maxLoss, _strategies);
         return shares;
     }
 
@@ -610,7 +611,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         }
 
         // Transfer the tokens to the vault first.
-        ASSET.transferFrom(msg.sender, address(this), assets);
+        ASSET.transferFrom(tx.origin, address(this), assets);
         // Record the change in total assets.
         totalIdleAmount += assets;
 
@@ -1045,7 +1046,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     ) external override nonReentrant returns (uint256) {
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_DOWN);
         // Always return the actual amount of assets withdrawn.
-        return _redeem(msg.sender, receiver, owner, assets, shares, maxLoss, _strategies);
+        return _redeem(tx.origin, receiver, owner, assets, shares, maxLoss, _strategies);
     }
 
     // Calculate share management based on gains, losses, and fees.
@@ -1167,6 +1168,21 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             // to update last_profit_update or full_profit_unlock_date
             profitUnlockingRate = 0;
         }
+    }
+
+    // @notice Set the new deposit limit.
+    // @dev Can not be changed if a deposit_limit_module
+    //  is set or if shutdown.
+    // @param deposit_limit The new deposit limit.
+    function setDepositLimit(uint256 _depositLimit) external override {
+        if (shutdown == true) {
+            revert StrategyIsShutdown();
+        }
+        if (depositLimitModule != address(0)) {
+            revert UsingModule();
+        }
+        depositLimit = _depositLimit;
+        emit UpdateDepositLimit(_depositLimit);
     }
 }
     

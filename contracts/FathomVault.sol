@@ -148,7 +148,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     //  is set or if shutdown.
     // @param deposit_limit The new deposit limit.
     function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
-        ISetters(setters).setDepositLimit(_depositLimit);
+        ISharesManager(sharesManager).setDepositLimit(_depositLimit);
     }
 
     // @notice Set a contract to handle the deposit limit.
