@@ -25,6 +25,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         args: [asset.address, sharesManager.address],
         log: true,
     });
+
+    const strategy = await deploy("MockTokenizedStrategy", {
+        from: deployer,
+        args: [asset.address, "Mock Tokenized Strategy", deployer, deployer],
+        log: true,
+    });
+
     const setters = await deploy("Setters", {
         from: deployer,
         args: [sharesManager.address],

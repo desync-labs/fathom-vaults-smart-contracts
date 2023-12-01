@@ -263,9 +263,6 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     // @param target_debt The target debt for the strategy.
     // @return The amount of debt added or removed.
     function updateDebt(address strategy, uint256 targetDebt) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
-        if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
-            revert InsufficientFunds();
-        }
         return IStrategyManager(strategyManager).updateDebt(strategy, targetDebt);
     }
 

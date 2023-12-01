@@ -131,10 +131,15 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             revert InactiveStrategy();
         }
         strategies[strategy].maxDebt = newMaxDebt;
-        emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
+        emit UpdatedMaxDebtForStrategy(tx.origin, strategy, newMaxDebt);
     }
 
     function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {
+        totalIdleAmount = ISharesManager(sharesManager).getTotalIdleAmount();
+        minimumTotalIdle = ISharesManager(sharesManager).getMinimumTotalIdle();
+        if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
+            revert InsufficientFunds();
+        }
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -200,6 +205,9 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             // Amount we tried to withdraw in case of losses
             totalDebtAmount -= assetsToWithdraw;
 
+            ISharesManager(sharesManager).setTotalIdleAmount(totalIdleAmount);
+            ISharesManager(sharesManager).setTotalDebtAmount(totalDebtAmount);
+
             newDebt = currentDebt - assetsToWithdraw;
         } else {
             // We are increasing the strategies debt
@@ -235,9 +243,9 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
                 ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
 
                 // Always update based on actual amounts deposited.
-                uint256 preBalance = ASSET.balanceOf(address(this));
-                IStrategy(strategy).deposit(assetsToDeposit, address(this));
-                uint256 postBalance = ASSET.balanceOf(address(this));
+                uint256 preBalance = ASSET.balanceOf(sharesManager);
+                ISharesManager(sharesManager).depositToStrategy(strategy, assetsToDeposit);
+                uint256 postBalance = ASSET.balanceOf(sharesManager);
 
                 // Make sure our approval is always back to 0.
                 ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, 0);
@@ -249,6 +257,9 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
                 // Update storage.
                 totalIdleAmount -= assetsToDeposit;
                 totalDebtAmount += assetsToDeposit;
+
+                ISharesManager(sharesManager).setTotalIdleAmount(totalIdleAmount);
+                ISharesManager(sharesManager).setTotalDebtAmount(totalDebtAmount);
 
                 newDebt = currentDebt + assetsToDeposit;
             }
@@ -316,7 +327,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         // Vault assesses profits using 4626 compliant interface.
         // NOTE: It is important that a strategies `convertToAssets` implementation
         // cannot be manipulated or else the vault could report incorrect gains/losses.
-        uint256 strategyShares = IStrategy(strategy).balanceOf(address(this));
+        uint256 strategyShares = IStrategy(strategy).balanceOf(sharesManager);
         // How much the vaults position is worth.
         uint256 currentTotalAssets = IStrategy(strategy).convertToAssets(strategyShares);
         // How much the vault had deposited to the strategy.
@@ -359,6 +370,15 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         }
 
         return fees;
+    }
+
+    // Used only to approve tokens that are not the type managed by this Vault.
+    // Used to handle non-compliant tokens like USDT
+    function erc20SafeApprove(address token, address spender, uint256 amount) internal {
+        if (token == address(0) || spender == address(0)) {
+            revert ZeroAddress();
+        }
+        require(IERC20(token).approve(spender, amount), "approval failed");
     }
 }
     

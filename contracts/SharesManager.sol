@@ -1087,11 +1087,11 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             // Make sure we have enough approval and enough asset to pull.
             fees.totalRefunds = Math.min(fees.totalRefunds, Math.min(ISharesManager(sharesManager).balanceOf(accountant), ISharesManager(sharesManager).allowance(accountant, address(this))));
             // Transfer the refunded amount of asset to the vault.
-            _erc20SafeTransferFrom(sharesManager, accountant, address(this), fees.totalRefunds);
+            _erc20SafeTransferFrom(address(ASSET), accountant, address(this), fees.totalRefunds);
             // Update storage to increase total assets.
             totalIdleAmount += fees.totalRefunds;
         }
-
+        
         // Record any reported gains.
         if (gain > 0) {
             // NOTE: this will increase total_assets
@@ -1103,13 +1103,13 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
             _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
         }
-
+        
         // Strategy is reporting a loss
         if (loss > 0) {
             strategies[strategy].currentDebt -= loss;
             totalDebtAmount -= loss;
         }
-
+        
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
         // newly_locked_shares have already been minted / transferred to the vault, so they need to be subtracted
         // no risk of underflow because they have just been minted.
@@ -1183,6 +1183,30 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         }
         depositLimit = _depositLimit;
         emit UpdateDepositLimit(_depositLimit);
+    }
+
+    function getTotalIdleAmount() external view override returns (uint256) {
+        return totalIdleAmount;
+    }
+
+    function setTotalIdleAmount(uint256 _totalIdleAmount) external override {
+        totalIdleAmount = _totalIdleAmount;
+    }
+
+    function getMinimumTotalIdle() external view override returns (uint256) {
+        return minimumTotalIdle;
+    }
+
+    function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override {
+        minimumTotalIdle = _minimumTotalIdle;
+    }
+
+    function setTotalDebtAmount(uint256 _totalDebtAmount) external override {
+        totalDebtAmount = _totalDebtAmount;
+    }
+
+    function depositToStrategy(address strategy, uint256 assetsToDeposit) external override {
+        IStrategy(strategy).deposit(assetsToDeposit, address(this));
     }
 }
     
