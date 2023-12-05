@@ -612,7 +612,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         }
 
         // Transfer the tokens to the vault first.
-        ASSET.transferFrom(spender, address(this), assets);
+        ASSET.transferFrom(sender, address(this), assets);
         // Record the change in total assets.
         totalIdleAmount += assets;
 
