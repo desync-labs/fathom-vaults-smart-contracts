@@ -255,7 +255,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     // @param new_max_debt The new max debt for the strategy.
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override onlyRole(MAX_DEBT_MANAGER) {
         // Delegate call to StrategyManager
-        IStrategyManager(strategyManager).updateMaxDebtForStrategy(strategy, newMaxDebt);
+        IStrategyManager(strategyManager).updateMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
     }
 
     // @notice Update the debt for a strategy.
@@ -307,7 +307,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
         uint256 maxLoss,
         address[] memory _strategies
     ) external override nonReentrant returns (uint256) {
-        return ISharesManager(sharesManager).withdraw(assets, receiver, owner, maxLoss, _strategies);
+        return ISharesManager(sharesManager).withdraw(msg.sender, assets, receiver, owner, maxLoss, _strategies);
     }
 
     // @notice Redeems an amount of shares of `owners` shares sending funds to `receiver`.
@@ -325,7 +325,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
         uint256 maxLoss,
         address[] memory _strategies
     ) external override nonReentrant returns (uint256) {
-        return ISharesManager(sharesManager).redeem(shares, receiver, owner, maxLoss, _strategies);
+        return ISharesManager(sharesManager).redeem(msg.sender, shares, receiver, owner, maxLoss, _strategies);
     }
 
     // @notice Approve an address to spend the vault's shares.

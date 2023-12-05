@@ -126,12 +126,12 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
     }
 
-    function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override {
+    function updateMaxDebtForStrategy(address sender, address strategy, uint256 newMaxDebt) external override {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy();
         }
         strategies[strategy].maxDebt = newMaxDebt;
-        emit UpdatedMaxDebtForStrategy(tx.origin, strategy, newMaxDebt);
+        emit UpdatedMaxDebtForStrategy(sender, strategy, newMaxDebt);
     }
 
     function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {

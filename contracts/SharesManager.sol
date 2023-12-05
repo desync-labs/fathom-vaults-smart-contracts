@@ -566,6 +566,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of shares actually burnt.
     function withdraw(
+        address sender
         uint256 assets,
         address receiver,
         address owner,
@@ -573,7 +574,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         address[] memory _strategies
     ) external override returns (uint256) {
         uint256 shares = _convertToShares(assets, Rounding.ROUND_UP);
-        _redeem(tx.origin, receiver, owner, assets, shares, maxLoss, _strategies);
+        _redeem(sender, receiver, owner, assets, shares, maxLoss, _strategies);
         return shares;
     }
 
@@ -611,7 +612,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         }
 
         // Transfer the tokens to the vault first.
-        ASSET.transferFrom(tx.origin, address(this), assets);
+        ASSET.transferFrom(spender, address(this), assets);
         // Record the change in total assets.
         totalIdleAmount += assets;
 
@@ -1001,14 +1002,6 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         return _convertToShares(assets, Rounding.ROUND_DOWN);
     }
 
-    // @notice Deposit assets into the vault.
-    // @param assets The amount of assets to deposit.
-    // @param receiver The address to receive the shares.
-    // @return The amount of shares minted.
-    function deposit(uint256 assets, address receiver) external override nonReentrant returns (uint256) {
-        return _deposit(msg.sender, receiver, assets);
-    }
-
     // @notice Mint shares for the receiver.
     // @param shares The amount of shares to mint.
     // @param receiver The address to receive the shares.
@@ -1038,6 +1031,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of assets actually withdrawn.
     function redeem(
+        address sender,
         uint256 shares,
         address receiver,
         address owner,
@@ -1046,7 +1040,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     ) external override nonReentrant returns (uint256) {
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_DOWN);
         // Always return the actual amount of assets withdrawn.
-        return _redeem(tx.origin, receiver, owner, assets, shares, maxLoss, _strategies);
+        return _redeem(sender, receiver, owner, assets, shares, maxLoss, _strategies);
     }
 
     // Calculate share management based on gains, losses, and fees.
