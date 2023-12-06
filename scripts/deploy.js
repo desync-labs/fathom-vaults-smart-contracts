@@ -3,20 +3,22 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deployer } = await getNamedAccounts();
 
     const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96"; // FXD Token on Apothem
-    const vaultName = "Vault Shares FXD";
-    const vaultSymbol = "vFXD";
-    const vaultDecimals = 18;
+    const vaultTokenName = "Vault Shares FXD";
+    const vaultTokenSymbol = "vFXD";
+    const vaultTokenDecimals = 18;
+    const assetSymbol = "FXD";
+    const assetDecimals = 18;
     const profitMaxUnlockTime = 31536000; // 1 year in seconds
 
     const asset = await deploy("Token", {
         from: deployer,
-        args: [vaultSymbol, vaultDecimals],
+        args: [assetSymbol, assetDecimals],
         log: true,
     });
 
     const sharesManager = await deploy("SharesManager", {
         from: deployer,
-        args: [asset.address, vaultDecimals, vaultName, vaultSymbol],
+        args: [asset.address, vaultTokenDecimals, vaultTokenName, vaultTokenSymbol],
         log: true,
     });
 

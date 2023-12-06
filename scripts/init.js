@@ -35,16 +35,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const amount = ethers.parseUnits("1000000", 18);
     const depositAmount = ethers.parseUnits("1000", 18);
-    const withdrawAmount = ethers.parseUnits("10", 18);
+    const withdrawAmount = ethers.parseUnits("9", 18);
     const redeemAmount = ethers.parseUnits("10", 18);
     const debt = ethers.parseUnits("10", 18);
     const profit = ethers.parseUnits("100", 18);
 
-    // // Initialization logic
+    // Initialization logic
     // console.log("Initializing vault...");
-    console.log("Minting tokens...");
-    const mintTx = await asset.connect(owner).mint("0x0Eb7DEE6e18Cce8fE839E986502d95d47dC0ADa3", amount, { gasLimit: "0x1000000" });
-    await mintTx.wait(); // Wait for the transaction to be confirmed
+    // console.log("Minting tokens...");
+    // const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
+    // await mintTx.wait(); // Wait for the transaction to be confirmed
     // console.log("Approving tokens...");
     // const approveTx = await asset.connect(owner).approve(sharesManager.target, amount, { gasLimit: "0x1000000" });
     // await approveTx.wait(); // Wait for the transaction to be confirmed
@@ -57,10 +57,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // const depositTx = await vault.connect(owner).deposit(depositAmount, owner.address, { gasLimit: "0x1000000" });
     // await depositTx.wait(); // Wait for the transaction to be confirmed
 
-    // // Simulate a withdraw
-    // console.log("Withdrawing...");
-    // const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
-    // await withdrawTx.wait();
+    // Simulate a withdraw
+    console.log("Withdrawing...");
+    // const balance = await vault.connect(owner).balanceOf(owner.address);
+    // console.log(balance);
+    // const withdrawTx = await vault.connect(owner).withdraw(balance, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
+    const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
+    await withdrawTx.wait();
 
     // // Simulate a redeem
     // console.log("Redeeming...");
@@ -78,7 +81,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // const updateMaxDebtForStrategyTx = await vault.connect(owner).updateMaxDebtForStrategy(strategy.target, debt, { gasLimit: "0x1000000" });
     // await updateMaxDebtForStrategyTx.wait();
     // console.log("Update Vault's Strategy debt...");
-    // const updateDebtTx = await vault.connect(owner).updateDebt(strategy.target, debt, { gasLimit: "0x1000000" });
+    // const updateDebtTx = await vault.connect(owner).updateDebt(owner.address, strategy.target, debt, { gasLimit: "0x1000000" });
     // await updateDebtTx.wait();
     // console.log("Creating profit for Strategy...");
     // const transferTx = await asset.connect(owner).transfer(strategy.target, profit, { gasLimit: "0x1000000" });
