@@ -5,6 +5,6 @@ interface IStrategyManager {
     function addStrategy(address newStrategy) external;
     function revokeStrategy(address strategy, bool force) external;
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external;
-    function updateDebt(address strategy, uint256 targetDebt) external returns (uint256);
+    function updateDebt(address sender, address strategy, uint256 targetDebt) external returns (uint256);
     function processReport(address strategy) external returns (uint256, uint256);
 }

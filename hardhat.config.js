@@ -24,12 +24,12 @@ module.exports = {
             url: `http://127.0.0.1:8545`,
             accounts: [fs.readFileSync("./privateKey").toString()],
         },
-        hardhat: {
-            forking: {
-                url: "http://127.0.0.1:8545",
-                accounts: [fs.readFileSync("./privateKey").toString()],
-            },
-        },
+        // hardhat: {
+        //     forking: {
+        //         url: "http://127.0.0.1:8545",
+        //         accounts: [fs.readFileSync("./privateKey").toString()],
+        //     },
+        // },
     },
     namedAccounts: {
         deployer: 0,

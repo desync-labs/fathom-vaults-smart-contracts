@@ -134,7 +134,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         emit UpdatedMaxDebtForStrategy(tx.origin, strategy, newMaxDebt);
     }
 
-    function updateDebt(address strategy, uint256 targetDebt) external override returns (uint256) {
+    function updateDebt(address sender, address strategy, uint256 targetDebt) external override returns (uint256) {
         totalIdleAmount = ISharesManager(sharesManager).getTotalIdleAmount();
         minimumTotalIdle = ISharesManager(sharesManager).getMinimumTotalIdle();
         if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
@@ -169,7 +169,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
 
             // Check how much we are able to withdraw.
             // Use maxRedeem and convert since we use redeem.
-            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
+            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(sender));
 
             if (withdrawable <= 0) {
                 revert ZeroValue();

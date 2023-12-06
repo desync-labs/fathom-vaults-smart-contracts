@@ -46,6 +46,7 @@ interface IVault {
     ) external;
 
     function updateDebt(
+        address sender,
         address strategy,
         uint256 targetDebt
     ) external returns (uint256);

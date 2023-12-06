@@ -41,7 +41,25 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     error InsufficientFunds();
     error ZeroAddress();
     error MaxLoss();
-
+    error ERC20InsufficientAllowance();
+    error ERC20PermitExpired();
+    error ERC20PermitInvalidSignature();
+    error InsufficientShares();
+    error InactiveStrategy();
+    error StrategyIsShutdown();
+    error ExceedDepositLimit();
+    error ZeroValue();
+    error StrategyDebtIsLessThanAssetsNeeded();
+    error InsufficientAssets();
+    error TooMuchLoss();
+    error InvalidAssetDecimals();
+    error UsingModule();
+    error InvalidAsset();
+    error StrategyAlreadyActive();
+    error StrategyHasDebt();
+    error DebtDidntChange();
+    error StrategyHasUnrealisedLosses();
+    error DebtHigherThanMaxDebt();
 
     // Constructor
     constructor(
@@ -262,8 +280,8 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     // @param strategy The strategy to update the debt for.
     // @param target_debt The target debt for the strategy.
     // @return The amount of debt added or removed.
-    function updateDebt(address strategy, uint256 targetDebt) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
-        return IStrategyManager(strategyManager).updateDebt(strategy, targetDebt);
+    function updateDebt(address sender, address strategy, uint256 targetDebt) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
+        return IStrategyManager(strategyManager).updateDebt(sender, strategy, targetDebt);
     }
 
     // EMERGENCY MANAGEMENT
