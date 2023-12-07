@@ -140,6 +140,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
             revert InsufficientFunds();
         }
+        
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -187,9 +188,9 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             }
 
             // Always check the actual amount withdrawn.
-            uint256 preBalance = ASSET.balanceOf(address(this));
+            uint256 preBalance = ASSET.balanceOf(sender);
             ISharesManager(sharesManager).withdrawFromStrategy(strategy, assetsToWithdraw);
-            uint256 postBalance = ASSET.balanceOf(address(this));
+            uint256 postBalance = ASSET.balanceOf(sender);
 
             // making sure we are changing idle according to the real result no matter what. 
             // We pull funds with {redeem} so there can be losses or rounding differences.
@@ -218,7 +219,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             }
 
             // Vault is increasing debt with the strategy by sending more funds.
-            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(address(this));
+            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(sender);
             if (currentMaxDeposit <= 0) {
                 revert ZeroValue();
             }
