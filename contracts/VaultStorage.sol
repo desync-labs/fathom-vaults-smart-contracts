@@ -32,6 +32,7 @@ contract VaultStorage {
 
     // Should the vault use the default_queue regardless whats passed in.
     bool public useDefaultQueue;
+    bool initialized;
 
     // ERC20 - amount of shares per account
     mapping(address => uint256) internal _balanceOf;

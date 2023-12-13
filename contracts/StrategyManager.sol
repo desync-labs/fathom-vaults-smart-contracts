@@ -10,12 +10,13 @@ import "./Interfaces/IAccountant.sol";
 import "./Interfaces/IFactory.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
 @title STRATEGY MANAGEMENT
 */
 
-contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
+contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategyManager {
     // solhint-disable not-rely-on-time
     // solhint-disable var-name-mixedcase
     // solhint-disable function-max-lines
@@ -51,6 +52,7 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
         ASSET = IERC20(_asset);
         FACTORY = msg.sender;
         sharesManager = _sharesManager;
+        _grantRole(DEFAULT_ADMIN_ROLE, _sharesManager);
     }
 
 
@@ -380,6 +382,22 @@ contract StrategyManager is VaultStorage, IVaultEvents, IStrategyManager {
             revert ZeroAddress();
         }
         require(IERC20(token).approve(spender, amount), "approval failed");
+    }
+
+    function getDefaultQueueLength() external override view returns(uint256 length) {
+        return defaultQueue.length;
+    }
+
+    function getDefaultQueue() external override view returns(address[] memory) {
+        return defaultQueue;
+    }
+
+    function getDebt(address strategy) external view override returns (uint256) {
+        return strategies[strategy].currentDebt;
+    }
+
+    function setDebt(address strategy, uint256 _newDebt) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        strategies[strategy].currentDebt = _newDebt;
     }
 }
     

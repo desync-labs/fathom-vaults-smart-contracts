@@ -30,7 +30,8 @@ contract MockTokenizedStrategy is TokenizedStrategy {
         address _asset,
         string memory _name,
         address _management,
-        address _keeper
+        address _keeper,
+        uint32 _profitMaxUnlockTime
     ) {
         // Cache storage pointer
         StrategyData storage S = strategyStorage();
@@ -51,6 +52,7 @@ contract MockTokenizedStrategy is TokenizedStrategy {
         S.performanceFeeRecipient = _management;
         // Set the keeper address
         S.keeper = _keeper;
+        S.profitMaxUnlockTime = _profitMaxUnlockTime;
     }
 
     function setMinDebt(uint256 _minDebt) external {

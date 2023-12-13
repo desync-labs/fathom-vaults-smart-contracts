@@ -8,7 +8,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vaultTokenDecimals = 18;
     const assetSymbol = "FXD";
     const assetDecimals = 18;
-    const profitMaxUnlockTime = 31536000; // 1 year in seconds
+    const profitMaxUnlockTime = 60; // 1 year in seconds
 
     const asset = await deploy("Token", {
         from: deployer,
@@ -30,7 +30,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const strategy = await deploy("MockTokenizedStrategy", {
         from: deployer,
-        args: [asset.address, "Mock Tokenized Strategy", deployer, deployer],
+        args: [asset.address, "Mock Tokenized Strategy", deployer, deployer, profitMaxUnlockTime],
         log: true,
     });
 

@@ -146,4 +146,6 @@ interface IVault {
     function previewRedeem(uint256 shares) external view returns (uint256);
 
     function allowance(address owner, address spender) external view returns (uint256);
+
+    function getDebt(address strategy) external view returns (uint256);
 }

@@ -5,17 +5,22 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
 import "./Interfaces/ISharesManager.sol";
+import "./StrategyManager.sol";
+import "./Setters.sol";
+import "./Interfaces/IStrategyManager.sol";
 import "./Interfaces/IStrategy.sol";
 import "./Interfaces/IDepositLimitModule.sol";
 import "./Interfaces/IWithdrawLimitModule.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
 @title STRATEGY MANAGEMENT
 */
 
-contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesManager {
+contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesManager, AccessControl {
     // solhint-disable not-rely-on-time
     // solhint-disable var-name-mixedcase
     // solhint-disable function-max-lines
@@ -65,6 +70,16 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         ASSET = IERC20(_asset);
         name = _name;
         symbol = _symbol;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function initialize(address _strategyManager, address _setters) external override onlyRole(DEFAULT_ADMIN_ROLE){
+        if (initialized == true) {
+            revert ("already initialized");
+        }
+        strategyManager = _strategyManager;
+        setters = _setters;
+        initialized = true;
     }
 
 
@@ -213,11 +228,11 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // minted to the vault which are unlocked gradually over time. Shares 
     // that have been locked are gradually unlocked over profitMaxUnlockTime.
     function _unlockedShares() internal view returns (uint256) {
-        uint256 _fullProfitUnlockDate = fullProfitUnlockDate;
+        uint256 _fullProfitUnlockDate = Setters(setters).fullProfitUnlockDate();
         uint256 currUnlockedShares = 0;
         if (_fullProfitUnlockDate > block.timestamp) {
             // If we have not fully unlocked, we need to calculate how much has been.
-            currUnlockedShares = profitUnlockingRate * (block.timestamp - lastProfitUpdate) / MAX_BPS_EXTENDED;
+            currUnlockedShares = Setters(setters).profitUnlockingRate() * (block.timestamp - lastProfitUpdate) / MAX_BPS_EXTENDED;
         } else if (_fullProfitUnlockDate != 0) {
             // All shares have been unlocked
             currUnlockedShares = _balanceOf[address(this)];
@@ -247,7 +262,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         if (currUnlockedShares == 0) return;
         
         // Only do an SSTORE if necessary
-        if (fullProfitUnlockDate > block.timestamp) {
+        if (Setters(setters).fullProfitUnlockDate() > block.timestamp) {
             lastProfitUpdate = block.timestamp;
         }
         
@@ -682,7 +697,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     // wants to withdraw 1000 tokens, the losses that he will take are 100 token
     function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
         // Minimum of how much debt the debt should be worth.
-        uint256 strategyCurrentDebt = strategies[strategy].currentDebt;
+        (, , uint256 strategyCurrentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
         // The actual amount that the debt is currently worth.
         uint256 vaultShares = IStrategy(strategy).balanceOf(address(this));
         uint256 strategyAssets = IStrategy(strategy).convertToAssets(vaultShares);
@@ -708,7 +723,8 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
 
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view override returns (uint256) {
         // Assuming strategies mapping and _assess_share_of_unrealised_losses are defined
-        if (strategies[strategy].currentDebt < assetsNeeded) {
+        (, , uint256 strategyCurrentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
+        if (strategyCurrentDebt < assetsNeeded) {
             revert StrategyDebtIsLessThanAssetsNeeded();
         }
         return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
@@ -798,13 +814,22 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             previousBalance: ASSET.balanceOf(address(this)),
             unrealisedLossesShare: 0
         });
-
+        
         // If there are not enough assets in the Vault contract, we try to free
         // funds from strategies.
         if (state.requestedAssets > state.currTotalIdle) {
             // Cache the default queue.
-            address[] memory currentStrategies = _strategies.length != 0 && !useDefaultQueue ? _strategies : defaultQueue;
-
+            address[] memory currentStrategies;
+            uint256 defaultQueueLength;
+            if (_strategies.length != 0 && !StrategyManager(strategyManager).useDefaultQueue()) {
+                // If a custom queue was passed, and we don't force the default queue.
+                // Use the custom queue.
+                defaultQueueLength = _strategies.length;
+                currentStrategies = _strategies;
+            } else {
+                currentStrategies = IStrategyManager(strategyManager).getDefaultQueue();
+            }
+            
             // Withdraw from strategies only what idle doesn't cover.
             // `assetsNeeded` is the total amount we need to fill the request.
             state.assetsNeeded = state.requestedAssets - state.currTotalIdle;
@@ -812,16 +837,19 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             // Assuming _strategies is an array of addresses representing the strategies
             for (uint256 i = 0; i < currentStrategies.length; i++) {
                 address strategy = currentStrategies[i];
-                
                 // Make sure we have a valid strategy.
-                if (strategies[strategy].activation == 0) {
+                (uint256 activation, , , ) = StrategyManager(strategyManager).strategies(strategy);
+                if (activation == 0) {
                     revert InactiveStrategy();
                 }
 
-                // How much should the strategy have.
-                uint256 currentDebt = strategies[strategy].currentDebt;
+                // How much should the strategy have.                
+                (, , uint256 currentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
 
                 // What is the max amount to withdraw from this strategy.
+                // NEEDS ATTENTION!!!!
+                // ORIGINAL CODE IS MATH.MIN
+                // NEEDS TO CAREFUL REVIEW THIS AND TRY TO UNDERSTAND WHAT'S GOING ON HERE
                 uint256 assetsToWithdraw = Math.min(state.assetsNeeded, currentDebt);
 
                 // Cache max_withdraw now for use if unrealized loss > 0
@@ -864,7 +892,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
                         uint256 newDebt = currentDebt - unrealisedLossesShare;
 
                         // Update strategies storage
-                        strategies[strategy].currentDebt = newDebt;
+                        IStrategyManager(strategyManager).setDebt(strategy, newDebt);
 
                         // Log the debt update
                         emit DebtUpdated(strategy, currentDebt, newDebt);
@@ -881,11 +909,12 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
 
                 // WITHDRAW FROM STRATEGY
                 _withdrawFromStrategy(strategy, assetsToWithdraw);
-                uint256 postBalance = ASSET.balanceOf(address(this));
+                uint256 postBalance = ASSET.balanceOf(address(this));                
                 
                 // Always check withdrawn against the real amounts.
                 uint256 withdrawn = postBalance - state.previousBalance;
                 uint256 loss = 0;
+                
                 // Check if we redeemed too much.
                 if (withdrawn > assetsToWithdraw) {
                     // Make sure we don't underflow in debt updates.
@@ -902,15 +931,32 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
 
                 // NOTE: strategy's debt decreases by the full amount but the total idle increases 
                 // by the actual amount only (as the difference is considered lost).
-                state.currTotalIdle += assetsToWithdraw - loss;
-                state.requestedAssets -= loss;
-                state.currTotalDebt -= assetsToWithdraw;
+                if (state.currTotalIdle + assetsToWithdraw - loss <= 0) {
+                    state.currTotalIdle = 0;
+                } else {
+                    state.currTotalIdle += assetsToWithdraw - loss;
+                }
+                if (state.requestedAssets - loss <= 0) {
+                    state.requestedAssets = 0;
+                } else {
+                    state.requestedAssets -= loss;
+                }
+                if (state.currTotalDebt - assetsToWithdraw <= 0) {
+                    state.currTotalDebt = 0;
+                } else {
+                    state.currTotalDebt -= assetsToWithdraw;
+                }
 
                 // Vault will reduce debt because the unrealised loss has been taken by user
-                uint256 _newDebt = currentDebt - (assetsToWithdraw + unrealisedLossesShare);
+                uint256 _newDebt;
+                if (currentDebt < (assetsToWithdraw + unrealisedLossesShare)) {
+                    _newDebt = 0;
+                } else {
+                    _newDebt = currentDebt - (assetsToWithdraw + unrealisedLossesShare);
+                }
 
                 // Update strategies storage
-                strategies[strategy].currentDebt = _newDebt;
+                IStrategyManager(strategyManager).setDebt(strategy, _newDebt);
                 // Log the debt update
                 emit DebtUpdated(strategy, currentDebt, _newDebt);
 
@@ -931,7 +977,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             if (state.currTotalIdle < state.requestedAssets) {
                 revert InsufficientAssets();
             }
-
+            
             // Commit memory to storage.
             totalDebtAmount = state.currTotalDebt;
         }
@@ -1091,22 +1137,24 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
             // Update storage to increase total assets.
             totalIdleAmount += fees.totalRefunds;
         }
+
+        uint256 currentDebt = IStrategyManager(strategyManager).getDebt(strategy);
         
         // Record any reported gains.
         if (gain > 0) {
-            // NOTE: this will increase total_assets
-            strategies[strategy].currentDebt += gain;
+            // NOTE: this will increase total_assets            
+            IStrategyManager(strategyManager).setDebt(strategy, currentDebt + gain);
             totalDebtAmount += gain;
         }
 
         // Mint anything we are locking to the vault.
-        if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
+        if (gain + fees.totalRefunds > 0 && Setters(setters).profitMaxUnlockTime() != 0) {
             _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
         }
         
         // Strategy is reporting a loss
         if (loss > 0) {
-            strategies[strategy].currentDebt -= loss;
+            IStrategyManager(strategyManager).setDebt(strategy, currentDebt - loss);
             totalDebtAmount -= loss;
         }
         
@@ -1149,14 +1197,14 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
         if (totalLockedShares > 0) {
             uint256 previouslyLockedTime = 0;
             // Check if we need to account for shares still unlocking.
-            if (fullProfitUnlockDate > block.timestamp) {
+            if (Setters(setters).fullProfitUnlockDate() > block.timestamp) {
                 // There will only be previously locked shares if time remains.
                 // We calculate this here since it will not occur every time we lock shares.
-                previouslyLockedTime = previouslyLockedShares * (fullProfitUnlockDate - block.timestamp);
+                previouslyLockedTime = previouslyLockedShares * (Setters(setters).fullProfitUnlockDate() - block.timestamp);
             }
 
             // newProfitLockingPeriod is a weighted average between the remaining time of the previously locked shares and the profitMaxUnlockTime
-            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * profitMaxUnlockTime) / totalLockedShares;
+            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * Setters(setters).profitMaxUnlockTime()) / totalLockedShares;
             // Calculate how many shares unlock per second.
             profitUnlockingRate = totalLockedShares * MAX_BPS_EXTENDED / newProfitLockingPeriod;
             // Calculate how long until the full amount of shares is unlocked.

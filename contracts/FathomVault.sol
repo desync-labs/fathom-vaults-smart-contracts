@@ -527,4 +527,8 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     function allowance(address owner, address spender) external view override returns (uint256) {
         return ISharesManager(sharesManager).allowance(owner, spender);
     }
+
+    function getDebt(address strategy) external view override returns (uint256) {
+        return IStrategyManager(strategyManager).getDebt(strategy);
+    }
 }
