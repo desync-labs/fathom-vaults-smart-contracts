@@ -45,4 +45,12 @@ interface IVaultEvents {
     // STORAGE MANAGEMENT EVENTS
     event UpdateDepositLimitModule(address indexed depositLimitModule);
     event UpdateWithdrawLimitModule(address indexed withdrawLimitModule);
+
+    // FEE EVENTS
+    event UpdatedFees(
+        uint256 indexed totalFees,
+        uint256 indexed totalRefunds,
+        uint256 indexed protocolFees,
+        address protocolFeeRecipient
+    );
 }

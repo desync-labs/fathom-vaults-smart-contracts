@@ -37,7 +37,7 @@ interface ISharesManager is IERC4626 {
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view returns (uint256);
     function withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) external;
     function calculateShareManagement(uint256 gain, uint256 loss, uint256 totalFees, uint256 protocolFees, address strategy) external returns (ShareManagement memory shareManagement);
-    function handleShareBurnsAndIssues(ShareManagement memory shares, FeeAssessment memory fees, uint256 gain, uint256 loss, address strategy) external returns (uint256 , uint256);
+    function handleShareBurnsAndIssues(ShareManagement memory shares, FeeAssessment memory fees, uint256 gain) external returns (uint256 , uint256);
     function manageUnlockingOfShares(uint256 previouslyLockedShares, uint256 newlyLockedShares) external;
     function setDepositLimit(uint256 _depositLimit) external;
     function getTotalIdleAmount() external returns (uint256);

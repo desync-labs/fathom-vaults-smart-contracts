@@ -1139,9 +1139,7 @@ contract SharesManager is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesMa
     function handleShareBurnsAndIssues(
         ShareManagement memory shares, 
         FeeAssessment memory _fees, 
-        uint256 gain, 
-        uint256 loss, 
-        address strategy
+        uint256 gain
     ) external override returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;

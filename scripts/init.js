@@ -226,6 +226,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
+    console.log("Setting deposit limit...");
+    const setDepositLimitTx2 = await vault.connect(owner).setDepositLimit(amount, { gasLimit: "0x1000000" });
+    await setDepositLimitTx2.wait(); // Wait for the transaction to be confirmed
+
     // const withdrawTxAfter = await vault.connect(owner).withdraw(balanceInTokens, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
     // // const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
     // await withdrawTxAfter.wait();

@@ -304,7 +304,7 @@ contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategy
 
         ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(gain, loss, fees.totalFees, fees.protocolFees, strategy);
 
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain, loss, strategy);
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain);
 
         ISharesManager(sharesManager).manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
 
@@ -406,6 +406,8 @@ contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategy
         fees.totalRefunds = totalRefunds;
         fees.protocolFees = protocolFees;
         fees.protocolFeeRecipient = protocolFeeRecipient;
+
+        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 }
     
