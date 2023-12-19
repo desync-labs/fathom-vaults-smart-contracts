@@ -2,7 +2,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
 
-    const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96"; // FXD Token on Apothem
+    const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96"; // FXD Token on Apothem
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
     const vaultTokenDecimals = 18;
@@ -18,19 +18,19 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const sharesManager = await deploy("SharesManager", {
         from: deployer,
-        args: [asset.address, vaultTokenDecimals, vaultTokenName, vaultTokenSymbol],
+        args: [assetAddress, vaultTokenDecimals, vaultTokenName, vaultTokenSymbol],
         log: true,
     });
 
     const strategyManager = await deploy("StrategyManager", {
         from: deployer,
-        args: [asset.address, sharesManager.address],
+        args: [assetAddress, sharesManager.address],
         log: true,
     });
 
     const strategy = await deploy("MockTokenizedStrategy", {
         from: deployer,
-        args: [asset.address, "Mock Tokenized Strategy", deployer, deployer, profitMaxUnlockTime],
+        args: [assetAddress, "Mock Tokenized Strategy", deployer, deployer, profitMaxUnlockTime],
         log: true,
     });
 

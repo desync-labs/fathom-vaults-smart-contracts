@@ -24,8 +24,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const settersFile = getTheAbi("Setters");
 
     const vaultAddress = vaultFile.address;
-    const assetAddress = tokenFile.address;
-    // const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
+    // const assetAddress = tokenFile.address;
+    const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
     const sharesManagerAddress = sharesManagerFile.address;
     const strategyManagerAddress = strategyManagerFile.address;
     const strategyAddress = strategyFile.address;
@@ -66,9 +66,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Initializing vault...");
     const initializeTx = await sharesManager.connect(owner).initialize(strategyManagerAddress, settersAddress, { gasLimit: "0x1000000" });
     await initializeTx.wait();
-    console.log("Minting tokens...");
-    const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
-    await mintTx.wait(); // Wait for the transaction to be confirmed
+    // console.log("Minting tokens...");
+    // const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
+    // await mintTx.wait(); // Wait for the transaction to be confirmed
     console.log("Approving tokens...");
     const approveTx = await asset.connect(owner).approve(sharesManager.target, amount, { gasLimit: "0x1000000" });
     await approveTx.wait(); // Wait for the transaction to be confirmed
@@ -183,9 +183,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Create second report for Strategy after sleeping...");
     const reportTx2 = await strategy.connect(owner).report({ gasLimit: "0x1000000" });
     await reportTx2.wait();
-    // console.log("Withdraw from Strategy to Vault after sleeping...");
-    // const withdrawTx = await sharesManager.connect(owner).withdrawAllFromStrategy(strategyAddress, { gasLimit: "0x1000000" });
-    // await withdrawTx.wait();
     console.log("Process second report for Strategy on Vault after sleeping...");
     const processReportTx2 = await vault.connect(owner).processReport(strategy.target, { gasLimit: "0x1000000" });
     await processReportTx2.wait();
