@@ -12,4 +12,5 @@ interface IStrategyManager {
     function getDefaultQueue() external view returns(address[] memory);
     function getDebt(address strategy) external view returns (uint256);
     function setDebt(address strategy, uint256 _newDebt) external;
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
 }

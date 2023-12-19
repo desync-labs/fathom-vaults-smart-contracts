@@ -24,8 +24,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const settersFile = getTheAbi("Setters");
 
     const vaultAddress = vaultFile.address;
-    // const assetAddress = tokenFile.address;
-    const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
+    const assetAddress = tokenFile.address;
+    // const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
     const sharesManagerAddress = sharesManagerFile.address;
     const strategyManagerAddress = strategyManagerFile.address;
     const strategyAddress = strategyFile.address;
@@ -39,6 +39,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const setters = await ethers.getContractAt("Setters", settersAddress);
 
     const [owner, addr1, addr2] = await ethers.getSigners();
+    const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
 
     const amount = ethers.parseUnits("1000000", 18);
     const depositAmount = ethers.parseUnits("1000", 18);
@@ -58,14 +59,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Balance of Shares Manager = ", ethers.formatUnits(balanceSharesManager, 18));
     let balanceStrategy = await asset.connect(owner).balanceOf(strategy.target);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
+    let recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Initialization logic
     console.log("Initializing vault...");
     const initializeTx = await sharesManager.connect(owner).initialize(strategyManagerAddress, settersAddress, { gasLimit: "0x1000000" });
     await initializeTx.wait();
-    // console.log("Minting tokens...");
-    // const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
-    // await mintTx.wait(); // Wait for the transaction to be confirmed
+    console.log("Minting tokens...");
+    const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
+    await mintTx.wait(); // Wait for the transaction to be confirmed
     console.log("Approving tokens...");
     const approveTx = await asset.connect(owner).approve(sharesManager.target, amount, { gasLimit: "0x1000000" });
     await approveTx.wait(); // Wait for the transaction to be confirmed
@@ -121,6 +124,28 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     let sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
+    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
+
+    // Set fees
+    console.log("Setting fees...");
+    const setFeesTx = await vault.connect(owner).setFees(
+        BigInt(10), // totalFees in percentage
+        BigInt(0),    // totalRefunds
+        BigInt(10), // protocolFees in percentage
+        recipientAddress, // feesRecipient
+        { gasLimit: "0x1000000" }
+    );
+    await setFeesTx.wait();
+    console.log("Fees set successfully.");
+
+    // Showing fees
+    console.log("Showing fees...");
+    const fees = await strategyManager.connect(owner).fees(); // Adjust according to your contract
+    console.log("Total Fees = ", fees.totalFees);
+    console.log("Total Refunds = ", fees.totalRefunds);
+    console.log("Protocol Fees = ", fees.protocolFees);
+    console.log("Protocol Fee Recipient = ", fees.protocolFeeRecipient);
 
 
     console.log("Creating profit for Strategy...");
@@ -148,6 +173,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
+    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Sleep for 60 seconds
     console.log("Sleeping for 60 seconds...");
@@ -156,6 +183,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Create second report for Strategy after sleeping...");
     const reportTx2 = await strategy.connect(owner).report({ gasLimit: "0x1000000" });
     await reportTx2.wait();
+    // console.log("Withdraw from Strategy to Vault after sleeping...");
+    // const withdrawTx = await sharesManager.connect(owner).withdrawAllFromStrategy(strategyAddress, { gasLimit: "0x1000000" });
+    // await withdrawTx.wait();
     console.log("Process second report for Strategy on Vault after sleeping...");
     const processReportTx2 = await vault.connect(owner).processReport(strategy.target, { gasLimit: "0x1000000" });
     await processReportTx2.wait();
@@ -175,6 +205,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
+    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Simulate a redeem
     console.log("Redeeming...");
@@ -191,7 +223,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     balanceStrategy = await asset.connect(owner).balanceOf(strategy.target);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
     sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
+    console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
+    sharesManagerStrategyBalance = await strategy.connect(owner).balanceOf(sharesManagerAddress);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
+    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // const withdrawTxAfter = await vault.connect(owner).withdraw(balanceInTokens, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
     // // const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });

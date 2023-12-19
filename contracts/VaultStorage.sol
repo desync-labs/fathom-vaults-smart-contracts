@@ -27,6 +27,9 @@ contract VaultStorage {
     // HashMap that records all the strategies that are allowed to receive assets from the vault.
     mapping(address => StrategyParams) public strategies;
 
+    // The current fees
+    FeeAssessment public fees;
+
     // The current default withdrawal queue.
     address[] public defaultQueue;
 

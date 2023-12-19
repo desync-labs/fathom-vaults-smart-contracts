@@ -531,4 +531,8 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     function getDebt(address strategy) external view override returns (uint256) {
         return IStrategyManager(strategyManager).getDebt(strategy);
     }
+
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        return IStrategyManager(strategyManager).setFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
+    }
 }

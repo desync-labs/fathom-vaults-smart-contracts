@@ -302,7 +302,7 @@ contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategy
 
         FeeAssessment memory fees = _assessFees(strategy, gain, loss);
 
-        ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(loss, fees.totalFees, fees.protocolFees);
+        ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(gain, loss, fees.totalFees, fees.protocolFees, strategy);
 
         (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain, loss, strategy);
 
@@ -353,26 +353,26 @@ contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategy
 
     // Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        FeeAssessment memory fees;
+        FeeAssessment memory _fees = fees;
 
         // If accountant is not set, fees and refunds remain unchanged.
         if (accountant != address(0)) {
-            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+            (_fees.totalFees, _fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
 
             // Protocol fees will be 0 if accountant fees are 0.
-            if (fees.totalFees > 0) {
+            if (_fees.totalFees > 0) {
                 uint16 protocolFeeBps;
                 // Get the config for this vault.
-                (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
+                (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
                 
                 if (protocolFeeBps > 0) {
                     // Protocol fees are a percent of the fees the accountant is charging.
-                    fees.protocolFees = fees.totalFees * uint256(protocolFeeBps) / MAX_BPS;
+                    _fees.protocolFees = _fees.totalFees * uint256(protocolFeeBps) / MAX_BPS;
                 }
             }
         }
 
-        return fees;
+        return _fees;
     }
 
     // Used only to approve tokens that are not the type managed by this Vault.
@@ -398,6 +398,14 @@ contract StrategyManager is AccessControl, VaultStorage, IVaultEvents, IStrategy
 
     function setDebt(address strategy, uint256 _newDebt) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         strategies[strategy].currentDebt = _newDebt;
+    }
+
+    // Set fees and refunds.
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override {
+        fees.totalFees = totalFees;
+        fees.totalRefunds = totalRefunds;
+        fees.protocolFees = protocolFees;
+        fees.protocolFeeRecipient = protocolFeeRecipient;
     }
 }
     

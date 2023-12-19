@@ -148,4 +148,6 @@ interface IVault {
     function allowance(address owner, address spender) external view returns (uint256);
 
     function getDebt(address strategy) external view returns (uint256);
+
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
 }
