@@ -19,6 +19,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vaultFile = getTheAbi("FathomVault");
     const tokenFile = getTheAbi("Token");
     const sharesManagerFile = getTheAbi("SharesManager");
+    const sharesManagerPackageFile = getTheAbi("SharesManagerPackage");
     const strategyManagerFile = getTheAbi("StrategyManager");
     const strategyFile = getTheAbi("MockTokenizedStrategy");
     const settersFile = getTheAbi("Setters");
@@ -27,6 +28,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // const assetAddress = tokenFile.address;
     const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
     const sharesManagerAddress = sharesManagerFile.address;
+    const sharesManagerPackageAddress = sharesManagerPackageFile.address;
     const strategyManagerAddress = strategyManagerFile.address;
     const strategyAddress = strategyFile.address;
     const settersAddress = settersFile.address;
@@ -34,6 +36,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vault = await ethers.getContractAt("FathomVault", vaultAddress);
     const asset = await ethers.getContractAt("Token", assetAddress);
     const sharesManager = await ethers.getContractAt("SharesManager", sharesManagerAddress);
+    const sharesManagerPackage = await ethers.getContractAt("SharesManagerPackage", sharesManagerPackageAddress);
     const strategyManager = await ethers.getContractAt("StrategyManager", strategyManagerAddress);
     const strategy = await ethers.getContractAt("MockTokenizedStrategy", strategyAddress);
     const setters = await ethers.getContractAt("Setters", settersAddress);
@@ -50,6 +53,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const newDebt = ethers.parseUnits("0", 18);
     const profit = ethers.parseUnits("100", 18);
 
+    const vaultTokenName = "Vault Shares FXD";
+    const vaultTokenSymbol = "vFXD";
+    const assetDecimals = 18;
+
     console.log("Updating balances...");
     let balanceInShares = await vault.connect(owner).balanceOf(owner.address);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
@@ -63,8 +70,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Initialization logic
-    console.log("Initializing vault...");
-    const initializeTx = await sharesManager.connect(owner).initialize(strategyManagerAddress, settersAddress, { gasLimit: "0x1000000" });
+    console.log("Initializing Shares Manager Package...");
+    const initializeTx = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).initialize(strategyManagerAddress, settersAddress, assetAddress, assetDecimals, vaultTokenName, vaultTokenSymbol, { gasLimit: "0x1000000" });
     await initializeTx.wait();
     // console.log("Minting tokens...");
     // const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });

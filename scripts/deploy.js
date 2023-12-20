@@ -16,9 +16,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const sharesManagerPackage = await deploy("SharesManagerPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     const sharesManager = await deploy("SharesManager", {
         from: deployer,
-        args: [assetAddress, vaultTokenDecimals, vaultTokenName, vaultTokenSymbol],
+        args: [sharesManagerPackage.address, []],
         log: true,
     });
 

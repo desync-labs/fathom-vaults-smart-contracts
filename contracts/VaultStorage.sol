@@ -41,6 +41,8 @@ contract VaultStorage {
     mapping(address => uint256) internal _balanceOf;
     // ERC20 - owner -> (spender -> amount)
     mapping(address => mapping(address => uint256)) internal _allowance;
+    // Mapping from function selectors to contract addresses
+    mapping(bytes4 => address) public implementations;
 
     // Total amount of shares that are currently minted including those locked.
     // NOTE: To get the ERC20 compliant version use totalSupply().
