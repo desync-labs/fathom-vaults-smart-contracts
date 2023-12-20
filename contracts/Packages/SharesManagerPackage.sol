@@ -1095,10 +1095,25 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     }
 
     // Calculate share management based on gains, losses, and fees.
-    function calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees) external override view returns (ShareManagement memory) {
+    function calculateShareManagement(uint256 gain, uint256 loss, uint256 totalFees, uint256 protocolFees, address strategy) external override returns (ShareManagement memory) {
         // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
         // NOTE: this needs to be done before any pps changes
         ShareManagement memory shares;
+
+        uint256 currentDebt = IStrategyManager(strategyManager).getDebt(strategy);
+
+        // Record any reported gains.
+        if (gain > 0) {
+            // NOTE: this will increase total_assets            
+            IStrategyManager(strategyManager).setDebt(strategy, currentDebt + gain);
+            totalDebtAmount += gain;
+        }
+
+        // Strategy is reporting a loss
+        if (loss > 0) {
+            IStrategyManager(strategyManager).setDebt(strategy, currentDebt - loss);
+            totalDebtAmount -= loss;
+        }
 
         // Only need to burn shares if there is a loss or fees.
         if (loss + totalFees > 0) {
@@ -1110,7 +1125,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
                 // Accountant fees are total fees - protocol fees.
                 shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
                 if (protocolFees > 0) {
-                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
+                    uint256 numerator = protocolFees * gain;
+                    shares.protocolFeesShares = _convertToShares(numerator / 100, Rounding.ROUND_DOWN);
                 }
             }
         }
@@ -1121,40 +1137,23 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     // Handle the burning and issuing of shares based on the strategy's report.
     function handleShareBurnsAndIssues(
         ShareManagement memory shares, 
-        FeeAssessment memory fees, 
-        uint256 gain, 
-        uint256 loss, 
-        address strategy
+        FeeAssessment memory _fees, 
+        uint256 gain
     ) external override returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;
-        if (fees.totalRefunds > 0) {
+        if (_fees.totalRefunds > 0) {
             // Make sure we have enough approval and enough asset to pull.
-            fees.totalRefunds = Math.min(fees.totalRefunds, Math.min(ISharesManager(sharesManager).balanceOf(accountant), ISharesManager(sharesManager).allowance(accountant, address(this))));
+            _fees.totalRefunds = Math.min(_fees.totalRefunds, Math.min(ISharesManager(sharesManager).balanceOf(accountant), ISharesManager(sharesManager).allowance(accountant, address(this))));
             // Transfer the refunded amount of asset to the vault.
-            _erc20SafeTransferFrom(address(ASSET), accountant, address(this), fees.totalRefunds);
+            _erc20SafeTransferFrom(address(ASSET), accountant, address(this), _fees.totalRefunds);
             // Update storage to increase total assets.
-            totalIdleAmount += fees.totalRefunds;
-        }
-
-        uint256 currentDebt = IStrategyManager(strategyManager).getDebt(strategy);
-        
-        // Record any reported gains.
-        if (gain > 0) {
-            // NOTE: this will increase total_assets            
-            IStrategyManager(strategyManager).setDebt(strategy, currentDebt + gain);
-            totalDebtAmount += gain;
+            totalIdleAmount += _fees.totalRefunds;
         }
 
         // Mint anything we are locking to the vault.
-        if (gain + fees.totalRefunds > 0 && Setters(setters).profitMaxUnlockTime() != 0) {
-            _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
-        }
-        
-        // Strategy is reporting a loss
-        if (loss > 0) {
-            IStrategyManager(strategyManager).setDebt(strategy, currentDebt - loss);
-            totalDebtAmount -= loss;
+        if (gain + _fees.totalRefunds > 0 && Setters(setters).profitMaxUnlockTime() != 0) {
+            _newlyLockedShares = _issueSharesForAmount(gain + _fees.totalRefunds, address(this));
         }
         
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
@@ -1183,7 +1182,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         }
 
         if (shares.protocolFeesShares > 0) {
-            _issueShares(shares.protocolFeesShares, fees.protocolFeeRecipient);
+            _issueShares(shares.protocolFeesShares, _fees.protocolFeeRecipient);
         }
 
         return (_previouslyLockedShares, _newlyLockedShares);

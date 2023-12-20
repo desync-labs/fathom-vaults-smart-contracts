@@ -25,8 +25,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const settersFile = getTheAbi("Setters");
 
     const vaultAddress = vaultFile.address;
-    // const assetAddress = tokenFile.address;
-    const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
+    const assetAddress = tokenFile.address;
+    // const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96";
     const sharesManagerAddress = sharesManagerFile.address;
     const sharesManagerPackageAddress = sharesManagerPackageFile.address;
     const strategyManagerAddress = strategyManagerFile.address;
@@ -66,16 +66,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Balance of Shares Manager = ", ethers.formatUnits(balanceSharesManager, 18));
     let balanceStrategy = await asset.connect(owner).balanceOf(strategy.target);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
-    let recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    let recipientShares = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Initialization logic
     console.log("Initializing Shares Manager Package...");
     const initializeTx = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).initialize(strategyManagerAddress, settersAddress, assetAddress, assetDecimals, vaultTokenName, vaultTokenSymbol, { gasLimit: "0x1000000" });
     await initializeTx.wait();
-    // console.log("Minting tokens...");
-    // const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
-    // await mintTx.wait(); // Wait for the transaction to be confirmed
+    console.log("Minting tokens...");
+    const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
+    await mintTx.wait(); // Wait for the transaction to be confirmed
     console.log("Approving tokens...");
     const approveTx = await asset.connect(owner).approve(sharesManager.target, amount, { gasLimit: "0x1000000" });
     await approveTx.wait(); // Wait for the transaction to be confirmed
@@ -131,7 +131,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     let sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
-    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    recipientShares = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Set fees
@@ -180,7 +180,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
-    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    recipientShares = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Sleep for 60 seconds
@@ -209,7 +209,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Shares Manager Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
     sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
-    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    recipientShares = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     // Simulate a redeem
@@ -230,7 +230,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
     sharesManagerStrategyBalance = await strategy.connect(owner).balanceOf(sharesManagerAddress);
     console.log("Shares Manager Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
-    recipientShares = await sharesManager.connect(owner).balanceOf(recipientAddress);
+    recipientShares = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).balanceOf(recipientAddress);
     console.log("Shares of Recipient = ", ethers.formatUnits(recipientShares, 18));
 
     console.log("Setting deposit limit...");
