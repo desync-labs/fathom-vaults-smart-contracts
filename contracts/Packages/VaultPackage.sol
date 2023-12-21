@@ -60,6 +60,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     error DebtDidntChange();
     error StrategyHasUnrealisedLosses();
     error DebtHigherThanMaxDebt();
+    error AlreadyInitialized();
 
     function initialize(
         uint256 _profitMaxUnlockTime,
@@ -69,7 +70,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         address _governanceAddress
     ) external override onlyRole(DEFAULT_ADMIN_ROLE){
         if (initialized == true) {
-            revert ("already initialized");
+            revert AlreadyInitialized();
         }
         
         FACTORY = msg.sender;

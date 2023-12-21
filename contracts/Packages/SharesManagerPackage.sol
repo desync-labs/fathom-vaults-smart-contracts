@@ -46,6 +46,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     error TooMuchLoss();
     error InvalidAssetDecimals();
     error UsingModule();
+    error AlreadyInitialized();
+    error AmountTooHigh();
 
     // IMMUTABLE
     // Address of the underlying token used by the vault
@@ -66,7 +68,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         string memory _symbol
     ) external override onlyRole(DEFAULT_ADMIN_ROLE){
         if (initialized == true) {
-            revert ("already initialized");
+            revert AlreadyInitialized();
         }
         strategyManager = _strategyManager;
         setters = _setters;
@@ -404,7 +406,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             // after first deposit, getting here would mean that the rest of the shares
             // would be diluted to a price_per_share of 0. Issuing shares would then mean
             // either the new depositor or the previous depositors will loose money.
-            revert("amount too high");
+            revert AmountTooHigh();
         }
 
         // We don't make the function revert

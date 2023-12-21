@@ -22,12 +22,13 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
 
     error InactiveStrategy();
     error ZeroValue();
+    error AlreadyInitialized();
 
     function initialize(
         address _sharesManager
     ) external override onlyRole(DEFAULT_ADMIN_ROLE){
         if (initialized == true) {
-            revert ("already initialized");
+            revert AlreadyInitialized();
         }
         sharesManager = _sharesManager;
         _grantRole(DEFAULT_ADMIN_ROLE, _sharesManager);

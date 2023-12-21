@@ -23,12 +23,13 @@ contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPa
     error UsingModule();
     error UsingDepositLimit();
     error ProfitUnlockTimeTooLong();
+    error AlreadyInitialized();
 
     function initialize(
         address _sharesManager
     ) external override onlyRole(DEFAULT_ADMIN_ROLE){
         if (initialized == true) {
-            revert ("already initialized");
+            revert AlreadyInitialized();
         }
         sharesManager = _sharesManager;
         _grantRole(DEFAULT_ADMIN_ROLE, _sharesManager);

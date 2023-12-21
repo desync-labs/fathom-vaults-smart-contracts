@@ -17,7 +17,7 @@ module.exports = {
     },
     networks: {
         apothem: {
-            url: `https://erpc.apothem.network`,
+            url: `https://earpc.apothem.network`,
             accounts: [fs.readFileSync("./privateKey").toString()],
         },
         ganache: {

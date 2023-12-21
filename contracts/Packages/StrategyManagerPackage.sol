@@ -42,13 +42,14 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
     error DebtHigherThanMaxDebt();
     error InsufficientFunds();
     error StrategyDebtIsLessThanAssetsNeeded();
+    error AlreadyInitialized();
 
     function initialize(
         address _asset,
         address _sharesManager
     ) external override onlyRole(DEFAULT_ADMIN_ROLE){
         if (initialized == true) {
-            revert ("already initialized");
+            revert AlreadyInitialized();
         }
         ASSET = IERC20(_asset);
         FACTORY = msg.sender;
