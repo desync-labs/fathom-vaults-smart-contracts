@@ -64,7 +64,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
     // Constructor
     constructor(
         uint256 _profitMaxUnlockTime,
-        address _strategyManagerAddress,
+        address payable _strategyManagerAddress,
         address _sharesManagerAddress,
         address _settersAddress,
         address _governanceAddress

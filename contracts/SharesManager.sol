@@ -32,14 +32,7 @@ interface SharesManagerUpgradeable {
  * implementation behind the proxy.
  */
 
-contract SharesManager is SharesManagerUpgradeable, Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, ReentrancyGuard, AccessControl {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
+contract SharesManager is Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, ReentrancyGuard, AccessControl, SharesManagerUpgradeable {
     /**
      * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
      *

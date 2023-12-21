@@ -18,7 +18,7 @@ contract VaultStorage {
     string public constant API_VERSION = "1.0.0";
     uint256 public immutable ONE_YEAR = 31556952;
 
-    address public strategyManager;
+    address payable public strategyManager;
     address public sharesManager;
     address public setters;
     address public governance;
@@ -41,8 +41,6 @@ contract VaultStorage {
     mapping(address => uint256) internal _balanceOf;
     // ERC20 - owner -> (spender -> amount)
     mapping(address => mapping(address => uint256)) internal _allowance;
-    // Mapping from function selectors to contract addresses
-    mapping(bytes4 => address) public implementations;
 
     // Total amount of shares that are currently minted including those locked.
     // NOTE: To get the ERC20 compliant version use totalSupply().

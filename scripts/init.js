@@ -21,6 +21,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const sharesManagerFile = getTheAbi("SharesManager");
     const sharesManagerPackageFile = getTheAbi("SharesManagerPackage");
     const strategyManagerFile = getTheAbi("StrategyManager");
+    const strategyManagerPackageFile = getTheAbi("StrategyManagerPackage");
     const strategyFile = getTheAbi("MockTokenizedStrategy");
     const settersFile = getTheAbi("Setters");
 
@@ -30,6 +31,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const sharesManagerAddress = sharesManagerFile.address;
     const sharesManagerPackageAddress = sharesManagerPackageFile.address;
     const strategyManagerAddress = strategyManagerFile.address;
+    const strategyManagerPackageAddress = strategyManagerPackageFile.address;
     const strategyAddress = strategyFile.address;
     const settersAddress = settersFile.address;
 
@@ -38,6 +40,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const sharesManager = await ethers.getContractAt("SharesManager", sharesManagerAddress);
     const sharesManagerPackage = await ethers.getContractAt("SharesManagerPackage", sharesManagerPackageAddress);
     const strategyManager = await ethers.getContractAt("StrategyManager", strategyManagerAddress);
+    const strategyManagerPackage = await ethers.getContractAt("StrategyManagerPackage", strategyManagerPackageAddress);
     const strategy = await ethers.getContractAt("MockTokenizedStrategy", strategyAddress);
     const setters = await ethers.getContractAt("Setters", settersAddress);
 
@@ -73,6 +76,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Initializing Shares Manager Package...");
     const initializeTx = await sharesManagerPackage.attach(sharesManagerAddress).connect(owner).initialize(strategyManagerAddress, settersAddress, assetAddress, assetDecimals, vaultTokenName, vaultTokenSymbol, { gasLimit: "0x1000000" });
     await initializeTx.wait();
+    console.log("Initializing Strategy Manager Package...");
+    const initializeTx2 = await strategyManagerPackage.attach(strategyManagerAddress).connect(owner).initialize(assetAddress, sharesManagerAddress, { gasLimit: "0x1000000" });
+    await initializeTx2.wait();
     console.log("Minting tokens...");
     const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
     await mintTx.wait(); // Wait for the transaction to be confirmed
@@ -148,7 +154,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     // Showing fees
     console.log("Showing fees...");
-    const fees = await strategyManager.connect(owner).fees(); // Adjust according to your contract
+    const fees = await strategyManagerPackage.attach(strategyManagerAddress).connect(owner).fees(); // Adjust according to your contract
     console.log("Total Fees = ", fees.totalFees);
     console.log("Total Refunds = ", fees.totalRefunds);
     console.log("Protocol Fees = ", fees.protocolFees);

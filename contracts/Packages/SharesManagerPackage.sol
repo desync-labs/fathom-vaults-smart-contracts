@@ -58,7 +58,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     string public override symbol;
 
     function initialize(
-        address _strategyManager, 
+        address payable _strategyManager, 
         address _setters,         
         address _asset,
         uint8 _decimals,

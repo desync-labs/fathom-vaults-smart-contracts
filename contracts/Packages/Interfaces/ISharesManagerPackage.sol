@@ -8,7 +8,7 @@ interface ISharesManagerPackage is IERC4626 {
     // solhint-disable max-line-length
     // solhint-disable ordering
 
-    function initialize(address _strategyManager, address _setters, address _asset, uint8 _decimals, string memory _name, string memory _symbol) external;
+    function initialize(address payable _strategyManager, address _setters, address _asset, uint8 _decimals, string memory _name, string memory _symbol) external;
     function balanceOf(address addr) external view returns (uint256);
     function allowance(address owner, address spender) external view returns (uint256);
     function spendAllowance(address owner, address spender, uint256 amount) external;

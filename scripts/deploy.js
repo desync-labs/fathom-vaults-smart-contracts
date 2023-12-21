@@ -28,9 +28,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const strategyManagerPackage = await deploy("StrategyManagerPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     const strategyManager = await deploy("StrategyManager", {
         from: deployer,
-        args: [asset.address, sharesManager.address],
+        args: [strategyManagerPackage.address, []],
         log: true,
     });
 
