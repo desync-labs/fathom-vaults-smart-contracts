@@ -59,7 +59,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
     function initialize(
         address payable _strategyManager, 
-        address _setters,         
+        address payable _setters,         
         address _asset,
         uint8 _decimals,
         string memory _name,

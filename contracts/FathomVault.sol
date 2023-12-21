@@ -66,7 +66,7 @@ contract FathomVault is AccessControl, IVault, ReentrancyGuard, VaultStorage, IV
         uint256 _profitMaxUnlockTime,
         address payable _strategyManagerAddress,
         address _sharesManagerAddress,
-        address _settersAddress,
+        address payable _settersAddress,
         address _governanceAddress
     ) {
         FACTORY = msg.sender;

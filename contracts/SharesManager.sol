@@ -1,19 +1,10 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
-import "./StrategyManager.sol";
-import "./Setters.sol";
-import "./Interfaces/IStrategyManager.sol";
-import "./Interfaces/IStrategy.sol";
-import "./Interfaces/IDepositLimitModule.sol";
-import "./Interfaces/IWithdrawLimitModule.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 

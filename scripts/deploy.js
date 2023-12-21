@@ -46,9 +46,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const settersPackage = await deploy("SettersPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     const setters = await deploy("Setters", {
         from: deployer,
-        args: [sharesManager.address],
+        args: [settersPackage.address, []],
         log: true,
     });
 

@@ -3,13 +3,6 @@ pragma solidity ^0.8.16;
 
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
-import "./Interfaces/IStrategyManager.sol";
-import "./Interfaces/IStrategy.sol";
-import "./Interfaces/ISharesManager.sol";
-import "./Interfaces/IAccountant.sol";
-import "./Interfaces/IFactory.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";

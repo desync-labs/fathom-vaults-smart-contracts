@@ -20,7 +20,7 @@ contract VaultStorage {
 
     address payable public strategyManager;
     address public sharesManager;
-    address public setters;
+    address payable public setters;
     address public governance;
 
     // STORAGE

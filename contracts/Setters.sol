@@ -3,136 +3,51 @@ pragma solidity ^0.8.16;
 
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
-import "./Interfaces/ISetters.sol";
 import "./Interfaces/ISharesManager.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/Proxy.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
 /**
 @title SETTERS CONTRACT
 */
 
-contract Setters is AccessControl, VaultStorage, IVaultEvents, ISetters {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
+interface SettersUpgradeable {
     // solhint-disable max-line-length
+    // solhint-disable ordering
 
-    error InactiveStrategy();
-    error StrategyIsShutdown();
-    error UsingModule();
-    error UsingDepositLimit();
-    error ProfitUnlockTimeTooLong();
+    function setImplementation(address implementation, bytes memory _data) external;
+}
 
-    constructor(
-        address _sharesManager
-    ) {
-        sharesManager = _sharesManager;
+contract Setters is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, SettersUpgradeable {
+        /**
+     * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
+     *
+     * If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an
+     * encoded function call, and allows initializing the storage of the proxy like a Solidity constructor.
+     *
+     * Requirements:
+     *
+     * - If `data` is empty, `msg.value` must be zero.
+     */    
+    constructor(address implementation, bytes memory _data) payable {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // @notice Set the new accountant address.
-    // @param new_accountant The new accountant address.
-    function setAccountant(address newAccountant) external override onlyRole(ACCOUNTANT_MANAGER) {
-        accountant = newAccountant;
-        emit UpdateAccountant(newAccountant);
+    function setImplementation(address implementation, bytes memory _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // @notice Set the new default queue array.
-    // @dev Will check each strategy to make sure it is active.
-    // @param new_default_queue The new default queue array.
-    function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
-        // Make sure every strategy in the new queue is active.
-        for (uint256 i = 0; i < newDefaultQueue.length; i++) {
-            address strategy = newDefaultQueue[i];
-            if (strategies[strategy].activation == 0) {
-                revert InactiveStrategy();
-            }
-        }
-        // Save the new queue.
-        defaultQueue = newDefaultQueue;
-        emit UpdateDefaultQueue(newDefaultQueue);
-    }
-
-    // @notice Set a new value for `use_default_queue`.
-    // @dev If set `True` the default queue will always be
-    //  used no matter whats passed in.
-    // @param use_default_queue new value.
-    function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
-        useDefaultQueue = _useDefaultQueue;
-        emit UpdateUseDefaultQueue(_useDefaultQueue);
-    }
-
-    // @notice Set the new deposit limit.
-    // @dev Can not be changed if a deposit_limit_module
-    //  is set or if shutdown.
-    // @param deposit_limit The new deposit limit.
-    function setDepositLimit(uint256 _depositLimit) external override {
-        if (shutdown == true) {
-            revert StrategyIsShutdown();
-        }
-        if (depositLimitModule != address(0)) {
-            revert UsingModule();
-        }
-        depositLimit = _depositLimit;
-        emit UpdateDepositLimit(_depositLimit);
-    }
-
-    // @notice Set a contract to handle the deposit limit.
-    // @dev The default `deposit_limit` will need to be set to
-    //  max uint256 since the module will override it.
-    // @param deposit_limit_module Address of the module.
-    function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
-        if (shutdown == true) {
-            revert StrategyIsShutdown();
-        }
-        if (depositLimit != type(uint256).max) {
-            revert UsingDepositLimit();
-        }
-        depositLimitModule = _depositLimitModule;
-        emit UpdateDepositLimitModule(_depositLimitModule);
-    }
-
-    // @notice Set a contract to handle the withdraw limit.
-    // @dev This will override the default `max_withdraw`.
-    // @param withdraw_limit_module Address of the module.
-    function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(WITHDRAW_LIMIT_MANAGER) {
-        withdrawLimitModule = _withdrawLimitModule;
-        emit UpdateWithdrawLimitModule(_withdrawLimitModule);
-    }
-
-    // @notice Set the new minimum total idle.
-    // @param minimum_total_idle The new minimum total idle.
-    function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(MINIMUM_IDLE_MANAGER) {
-        minimumTotalIdle = _minimumTotalIdle;
-        emit UpdateMinimumTotalIdle(_minimumTotalIdle);
-    }
-
-    // @notice Set the new profit max unlock time.
-    // @dev The time is denominated in seconds and must be less than 1 year.
-    //  We only need to update locking period if setting to 0,
-    //  since the current period will use the old rate and on the next
-    //  report it will be reset with the new unlocking time.
-    
-    //  Setting to 0 will cause any currently locked profit to instantly
-    //  unlock and an immediate increase in the vaults Price Per Share.
-
-    // @param new_profit_max_unlock_time The new profit max unlock time.
-    function setProfitMaxUnlockTime(uint256 _newProfitMaxUnlockTime) external override onlyRole(PROFIT_UNLOCK_MANAGER) {
-        // Must be less than one year for report cycles
-        if (_newProfitMaxUnlockTime > ONE_YEAR) {
-            revert ProfitUnlockTimeTooLong();
-        }
-
-        // If setting to 0 we need to reset any locked values.
-        if (_newProfitMaxUnlockTime == 0) {
-            // Burn any shares the vault still has.
-            ISharesManager(sharesManager).burnShares(_balanceOf[address(this)], address(this));
-            // Reset unlocking variables to 0.
-            profitUnlockingRate = 0;
-            fullProfitUnlockDate = 0;
-        }
-        profitMaxUnlockTime = _newProfitMaxUnlockTime;
-        emit UpdateProfitMaxUnlockTime(_newProfitMaxUnlockTime);
+    /**
+     * @dev Returns the current implementation address.
+     *
+     * TIP: To get this value clients can read directly from the storage slot shown below (specified by EIP1967) using
+     * the https://eth.wiki/json-rpc/API#eth_getstorageat[`eth_getStorageAt`] RPC call.
+     * `0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc`
+     */
+    function _implementation() internal view virtual override returns (address impl) {
+        return ERC1967Upgrade._getImplementation();
     }
 }
     
