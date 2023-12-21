@@ -9,10 +9,7 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
 
-interface SharesManagerUpgradeable {
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
+interface ISharesManagerUpgradeable {
     function setImplementation(address implementation, bytes memory _data) external;
 }
 
@@ -23,7 +20,7 @@ interface SharesManagerUpgradeable {
  * implementation behind the proxy.
  */
 
-contract SharesManager is Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, ReentrancyGuard, AccessControl, SharesManagerUpgradeable {
+contract SharesManager is Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, ReentrancyGuard, AccessControl, ISharesManagerUpgradeable {
     /**
      * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
      *

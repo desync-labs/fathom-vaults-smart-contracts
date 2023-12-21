@@ -11,10 +11,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 @title STRATEGY MANAGEMENT
 */
 
-interface StrategyManagerUpgradeable {
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
+interface IStrategyManagerUpgradeable {
     function setImplementation(address implementation, bytes memory _data) external;
 }
 
@@ -25,7 +22,7 @@ interface StrategyManagerUpgradeable {
  * implementation behind the proxy.
  */
 
-contract StrategyManager is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, StrategyManagerUpgradeable {
+contract StrategyManager is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, IStrategyManagerUpgradeable {
     /**
      * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
      *

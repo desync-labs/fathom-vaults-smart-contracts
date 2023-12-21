@@ -25,6 +25,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const strategyFile = getTheAbi("MockTokenizedStrategy");
     const settersFile = getTheAbi("Setters");
     const settersPackageFile = getTheAbi("SettersPackage");
+    const governanceFile = getTheAbi("Governance");
+    const governancePackageFile = getTheAbi("GovernancePackage");
 
     const vaultAddress = vaultFile.address;
     const assetAddress = tokenFile.address;
@@ -36,6 +38,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const strategyAddress = strategyFile.address;
     const settersAddress = settersFile.address;
     const settersPackageAddress = settersPackageFile.address;
+    const governanceAddress = governanceFile.address;
+    const governancePackageAddress = governancePackageFile.address;
 
     const vault = await ethers.getContractAt("FathomVault", vaultAddress);
     const asset = await ethers.getContractAt("Token", assetAddress);
@@ -46,6 +50,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const strategy = await ethers.getContractAt("MockTokenizedStrategy", strategyAddress);
     const setters = await ethers.getContractAt("Setters", settersAddress);
     const settersPackage = await ethers.getContractAt("SettersPackage", settersPackageAddress);
+    const governance = await ethers.getContractAt("Governance", governanceAddress);
+    const governancePackage = await ethers.getContractAt("GovernancePackage", governancePackageAddress);
 
     const [owner, addr1, addr2] = await ethers.getSigners();
     const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
@@ -85,6 +91,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Initializing Setters Package...");
     const initializeTx3 = await settersPackage.attach(settersAddress).connect(owner).initialize(sharesManagerAddress, { gasLimit: "0x1000000" });
     await initializeTx3.wait();
+    console.log("Initializing Governance Package...");
+    const initializeTx4 = await governancePackage.attach(governanceAddress).connect(owner).initialize(sharesManagerAddress, { gasLimit: "0x1000000" });
+    await initializeTx4.wait();
     console.log("Minting tokens...");
     const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
     await mintTx.wait(); // Wait for the transaction to be confirmed

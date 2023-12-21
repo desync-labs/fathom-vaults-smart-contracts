@@ -58,9 +58,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const governancePackage = await deploy("GovernancePackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     const governance = await deploy("Governance", {
         from: deployer,
-        args: [sharesManager.address],
+        args: [governancePackage.address, []],
         log: true,
     });
 

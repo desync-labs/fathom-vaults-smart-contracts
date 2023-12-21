@@ -13,14 +13,11 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 */
 
 interface SettersUpgradeable {
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
     function setImplementation(address implementation, bytes memory _data) external;
 }
 
 contract Setters is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, SettersUpgradeable {
-        /**
+    /**
      * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
      *
      * If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an

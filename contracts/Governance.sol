@@ -3,106 +3,48 @@ pragma solidity ^0.8.16;
 
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
-import "./Interfaces/IGovernance.sol";
-import "./Interfaces/IStrategy.sol";
-import "./Interfaces/ISharesManager.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/proxy/Proxy.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
 /**
 @title GOVERNANCE MANAGEMENT
 */
 
-contract Governance is AccessControl, VaultStorage, IVaultEvents, IGovernance, ReentrancyGuard {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable max-line-length
+interface IGovernanceUpgradeable {
+    function setImplementation(address implementation, bytes memory _data) external;
+}
 
-    error InactiveStrategy();
-    error ZeroValue();
-
-    constructor(
-        address _sharesManager
-    ) {
-        sharesManager = _sharesManager;
+contract Governance is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, IGovernanceUpgradeable, ReentrancyGuard {
+    /**
+     * @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
+     *
+     * If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an
+     * encoded function call, and allows initializing the storage of the proxy like a Solidity constructor.
+     *
+     * Requirements:
+     *
+     * - If `data` is empty, `msg.value` must be zero.
+     */    
+    constructor(address implementation, bytes memory _data) payable {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // @notice Used for governance to buy bad debt from the vault.
-    // @dev This should only ever be used in an emergency in place
-    //  of force revoking a strategy in order to not report a loss.
-    //  It allows the DEBT_PURCHASER role to buy the strategies debt
-    //  for an equal amount of `asset`. 
-
-    // @param strategy The strategy to buy the debt for
-    // @param amount The amount of debt to buy from the vault.
-    function buyDebt(address strategy, uint256 amount) external override onlyRole(DEBT_PURCHASER) nonReentrant {
-        if (strategies[strategy].activation == 0) {
-            revert InactiveStrategy();
-        }
-
-        // Cache the current debt.
-        uint256 currentDebt = strategies[strategy].currentDebt;
-
-        if (currentDebt <= 0 || amount <= 0) {
-            revert ZeroValue();
-        }
-
-        if (amount > currentDebt) {
-            amount = currentDebt;
-        }
-
-        // We get the proportion of the debt that is being bought and
-        // transfer the equivalent shares. We assume this is being used
-        // due to strategy issues so won't rely on its conversion rates.
-        uint256 shares = IERC20(strategy).balanceOf(address(this)) * amount / currentDebt;
-
-        if (shares <= 0) {
-            revert ZeroValue();
-        }
-
-        ISharesManager(sharesManager).erc20SafeTransferFrom(sharesManager, msg.sender, address(this), amount);
-
-        // Lower strategy debt
-        strategies[strategy].currentDebt -= amount;
-        // lower total debt
-        totalDebtAmount -= amount;
-        // Increase total idle
-        totalIdleAmount += amount;
-
-        // Log debt change
-        emit DebtUpdated(strategy, currentDebt, currentDebt - amount);
-
-        // Transfer the strategies shares out
-        ISharesManager(sharesManager).erc20SafeTransfer(strategy, msg.sender, shares);
-
-        // Log the debt purchase
-        emit DebtPurchased(strategy, amount);
+    function setImplementation(address implementation, bytes memory _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // EMERGENCY MANAGEMENT
-
-    // @notice Shutdown the vault.
-    function shutdownVault() external override onlyRole(EMERGENCY_MANAGER) {
-        if (shutdown == true) {
-            revert InactiveStrategy();
-        }
-
-        // Shutdown the vault.
-        shutdown = true;
-
-        // Set deposit limit to 0.
-        if (depositLimitModule != address(0)) {
-            depositLimitModule = address(0);
-            emit UpdateDepositLimitModule(address(0));
-        }
-
-        depositLimit = 0;
-        emit UpdateDepositLimit(0);
-
-        _grantRole(DEBT_MANAGER, msg.sender);
-        emit Shutdown();
+    /**
+     * @dev Returns the current implementation address.
+     *
+     * TIP: To get this value clients can read directly from the storage slot shown below (specified by EIP1967) using
+     * the https://eth.wiki/json-rpc/API#eth_getstorageat[`eth_getStorageAt`] RPC call.
+     * `0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc`
+     */
+    function _implementation() internal view virtual override returns (address impl) {
+        return ERC1967Upgrade._getImplementation();
     }
 }
     
