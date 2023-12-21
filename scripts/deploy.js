@@ -70,9 +70,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const vaultPackage = await deploy("VaultPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     await deploy("FathomVault", {
         from: deployer,
-        args: [profitMaxUnlockTime, strategyManager.address, sharesManager.address, setters.address, governance.address],
+        args: [vaultPackage.address, []],
         log: true,
     });
 };
