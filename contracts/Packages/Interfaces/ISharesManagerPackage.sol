@@ -9,7 +9,7 @@ import { IERC4626 } from "../../interfaces/IERC4626.sol";
 interface ISharesManagerPackage is IERC4626 {
     function initialize(
         address payable _strategyManager,
-        address payable _setters,
+        address payable _configSettersAddress,
         address _asset,
         uint8 _decimals,
         string calldata _name,

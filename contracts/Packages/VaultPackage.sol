@@ -33,7 +33,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         uint256 _profitMaxUnlockTime,
         address payable _strategyManagerAddress,
         address _sharesManagerAddress,
-        address payable _settersAddress,
+        address payable _configSettersAddress,
         address _governanceAddress
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
@@ -49,7 +49,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         profitMaxUnlockTime = _profitMaxUnlockTime;
         strategyManager = _strategyManagerAddress;
         sharesManager = _sharesManagerAddress;
-        configSetters = _settersAddress;
+        configSetters = _configSettersAddress;
         governance = _governanceAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);

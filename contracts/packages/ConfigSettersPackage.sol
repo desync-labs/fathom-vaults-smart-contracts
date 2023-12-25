@@ -11,8 +11,8 @@ import "../interfaces/ISharesManager.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @title SETTERS CONTRACT
-contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, IConfigSettersPackage {
-    function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+contract ConfigSettersPackage is AccessControl, VaultStorage, IVaultEvents, IConfigSettersPackage {
+    function initialize(address _vault, address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }

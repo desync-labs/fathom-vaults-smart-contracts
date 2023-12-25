@@ -10,7 +10,7 @@ interface IVault {
         uint256 _profitMaxUnlockTime,
         address payable _strategyManagerAddress,
         address _sharesManagerAddress,
-        address payable _settersAddress,
+        address payable _configSettersAddress,
         address _governanceAddress
     ) external;
 
