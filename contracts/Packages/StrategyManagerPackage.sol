@@ -146,7 +146,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             // Use maxRedeem and convert since we use redeem.
             uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(sender));
 
-            if (withdrawable <= 0) {
+            if (withdrawable == 0) {
                 revert ZeroValue();
             }
 
@@ -194,7 +194,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
             // Vault is increasing debt with the strategy by sending more funds.
             uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(sender);
-            if (currentMaxDeposit <= 0) {
+            if (currentMaxDeposit == 0) {
                 revert ZeroValue();
             }
 

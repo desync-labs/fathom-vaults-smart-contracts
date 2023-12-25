@@ -39,7 +39,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
         // Cache the current debt.
         uint256 currentDebt = strategies[strategy].currentDebt;
 
-        if (currentDebt <= 0 || amount <= 0) {
+        if (currentDebt == 0 || amount == 0) {
             revert ZeroValue();
         }
 
@@ -52,7 +52,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
         // due to strategy issues so won't rely on its conversion rates.
         uint256 shares = (IERC20(strategy).balanceOf(address(this)) * amount) / currentDebt;
 
-        if (shares <= 0) {
+        if (shares == 0) {
             revert ZeroValue();
         }
 

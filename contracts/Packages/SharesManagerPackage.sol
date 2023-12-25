@@ -772,7 +772,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (assets > _maxDeposit(recipient)) {
             revert ExceedDepositLimit(_maxDeposit(recipient));
         }
-        if (assets <= 0) {
+        if (assets == 0) {
             revert ZeroValue();
         }
 
@@ -783,7 +783,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
         // Issue the corresponding shares for assets.
         uint256 shares = _issueSharesForAmount(assets, recipient);
-        if (shares <= 0) {
+        if (shares == 0) {
             revert ZeroValue();
         }
 
@@ -801,7 +801,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         // Get corresponding amount of assets.
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_UP);
 
-        if (assets <= 0) {
+        if (assets == 0) {
             revert ZeroValue();
         }
         if (assets > _maxDeposit(recipient)) {
@@ -991,17 +991,17 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
                 // NOTE: strategy's debt decreases by the full amount but the total idle increases
                 // by the actual amount only (as the difference is considered lost).
-                if (state.currTotalIdle + assetsToWithdraw - loss <= 0) {
+                if (state.currTotalIdle + assetsToWithdraw - loss == 0) {
                     state.currTotalIdle = 0;
                 } else {
                     state.currTotalIdle += assetsToWithdraw - loss;
                 }
-                if (state.requestedAssets - loss <= 0) {
+                if (state.requestedAssets - loss == 0) {
                     state.requestedAssets = 0;
                 } else {
                     state.requestedAssets -= loss;
                 }
-                if (state.currTotalDebt - assetsToWithdraw <= 0) {
+                if (state.currTotalDebt - assetsToWithdraw == 0) {
                     state.currTotalDebt = 0;
                 } else {
                     state.currTotalDebt -= assetsToWithdraw;
@@ -1207,7 +1207,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (maxLoss > MAX_BPS) {
             revert MaxLoss();
         }
-        if (sharesToBurn <= 0) {
+        if (sharesToBurn == 0) {
             revert ZeroValue();
         }
         if (_balanceOf[owner] < sharesToBurn) {
