@@ -1046,13 +1046,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return true;
     }
 
-    /// @notice Increases the allowance of a spender.
-    function _increaseAllowance(address owner, address spender, uint256 amount) internal returns (bool) {
-        uint256 newAllowance = _allowance[owner][spender] + amount;
-        _approve(owner, spender, newAllowance);
-        return true;
-    }
-
     /// @notice Burns shares of the owner.
     function _burnShares(uint256 shares, address owner) internal {
         if (_balanceOf[owner] < shares) {
