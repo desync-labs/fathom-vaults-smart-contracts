@@ -26,6 +26,7 @@ import "../interfaces/IWithdrawLimitModule.sol";
 contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, IVaultEvents {
     using Math for uint256;
 
+    // solhint-disable-next-line function-max-lines
     function initialize(
         uint256 _profitMaxUnlockTime,
         address _asset,
@@ -37,7 +38,13 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
             revert AlreadyInitialized();
         }
 
-        factoryAddress = msg.sender;
+        if (_isContract(msg.sender)) {
+            factoryAddress = msg.sender;
+        } else {
+            factoryAddress = address(0x00);
+            customFeeBPS = MAX_FEE_BPS;
+            customFeeRecipient = msg.sender;
+        }
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -80,6 +87,30 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         );
 
         initialized = true;
+    }
+
+    /// @notice Set the new factory address.
+    /// @param newFactory The new factory address.
+    function setFactory(address newFactory) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        factoryAddress = newFactory;
+        emit UpdateFactory(newFactory);
+    }
+
+    /// @notice Set custom fee BPS.
+    /// @param newCustomFeeBPS The new custom fee BPS.
+    function setCustomFeeBPS(uint16 newCustomFeeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newCustomFeeBPS > MAX_FEE_BPS) {
+            revert FeeExceedsMax();
+        }
+        customFeeBPS = newCustomFeeBPS;
+        emit UpdateCustomFeeBPS(newCustomFeeBPS);
+    }
+
+    /// @notice Set custom fee recipient.
+    /// @param newCustomFeeRecipient The new custom fee recipient.
+    function setCustomFeeRecipient(address newCustomFeeRecipient) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        customFeeRecipient = newCustomFeeRecipient;
+        emit UpdateCustomFeeRecipient(newCustomFeeRecipient);
     }
 
     /// @notice Set the new accountant address.
@@ -183,21 +214,6 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         }
         profitMaxUnlockTime = _newProfitMaxUnlockTime;
         emit UpdateProfitMaxUnlockTime(_newProfitMaxUnlockTime);
-    }
-
-    /// @notice Set fees and refunds.
-    function setFees(
-        uint256 totalFees,
-        uint256 totalRefunds,
-        uint256 protocolFees,
-        address protocolFeeRecipient
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        fees.totalFees = totalFees;
-        fees.totalRefunds = totalRefunds;
-        fees.protocolFees = protocolFees;
-        fees.protocolFeeRecipient = protocolFeeRecipient;
-
-        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 
     /// @notice Add a new strategy.
@@ -880,7 +896,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
 
     /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        FeeAssessment memory _fees = fees;
+        FeeAssessment memory _fees = FeeAssessment(0, 0, 0, address(0));
 
         // If accountant is not set, fees and refunds remain unchanged.
         if (accountant != address(0)) {
@@ -890,9 +906,19 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
             if (_fees.totalFees > 0) {
                 uint16 protocolFeeBps;
                 // Get the config for this vault.
-                (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
+                if (factoryAddress == address(0)) {
+                    // If the factory is not set, use the default config.
+                    protocolFeeBps = customFeeBPS;
+                    _fees.protocolFeeRecipient = customFeeRecipient;
+                } else {
+                    // If the factory is set, use the config for this vault.
+                    (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
+                }
 
                 if (protocolFeeBps > 0) {
+                    if (protocolFeeBps > MAX_BPS) {
+                        revert FeeExceedsMax();
+                    }
                     // Protocol fees are a percent of the fees the accountant is charging.
                     _fees.protocolFees = (_fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
                 }
@@ -1798,5 +1824,14 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         if (_balanceOf[owner] < sharesToBurn) {
             revert InsufficientShares(_balanceOf[owner]);
         }
+    }
+
+    /// @notice Checks if the address is a contract.
+    function _isContract(address addr) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(addr)
+        }
+        return size > 0;
     }
 }

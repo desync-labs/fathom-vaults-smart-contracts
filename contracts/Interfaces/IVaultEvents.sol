@@ -18,10 +18,13 @@ interface IVaultEvents {
     );
     event DebtUpdated(address indexed strategy, uint256 currentDebt, uint256 newDebt);
     event RoleSet(address indexed account, bytes32 role);
-    event RoleStatusChanged(bytes32 indexed role, RoleStatusChange indexed status);
-    event UpdateRoleManager(address indexed roleManager);
+    event RoleStatusChanged(bytes32 indexed role, RoleStatusChange status);
+    event UpdateRoleManager(address roleManager);
 
-    event UpdateAccountant(address indexed accountant);
+    event UpdateFactory(address factory);
+    event UpdateCustomFeeBPS(uint16 customFeeBPS);
+    event UpdateCustomFeeRecipient(address customFeeRecipient);
+    event UpdateAccountant(address accountant);
     event UpdateDefaultQueue(address[] newDefaultQueue);
     event UpdateUseDefaultQueue(bool useDefaultQueue);
     event UpdatedMaxDebtForStrategy(address indexed sender, address indexed strategy, uint256 newDebt);
@@ -31,8 +34,6 @@ interface IVaultEvents {
     event DebtPurchased(address indexed strategy, uint256 amount);
     event Shutdown();
 
-    event UpdateDepositLimitModule(address indexed depositLimitModule);
-    event UpdateWithdrawLimitModule(address indexed withdrawLimitModule);
-
-    event UpdatedFees(uint256 indexed totalFees, uint256 indexed totalRefunds, uint256 indexed protocolFees, address protocolFeeRecipient);
+    event UpdateDepositLimitModule(address depositLimitModule);
+    event UpdateWithdrawLimitModule(address withdrawLimitModule);
 }

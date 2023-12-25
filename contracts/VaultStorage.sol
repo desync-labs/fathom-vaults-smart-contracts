@@ -11,6 +11,8 @@ contract VaultStorage {
     uint256 public constant MAX_QUEUE = 10;
     /// @notice 100% in Basis Points.
     uint256 public constant MAX_BPS = 10000;
+    /// @notice 50% in BPS for fees.
+    uint16 public constant MAX_FEE_BPS = 5000;
     /// @notice Extended for profit locking calculations.
     uint256 public constant MAX_BPS_EXTENDED = 1_000_000_000_000;
     /// @notice One year constant for calculating the profit unlocking rate.
@@ -85,10 +87,16 @@ contract VaultStorage {
     address public futureRoleManager;
 
     /// @notice Factory address
-    address public factoryAddress; // TODO
+    address public factoryAddress;
+
+    /// @notice Address of the custom fee recipient.
+    address public customFeeRecipient;
 
     /// @notice Address of the underlying token used by the vault
     IERC20 public assetAddress;
+
+    /// @notice The custom fee BPS charged for withdrawals.
+    uint16 public customFeeBPS;
 
     /// @notice Should the vault use the default_queue regardless whats passed in.
     bool public useDefaultQueue;
@@ -101,9 +109,6 @@ contract VaultStorage {
 
     /// @notice The current decimals value of the vault.
     uint8 public decimalsValue;
-
-    /// @notice The current fees
-    FeeAssessment public fees;
 
     /// @notice ERC20 - name of the vault's token
     string public sharesName;

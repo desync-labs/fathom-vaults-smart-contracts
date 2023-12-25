@@ -7,13 +7,13 @@ import "../VaultStructs.sol";
 import { IERC4626 } from "./IERC4626.sol";
 
 interface IVault is IERC4626 {
-    function initialize(
-        uint256 _profitMaxUnlockTime,
-        address _asset,
-        uint8 _decimals,
-        string calldata _name,
-        string calldata _symbol
-    ) external;
+    function initialize(uint256 _profitMaxUnlockTime, address _asset, uint8 _decimals, string calldata _name, string calldata _symbol) external;
+
+    function setFactory(address newFactory) external;
+
+    function setCustomFeeBPS(uint16 newCustomFeeBPS) external;
+
+    function setCustomFeeRecipient(address newCustomFeeRecipient) external;
 
     function setAccountant(address newAccountant) external;
 
@@ -30,8 +30,6 @@ interface IVault is IERC4626 {
     function setMinimumTotalIdle(uint256 minimumTotalIdle) external;
 
     function setProfitMaxUnlockTime(uint256 newProfitMaxUnlockTime) external;
-
-    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
 
     function addStrategy(address newStrategy) external;
 

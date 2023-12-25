@@ -3,6 +3,7 @@
 
 pragma solidity 0.8.19;
 
+error FeeExceedsMax();
 error ERC20InsufficientAllowance(uint256 currentAllowance);
 error InsufficientFunds();
 error ZeroAddress();
