@@ -5,8 +5,6 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "../CommonErrors.sol";
@@ -23,7 +21,7 @@ import "../interfaces/IWithdrawLimitModule.sol";
 /// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
 /// depositors for a specific `asset` into different opportunities (aka Strategies)
 /// and manage accounting in a robust way.
-contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, IVaultEvents {
+contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     using Math for uint256;
 
     // solhint-disable-next-line function-max-lines
@@ -151,7 +149,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
     /// @param _depositLimit The new deposit limit.
     function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
         if (shutdown == true) {
-            revert StrategyIsShutdown();
+            revert InactiveVault();
         }
         if (depositLimitModule != address(0)) {
             revert UsingModule();
@@ -166,7 +164,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
     /// @param _depositLimitModule Address of the module.
     function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
         if (shutdown == true) {
-            revert StrategyIsShutdown();
+            revert InactiveVault();
         }
         if (depositLimit != type(uint256).max) {
             revert UsingDepositLimit();
@@ -1210,7 +1208,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
     /// vault accounting.
     function _deposit(address sender, address recipient, uint256 assets) internal returns (uint256) {
         if (shutdown == true) {
-            revert StrategyIsShutdown();
+            revert InactiveVault();
         }
         if (assets > _maxDeposit(recipient)) {
             revert ExceedDepositLimit(_maxDeposit(recipient));
@@ -1239,7 +1237,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
     /// accounting.
     function _mint(address sender, address recipient, uint256 shares) internal returns (uint256) {
         if (shutdown == true) {
-            revert StrategyIsShutdown();
+            revert InactiveVault();
         }
         // Get corresponding amount of assets.
         uint256 assets = _convertToAssets(shares, Rounding.ROUND_UP);

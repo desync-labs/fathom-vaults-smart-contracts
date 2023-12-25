@@ -4,9 +4,11 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./VaultStructs.sol";
 
-contract VaultStorage {
+contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice The max length the withdrawal queue can be.
     uint256 public constant MAX_QUEUE = 10;
     /// @notice 100% in Basis Points.
