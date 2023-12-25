@@ -9,7 +9,7 @@ import "../VaultStorage.sol";
 import "../interfaces/IVaultEvents.sol";
 import "./interfaces/ISharesManagerPackage.sol";
 import "../StrategyManager.sol";
-import "../Setters.sol";
+import "../ProxySetters.sol";
 import "../interfaces/IStrategyManager.sol";
 import "../interfaces/IStrategy.sol";
 import "../interfaces/IDepositLimitModule.sol";
@@ -134,7 +134,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (currUnlockedShares == 0) return;
 
         // Only do an SSTORE if necessary
-        if (Setters(setters).fullProfitUnlockDate() > block.timestamp) {
+        if (ProxySetters(setters).fullProfitUnlockDate() > block.timestamp) {
             lastProfitUpdate = block.timestamp;
         }
 
@@ -341,7 +341,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         }
 
         // Mint anything we are locking to the vault.
-        if (gain + _fees.totalRefunds > 0 && Setters(setters).profitMaxUnlockTime() != 0) {
+        if (gain + _fees.totalRefunds > 0 && ProxySetters(setters).profitMaxUnlockTime() != 0) {
             _newlyLockedShares = _issueSharesForAmount(gain + _fees.totalRefunds, address(this));
         }
 
@@ -384,14 +384,15 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (totalLockedShares > 0) {
             uint256 previouslyLockedTime = 0;
             // Check if we need to account for shares still unlocking.
-            if (Setters(setters).fullProfitUnlockDate() > block.timestamp) {
+            if (ProxySetters(setters).fullProfitUnlockDate() > block.timestamp) {
                 // There will only be previously locked shares if time remains.
                 // We calculate this here since it will not occur every time we lock shares.
-                previouslyLockedTime = previouslyLockedShares * (Setters(setters).fullProfitUnlockDate() - block.timestamp);
+                previouslyLockedTime = previouslyLockedShares * (ProxySetters(setters).fullProfitUnlockDate() - block.timestamp);
             }
 
             // newProfitLockingPeriod is a weighted average between the remaining time of the previously locked shares and the profitMaxUnlockTime
-            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * Setters(setters).profitMaxUnlockTime()) / totalLockedShares;
+            uint256 newProfitLockingPeriod = (previouslyLockedTime + newlyLockedShares * ProxySetters(setters).profitMaxUnlockTime()) /
+                totalLockedShares;
             // Calculate how many shares unlock per second.
             profitUnlockingRate = (totalLockedShares * MAX_BPS_EXTENDED) / newProfitLockingPeriod;
             // Calculate how long until the full amount of shares is unlocked.
@@ -1077,11 +1078,11 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     /// minted to the vault which are unlocked gradually over time. Shares
     /// that have been locked are gradually unlocked over profitMaxUnlockTime.
     function _unlockedShares() internal view returns (uint256) {
-        uint256 _fullProfitUnlockDate = Setters(setters).fullProfitUnlockDate();
+        uint256 _fullProfitUnlockDate = ProxySetters(setters).fullProfitUnlockDate();
         uint256 currUnlockedShares = 0;
         if (_fullProfitUnlockDate > block.timestamp) {
             // If we have not fully unlocked, we need to calculate how much has been.
-            currUnlockedShares = (Setters(setters).profitUnlockingRate() * (block.timestamp - lastProfitUpdate)) / MAX_BPS_EXTENDED;
+            currUnlockedShares = (ProxySetters(setters).profitUnlockingRate() * (block.timestamp - lastProfitUpdate)) / MAX_BPS_EXTENDED;
         } else if (_fullProfitUnlockDate != 0) {
             // All shares have been unlocked
             currUnlockedShares = _balanceOf[address(this)];
