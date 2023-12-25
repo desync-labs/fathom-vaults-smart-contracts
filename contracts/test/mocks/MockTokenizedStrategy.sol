@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import {TokenizedStrategy, ERC20} from "./TokenizedStrategy.sol";
+import { TokenizedStrategy, ERC20 } from "./TokenizedStrategy.sol";
 
 contract MockTokenizedStrategy is TokenizedStrategy {
     // solhint-disable ordering
@@ -14,8 +14,7 @@ contract MockTokenizedStrategy is TokenizedStrategy {
     uint256 public maxDebt = type(uint256).max;
 
     // Private variables and functions used in this mock.
-    bytes32 public constant BASE_STRATEGY_STORAGE =
-        bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
+    bytes32 public constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
 
     function strategyStorage() internal pure returns (StrategyData storage S) {
         // Since STORAGE_SLOT is a constant, we have to put a variable
@@ -26,13 +25,7 @@ contract MockTokenizedStrategy is TokenizedStrategy {
         }
     }
 
-    constructor(
-        address _asset,
-        string memory _name,
-        address _management,
-        address _keeper,
-        uint32 _profitMaxUnlockTime
-    ) {
+    constructor(address _asset, string memory _name, address _management, address _keeper, uint32 _profitMaxUnlockTime) {
         // Cache storage pointer
         StrategyData storage S = strategyStorage();
 
@@ -63,17 +56,13 @@ contract MockTokenizedStrategy is TokenizedStrategy {
         maxDebt = _maxDebt;
     }
 
-    function availableDepositLimit(
-        address
-    ) public view virtual returns (uint256) {
+    function availableDepositLimit(address) public view virtual returns (uint256) {
         uint256 _totalAssets = strategyStorage().totalIdle;
         uint256 _maxDebt = maxDebt;
         return _maxDebt > _totalAssets ? _maxDebt - _totalAssets : 0;
     }
 
-    function availableWithdrawLimit(
-        address /*_owner*/
-    ) public view virtual returns (uint256) {
+    function availableWithdrawLimit(address /*_owner*/) public view virtual returns (uint256) {
         return type(uint256).max;
     }
 

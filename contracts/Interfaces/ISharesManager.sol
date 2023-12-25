@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../VaultStructs.sol";
-import {IERC4626} from "./IERC4626.sol";
+import { IERC4626 } from "./IERC4626.sol";
 
 interface ISharesManager is IERC4626 {
     // solhint-disable max-line-length
@@ -36,8 +36,14 @@ interface ISharesManager is IERC4626 {
     function mint(address sender, address recipient, uint256 shares) external returns (uint256);
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view returns (uint256);
     function withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) external;
-    function calculateShareManagement(uint256 gain, uint256 loss, uint256 totalFees, uint256 protocolFees, address strategy) external returns (ShareManagement memory shareManagement);
-    function handleShareBurnsAndIssues(ShareManagement memory shares, FeeAssessment memory fees, uint256 gain) external returns (uint256 , uint256);
+    function calculateShareManagement(
+        uint256 gain,
+        uint256 loss,
+        uint256 totalFees,
+        uint256 protocolFees,
+        address strategy
+    ) external returns (ShareManagement memory shareManagement);
+    function handleShareBurnsAndIssues(ShareManagement memory shares, FeeAssessment memory fees, uint256 gain) external returns (uint256, uint256);
     function manageUnlockingOfShares(uint256 previouslyLockedShares, uint256 newlyLockedShares) external;
     function setDepositLimit(uint256 _depositLimit) external;
     function getTotalIdleAmount() external returns (uint256);

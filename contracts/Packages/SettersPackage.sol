@@ -5,7 +5,7 @@ import "../VaultStorage.sol";
 import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/ISettersPackage.sol";
 import "../Interfaces/ISharesManager.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
 @title SETTERS CONTRACT
@@ -25,9 +25,7 @@ contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPa
     error ProfitUnlockTimeTooLong();
     error AlreadyInitialized();
 
-    function initialize(
-        address _sharesManager
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE){
+    function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
@@ -119,7 +117,7 @@ contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPa
     //  We only need to update locking period if setting to 0,
     //  since the current period will use the old rate and on the next
     //  report it will be reset with the new unlocking time.
-    
+
     //  Setting to 0 will cause any currently locked profit to instantly
     //  unlock and an immediate increase in the vaults Price Per Share.
 

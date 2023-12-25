@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.19;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
@@ -30,7 +30,7 @@ contract FathomVault is Proxy, ERC1967Upgrade, AccessControl, IVaultUpgradeable,
      * Requirements:
      *
      * - If `data` is empty, `msg.value` must be zero.
-     */    
+     */
     constructor(address implementation, bytes memory _data) payable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _upgradeToAndCall(implementation, _data, false);

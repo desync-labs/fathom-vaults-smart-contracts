@@ -13,7 +13,7 @@ interface IVault {
         address _sharesManagerAddress,
         address payable _settersAddress,
         address _governanceAddress
-        ) external;    
+    ) external;
     function setAccountant(address newAccountant) external;
     function setDefaultQueue(address[] memory newDefaultQueue) external;
     function setUseDefaultQueue(bool) external;
@@ -31,48 +31,14 @@ interface IVault {
     function updateDebt(address sender, address strategy, uint256 targetDebt) external returns (uint256);
     function shutdownVault() external;
     //// NON-STANDARD ERC-4626 FUNCTIONS \\\\
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner,
-        uint256 maxLoss,
-        address[] memory strategies
-    ) external returns (uint256);
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner,
-        uint256 maxLoss,
-        address[] memory strategies
-    ) external returns (uint256);
+    function withdraw(uint256 assets, address receiver, address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
+    function redeem(uint256 shares, address receiver, address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
     //// NON-STANDARD ERC-20 FUNCTIONS \\\\
-    function increaseAllowance(
-        address spender,
-        uint256 amount
-    ) external returns (bool);
-    function decreaseAllowance(
-        address spender,
-        uint256 amount
-    ) external returns (bool);
-    function permit(
-        address owner,
-        address spender,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (bool);
-    function maxWithdraw(
-        address owner,
-        uint256 maxLoss,
-        address[] memory strategies
-    ) external returns (uint256);
-    function maxRedeem(
-        address owner,
-        uint256 maxLoss,
-        address[] memory strategies
-    ) external returns (uint256);
+    function increaseAllowance(address spender, uint256 amount) external returns (bool);
+    function decreaseAllowance(address spender, uint256 amount) external returns (bool);
+    function permit(address owner, address spender, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool);
+    function maxWithdraw(address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
+    function maxRedeem(address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
     function unlockedShares() external view returns (uint256);
     function pricePerShare() external view returns (uint256);
     function totalSupply() external view returns (uint256);

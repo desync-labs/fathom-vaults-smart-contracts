@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
@@ -32,7 +32,7 @@ contract StrategyManager is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, 
      * Requirements:
      *
      * - If `data` is empty, `msg.value` must be zero.
-     */    
+     */
     constructor(address implementation, bytes memory _data) payable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _upgradeToAndCall(implementation, _data, false);
@@ -53,4 +53,3 @@ contract StrategyManager is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, 
         return ERC1967Upgrade._getImplementation();
     }
 }
-    

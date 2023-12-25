@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "./Interfaces/IVaultPackage.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../VaultStorage.sol";
@@ -68,11 +68,11 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         address _sharesManagerAddress,
         address payable _settersAddress,
         address _governanceAddress
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE){
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
-        
+
         FACTORY = msg.sender;
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -138,7 +138,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     }
 
     // Issues shares that are worth 'amount' in the underlying token (asset).
-    // WARNING: this takes into account that any new assets have been summed 
+    // WARNING: this takes into account that any new assets have been summed
     // to total_assets (otherwise pps will go down).
     function _issueSharesForAmount(uint256 amount, address recipient) internal returns (uint256) {
         return ISharesManager(sharesManager).issueSharesForAmount(amount, recipient);
@@ -200,7 +200,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     //  We only need to update locking period if setting to 0,
     //  since the current period will use the old rate and on the next
     //  report it will be reset with the new unlocking time.
-    
+
     //  Setting to 0 will cause any currently locked profit to instantly
     //  unlock and an immediate increase in the vaults Price Per Share.
 
@@ -218,15 +218,15 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     }
 
     // @notice Get the price per share (pps) of the vault.
-    // @dev This value offers limited precision. Integrations that require 
+    // @dev This value offers limited precision. Integrations that require
     //    exact precision should use convertToAssets or convertToShares instead.
     // @return The price per share.
     function pricePerShare() external view override returns (uint256) {
-        return _convertToAssets(10**ISharesManager(sharesManager).decimals(), Rounding.ROUND_DOWN);
+        return _convertToAssets(10 ** ISharesManager(sharesManager).decimals(), Rounding.ROUND_DOWN);
     }
 
     // REPORTING MANAGEMENT
-    
+
     // @notice Process the report of a strategy.
     // @param strategy The strategy to process the report for.
     // @return The gain and loss of the strategy.
@@ -238,7 +238,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @dev This should only ever be used in an emergency in place
     //  of force revoking a strategy in order to not report a loss.
     //  It allows the DEBT_PURCHASER role to buy the strategies debt
-    //  for an equal amount of `asset`. 
+    //  for an equal amount of `asset`.
 
     // @param strategy The strategy to buy the debt for
     // @param amount The amount of debt to buy from the vault.
@@ -261,10 +261,10 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     }
 
     // @notice Force revoke a strategy.
-    // @dev The vault will remove the strategy and write off any debt left 
-    //    in it as a loss. This function is a dangerous function as it can force a 
-    //    strategy to take a loss. All possible assets should be removed from the 
-    //    strategy first via update_debt. If a strategy is removed erroneously it 
+    // @dev The vault will remove the strategy and write off any debt left
+    //    in it as a loss. This function is a dangerous function as it can force a
+    //    strategy to take a loss. All possible assets should be removed from the
+    //    strategy first via update_debt. If a strategy is removed erroneously it
     //    can be re-added and the loss will be credited as profit. Fees will apply.
     // @param strategy The strategy to force revoke.
     function forceRevokeStrategy(address strategy) external override onlyRole(FORCE_REVOKE_MANAGER) {
@@ -285,7 +285,11 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @param strategy The strategy to update the debt for.
     // @param target_debt The target debt for the strategy.
     // @return The amount of debt added or removed.
-    function updateDebt(address sender, address strategy, uint256 targetDebt) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
+    function updateDebt(
+        address sender,
+        address strategy,
+        uint256 targetDebt
+    ) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
         return IStrategyManager(strategyManager).updateDebt(sender, strategy, targetDebt);
     }
 
@@ -537,7 +541,12 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         return IStrategyManager(strategyManager).getDebt(strategy);
     }
 
-    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFees(
+        uint256 totalFees,
+        uint256 totalRefunds,
+        uint256 protocolFees,
+        address protocolFeeRecipient
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         return IStrategyManager(strategyManager).setFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 }

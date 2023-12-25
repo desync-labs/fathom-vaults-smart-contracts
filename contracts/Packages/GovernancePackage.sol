@@ -6,7 +6,7 @@ import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/IGovernancePackage.sol";
 import "../Interfaces/IStrategy.sol";
 import "../Interfaces/ISharesManager.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
@@ -24,9 +24,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
     error ZeroValue();
     error AlreadyInitialized();
 
-    function initialize(
-        address _sharesManager
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE){
+    function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
@@ -40,7 +38,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
     // @dev This should only ever be used in an emergency in place
     //  of force revoking a strategy in order to not report a loss.
     //  It allows the DEBT_PURCHASER role to buy the strategies debt
-    //  for an equal amount of `asset`. 
+    //  for an equal amount of `asset`.
 
     // @param strategy The strategy to buy the debt for
     // @param amount The amount of debt to buy from the vault.
@@ -63,7 +61,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
         // We get the proportion of the debt that is being bought and
         // transfer the equivalent shares. We assume this is being used
         // due to strategy issues so won't rely on its conversion rates.
-        uint256 shares = IERC20(strategy).balanceOf(address(this)) * amount / currentDebt;
+        uint256 shares = (IERC20(strategy).balanceOf(address(this)) * amount) / currentDebt;
 
         if (shares <= 0) {
             revert ZeroValue();

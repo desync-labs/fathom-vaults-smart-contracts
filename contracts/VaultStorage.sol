@@ -103,5 +103,5 @@ contract VaultStorage {
     bytes32 public constant FORCE_REVOKE_MANAGER = keccak256("FORCE_REVOKE_MANAGER");
     bytes32 public constant MAX_DEBT_MANAGER = keccak256("MAX_DEBT_MANAGER");
     bytes32 public constant DEBT_MANAGER = keccak256("DEBT_MANAGER");
-    bytes32 public constant EMERGENCY_MANAGER = keccak256("EMERGENCY_MANAGER");         
+    bytes32 public constant EMERGENCY_MANAGER = keccak256("EMERGENCY_MANAGER");
 }

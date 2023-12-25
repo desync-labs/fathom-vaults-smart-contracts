@@ -10,7 +10,7 @@ import "../Interfaces/IAccountant.sol";
 import "../Interfaces/IFactory.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
 @title STRATEGY MANAGEMENT
@@ -44,10 +44,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
     error StrategyDebtIsLessThanAssetsNeeded();
     error AlreadyInitialized();
 
-    function initialize(
-        address _asset,
-        address _sharesManager
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE){
+    function initialize(address _asset, address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
@@ -71,19 +68,14 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         }
 
         // Add the new strategy to the mapping.
-        strategies[newStrategy] = StrategyParams({
-            activation: block.timestamp,
-            lastReport: block.timestamp,
-            currentDebt: 0,
-            maxDebt: 0
-        });
+        strategies[newStrategy] = StrategyParams({ activation: block.timestamp, lastReport: block.timestamp, currentDebt: 0, maxDebt: 0 });
 
         // If the default queue has space, add the strategy.
         uint256 defaultQueueLength = defaultQueue.length;
         if (defaultQueueLength < MAX_QUEUE) {
             defaultQueue.push(newStrategy);
         }
-        
+
         emit StrategyChanged(newStrategy, StrategyChangeType.ADDED);
     }
 
@@ -91,7 +83,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy();
         }
-        
+
         // If force revoking a strategy, it will cause a loss.
         uint256 loss = 0;
         if (strategies[strategy].currentDebt != 0 && !force) {
@@ -102,16 +94,11 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         loss = strategies[strategy].currentDebt;
         // Adjust total vault debt.
         totalDebtAmount -= loss;
-        
+
         emit StrategyReported(strategy, 0, loss, 0, 0, 0, 0);
 
         // Set strategy params all back to 0 (WARNING: it can be re-added).
-        strategies[strategy] = StrategyParams({
-            activation: 0,
-            lastReport: 0,
-            currentDebt: 0,
-            maxDebt: 0
-        });
+        strategies[strategy] = StrategyParams({ activation: 0, lastReport: 0, currentDebt: 0, maxDebt: 0 });
 
         // Remove strategy if it is in the default queue.
         address[] memory newQueue;
@@ -145,7 +132,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
             revert InsufficientFunds();
         }
-        
+
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -197,7 +184,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             ISharesManager(sharesManager).withdrawFromStrategy(strategy, assetsToWithdraw);
             uint256 postBalance = ASSET.balanceOf(sender);
 
-            // making sure we are changing idle according to the real result no matter what. 
+            // making sure we are changing idle according to the real result no matter what.
             // We pull funds with {redeem} so there can be losses or rounding differences.
             uint256 withdrawn = Math.min(postBalance - preBalance, currentDebt);
 
@@ -256,7 +243,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
                 // Make sure our approval is always back to 0.
                 ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, 0);
 
-                // Making sure we are changing according to the real result no 
+                // Making sure we are changing according to the real result no
                 // matter what. This will spend more gas but makes it more robust.
                 assetsToDeposit = preBalance - postBalance;
 
@@ -278,16 +265,16 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         return newDebt;
     }
 
-    // Processing a report means comparing the debt that the strategy has taken 
-    // with the current amount of funds it is reporting. If the strategy owes 
-    // less than it currently has, it means it has had a profit, else (assets < debt) 
+    // Processing a report means comparing the debt that the strategy has taken
+    // with the current amount of funds it is reporting. If the strategy owes
+    // less than it currently has, it means it has had a profit, else (assets < debt)
     // it has had a loss.
 
-    // Different strategies might choose different reporting strategies: pessimistic, 
+    // Different strategies might choose different reporting strategies: pessimistic,
     // only realised P&L, ... The best way to report depends on the strategy.
 
-    // The profit will be distributed following a smooth curve over the vaults 
-    // profit_max_unlock_time seconds. Losses will be taken immediately, first from the 
+    // The profit will be distributed following a smooth curve over the vaults
+    // profit_max_unlock_time seconds. Losses will be taken immediately, first from the
     // profit buffer (avoiding an impact in pps), then will reduce pps.
 
     // Any applicable fees are charged and distributed during the report as well
@@ -305,7 +292,13 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
         FeeAssessment memory fees = _assessFees(strategy, gain, loss);
 
-        ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(gain, loss, fees.totalFees, fees.protocolFees, strategy);
+        ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(
+            gain,
+            loss,
+            fees.totalFees,
+            fees.protocolFees,
+            strategy
+        );
 
         (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain);
 
@@ -367,10 +360,10 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
                 uint16 protocolFeeBps;
                 // Get the config for this vault.
                 (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
-                
+
                 if (protocolFeeBps > 0) {
                     // Protocol fees are a percent of the fees the accountant is charging.
-                    _fees.protocolFees = _fees.totalFees * uint256(protocolFeeBps) / MAX_BPS;
+                    _fees.protocolFees = (_fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
                 }
             }
         }
@@ -387,11 +380,11 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         require(IERC20(token).approve(spender, amount), "approval failed");
     }
 
-    function getDefaultQueueLength() external override view returns(uint256 length) {
+    function getDefaultQueueLength() external view override returns (uint256 length) {
         return defaultQueue.length;
     }
 
-    function getDefaultQueue() external override view returns(address[] memory) {
+    function getDefaultQueue() external view override returns (address[] memory) {
         return defaultQueue;
     }
 

@@ -47,12 +47,12 @@ $$$$$$$$$$$$$$$$$$$$$Bvf]<iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii<]tuB$$$$$$$$$$$
 $$$$$$$$$$$$$$$$$$$$$$$$$%zt-+>iiiiiiiiiiiiiiiiiiiiiiiiiiiii+_tc%$$$$$$$$$$$$$$$$$$$$$$$$$
 $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$W#u/|{+~>iiiiiiiiiiii><+{|/n#W$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IFactory} from "../../Interfaces/IFactory.sol";
-import {IBaseStrategy} from "../../Interfaces/IBaseStrategy.sol";
+import { IFactory } from "../../Interfaces/IFactory.sol";
+import { IBaseStrategy } from "../../Interfaces/IBaseStrategy.sol";
 
 /**
  * @title Yearn Tokenized Strategy
@@ -117,9 +117,7 @@ contract TokenizedStrategy {
      * @notice Emitted when the 'performanceFeeRecipient' address is
      * updated to 'newPerformanceFeeRecipient'.
      */
-    event UpdatePerformanceFeeRecipient(
-        address indexed newPerformanceFeeRecipient
-    );
+    event UpdatePerformanceFeeRecipient(address indexed newPerformanceFeeRecipient);
 
     /**
      * @notice Emitted when the 'profitMaxUnlockTime' is updated to 'newProfitMaxUnlockTime'.
@@ -143,55 +141,31 @@ contract TokenizedStrategy {
      * @dev Emitted when the allowance of a `spender` for an `owner` is set by
      * a call to {approve}. `value` is the new allowance.
      */
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 
     /**
      * @dev Emitted when the `caller` has exchanged `assets` for `shares`,
      * and transferred those `shares` to `owner`.
      */
-    event Deposit(
-        address indexed caller,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
 
     /**
      * @dev Emitted when the `caller` has exchanged `owner`s `shares` for `assets`,
      * and transferred those `assets` to `receiver`.
      */
-    event Withdraw(
-        address indexed caller,
-        address indexed receiver,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Withdraw(address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
 
     /**
      * @dev Emitted when the strategy reports `profit` or `loss` and
      * `performanceFees` and `protocolFees` are paid out.
      */
-    event Reported(
-        uint256 profit,
-        uint256 loss,
-        uint256 protocolFees,
-        uint256 performanceFees
-    );
+    event Reported(uint256 profit, uint256 loss, uint256 protocolFees, uint256 performanceFees);
 
     /**
      * @dev Emitted on the initialization of any new `strategy` that uses `asset`
      * with this specific `apiVersion`.
      */
-    event NewTokenizedStrategy(
-        address indexed strategy,
-        address indexed asset,
-        string apiVersion
-    );
+    event NewTokenizedStrategy(address indexed strategy, address indexed asset, string apiVersion);
 
     /*//////////////////////////////////////////////////////////////
                         STORAGE STRUCT
@@ -349,10 +323,7 @@ contract TokenizedStrategy {
      */
     function isEmergencyAuthorized(address _sender) public view returns (bool) {
         StrategyData storage S = _strategyStorage();
-        require(
-            _sender == S.emergencyAdmin || _sender == S.management,
-            "!emergency authorized"
-        );
+        require(_sender == S.emergencyAdmin || _sender == S.management, "!emergency authorized");
         return true;
     }
 
@@ -380,8 +351,7 @@ contract TokenizedStrategy {
     // Address of the previously deployed Vault factory that the
     // protocol fee config is retrieved from.
     // NOTE: This will be set to deployed factory. deterministic address for testing is used now
-    address public constant FACTORY =
-        0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
+    address public constant FACTORY = 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f;
 
     /**
      * @dev Custom storage slot that will be used to store the
@@ -398,8 +368,7 @@ contract TokenizedStrategy {
      * amount of storage in their strategy without worrying
      * about collisions.
      */
-    bytes32 private constant BASE_STRATEGY_STORAGE =
-        bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
+    bytes32 private constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
 
     /*//////////////////////////////////////////////////////////////
                     STORAGE GETTER FUNCTION
@@ -447,13 +416,7 @@ contract TokenizedStrategy {
      * @param _performanceFeeRecipient Address to receive performance fees.
      * @param _keeper Address to set as strategies `keeper`.
      */
-    function init(
-        address _asset,
-        string memory _name,
-        address _management,
-        address _performanceFeeRecipient,
-        address _keeper
-    ) external {
+    function init(address _asset, string memory _name, address _management, address _performanceFeeRecipient, address _keeper) external {
         // Cache storage pointer
         StrategyData storage S = _strategyStorage();
 
@@ -505,15 +468,9 @@ contract TokenizedStrategy {
      * @param receiver The address to receive the `shares`.
      * @return shares The actual amount of shares issued.
      */
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) external nonReentrant returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver) external nonReentrant returns (uint256 shares) {
         // Checking max deposit will also check if shutdown.
-        require(
-            assets <= maxDeposit(receiver),
-            "ERC4626: deposit more than max"
-        );
+        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
         // Check for rounding error.
         require((shares = previewDeposit(assets)) != 0, "ZERO_SHARES");
 
@@ -527,10 +484,7 @@ contract TokenizedStrategy {
      * @param receiver The address to receive the `shares`.
      * @return assets The actual amount of asset deposited.
      */
-    function mint(
-        uint256 shares,
-        address receiver
-    ) external nonReentrant returns (uint256 assets) {
+    function mint(uint256 shares, address receiver) external nonReentrant returns (uint256 assets) {
         // Checking max mint will also check if shutdown.
         require(shares <= maxMint(receiver), "ERC4626: mint more than max");
         // Check for rounding error.
@@ -548,11 +502,7 @@ contract TokenizedStrategy {
      * @param owner The address whose shares are burnt.
      * @return shares The actual amount of shares burnt.
      */
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) external returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
         return withdraw(assets, receiver, owner, 0);
     }
 
@@ -566,16 +516,8 @@ contract TokenizedStrategy {
      * @param maxLoss The amount of acceptable loss in Basis points.
      * @return shares The actual amount of shares burnt.
      */
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner,
-        uint256 maxLoss
-    ) public nonReentrant returns (uint256 shares) {
-        require(
-            assets <= maxWithdraw(owner),
-            "ERC4626: withdraw more than max"
-        );
+    function withdraw(uint256 assets, address receiver, address owner, uint256 maxLoss) public nonReentrant returns (uint256 shares) {
+        require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
         // Check for rounding error or 0 value.
         require((shares = previewWithdraw(assets)) != 0, "ZERO_SHARES");
 
@@ -592,11 +534,7 @@ contract TokenizedStrategy {
      * @param owner The address whose shares are burnt.
      * @return assets The actual amount of underlying withdrawn.
      */
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) external returns (uint256) {
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256) {
         // We default to not limiting a potential loss.
         return redeem(shares, receiver, owner, MAX_BPS);
     }
@@ -611,12 +549,7 @@ contract TokenizedStrategy {
      * @param maxLoss The amount of acceptable loss in Basis points.
      * @return . The actual amount of underlying withdrawn.
      */
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner,
-        uint256 maxLoss
-    ) public nonReentrant returns (uint256) {
+    function redeem(uint256 shares, address receiver, address owner, uint256 maxLoss) public nonReentrant returns (uint256) {
         require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
         uint256 assets;
         // Check for rounding error or 0 value.
@@ -657,10 +590,7 @@ contract TokenizedStrategy {
         // Saves an extra SLOAD if totalSupply() is non-zero.
         uint256 supply = totalSupply();
 
-        return
-            supply == 0
-                ? shares
-                : shares.mulDiv(totalAssets(), supply, Math.Rounding.Down);
+        return supply == 0 ? shares : shares.mulDiv(totalAssets(), supply, Math.Rounding.Down);
     }
 
     /**
@@ -690,10 +620,7 @@ contract TokenizedStrategy {
         // Saves an extra SLOAD if totalSupply() is non-zero.
         uint256 supply = totalSupply();
 
-        return
-            supply == 0
-                ? shares
-                : shares.mulDiv(totalAssets(), supply, Math.Rounding.Up);
+        return supply == 0 ? shares : shares.mulDiv(totalAssets(), supply, Math.Rounding.Up);
     }
 
     /**
@@ -769,20 +696,13 @@ contract TokenizedStrategy {
      * @param owner The owner of the shares.
      * @return _maxWithdraw Max amount of `asset` that can be withdrawn.
      */
-    function maxWithdraw(
-        address owner
-    ) public view returns (uint256 _maxWithdraw) {
-        _maxWithdraw = IBaseStrategy(address(this)).availableWithdrawLimit(
-            owner
-        );
+    function maxWithdraw(address owner) public view returns (uint256 _maxWithdraw) {
+        _maxWithdraw = IBaseStrategy(address(this)).availableWithdrawLimit(owner);
         if (_maxWithdraw == type(uint256).max) {
             // Saves a min check if there is no withdrawal limit.
             _maxWithdraw = convertToAssets(balanceOf(owner));
         } else {
-            _maxWithdraw = Math.min(
-                convertToAssets(balanceOf(owner)),
-                _maxWithdraw
-            );
+            _maxWithdraw = Math.min(convertToAssets(balanceOf(owner)), _maxWithdraw);
         }
     }
 
@@ -853,11 +773,7 @@ contract TokenizedStrategy {
      * values to prevent view reentrancy issues from the token
      * transfers or the _deployFunds() calls.
      */
-    function _deposit(
-        address receiver,
-        uint256 assets,
-        uint256 shares
-    ) private {
+    function _deposit(address receiver, uint256 assets, uint256 shares) private {
         require(receiver != address(this), "ERC4626: mint to self");
 
         // Cache storage variables used more than once.
@@ -878,10 +794,7 @@ contract TokenizedStrategy {
 
         // Always get the actual amount deployed. We double check the
         // diff against toDeploy for complete accuracy.
-        uint256 deployed = Math.min(
-            beforeBalance - _asset.balanceOf(address(this)),
-            toDeploy
-        );
+        uint256 deployed = Math.min(beforeBalance - _asset.balanceOf(address(this)), toDeploy);
 
         // Adjust total Assets.
         S.totalDebt += deployed;
@@ -905,13 +818,7 @@ contract TokenizedStrategy {
      * If we are not able to withdraw the full amount needed, it will
      * be counted as a loss and passed on to the user.
      */
-    function _withdraw(
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares,
-        uint256 maxLoss
-    ) private returns (uint256) {
+    function _withdraw(address receiver, address owner, uint256 assets, uint256 shares, uint256 maxLoss) private returns (uint256) {
         require(receiver != address(0), "ZERO ADDRESS");
         require(maxLoss <= MAX_BPS, "exceeds MAX_BPS");
 
@@ -937,10 +844,7 @@ contract TokenizedStrategy {
             }
 
             // Return the actual amount withdrawn. Adjust for potential over withdraws.
-            uint256 withdrawn = Math.min(
-                _asset.balanceOf(address(this)) - before,
-                S.totalDebt
-            );
+            uint256 withdrawn = Math.min(_asset.balanceOf(address(this)) - before, S.totalDebt);
 
             unchecked {
                 idle += withdrawn;
@@ -955,10 +859,7 @@ contract TokenizedStrategy {
                 // If a non-default max loss parameter was set.
                 if (maxLoss < MAX_BPS) {
                     // Make sure we are within the acceptable range.
-                    require(
-                        loss <= (assets * maxLoss) / MAX_BPS,
-                        "too much loss"
-                    );
+                    require(loss <= (assets * maxLoss) / MAX_BPS, "too much loss");
                 }
                 // Lower the amount to be withdrawn.
                 assets = idle;
@@ -1013,12 +914,7 @@ contract TokenizedStrategy {
      * @return loss The notional amount of loss if any since the last
      * report in terms of `asset`.
      */
-    function report()
-        external
-        nonReentrant
-        onlyKeepers
-        returns (uint256 profit, uint256 loss)
-    {
+    function report() external nonReentrant onlyKeepers returns (uint256 profit, uint256 loss) {
         // Cache storage pointer since its used repeatedly.
         StrategyData storage S = _strategyStorage();
 
@@ -1034,8 +930,7 @@ contract TokenizedStrategy {
         // account for all funds including those potentially airdropped
         // by a trade factory. It is safe here to use asset.balanceOf()
         // instead of totalIdle because any profits are immediately locked.
-        uint256 newTotalAssets = IBaseStrategy(address(this))
-            .harvestAndReport();
+        uint256 newTotalAssets = IBaseStrategy(address(this)).harvestAndReport();
 
         // Burn unlocked shares.
         _burnUnlockedShares();
@@ -1061,8 +956,7 @@ contract TokenizedStrategy {
             if (totalFees != 0) {
                 // Get the config from the factory.
                 uint16 protocolFeeBps;
-                (protocolFeeBps, protocolFeesRecipient) = IFactory(FACTORY)
-                    .protocolFeeConfig();
+                (protocolFeeBps, protocolFeesRecipient) = IFactory(FACTORY).protocolFeeConfig();
 
                 // Check if there is a protocol fee to charge.
                 if (protocolFeeBps != 0) {
@@ -1073,9 +967,7 @@ contract TokenizedStrategy {
                 // We need to get the shares to issue for the fees at
                 // current PPS before any minting or burning.
                 unchecked {
-                    performanceFeeShares = convertToShares(
-                        totalFees - protocolFees
-                    );
+                    performanceFeeShares = convertToShares(totalFees - protocolFees);
                 }
                 if (protocolFees != 0) {
                     protocolFeeShares = convertToShares(protocolFees);
@@ -1110,10 +1002,7 @@ contract TokenizedStrategy {
             if (loss != 0) {
                 // We will try and burn shares from any pending profit still unlocking
                 // to offset the loss to prevent any PPS decline post report.
-                uint256 sharesToBurn = Math.min(
-                    S.balances[address(this)],
-                    convertToShares(loss)
-                );
+                uint256 sharesToBurn = Math.min(S.balances[address(this)], convertToShares(loss));
 
                 // Check if there is anything to burn.
                 if (sharesToBurn != 0) {
@@ -1132,27 +1021,19 @@ contract TokenizedStrategy {
                 unchecked {
                     // There will only be previously locked shares if time remains.
                     // We calculate this here since it should be rare.
-                    previouslyLockedTime =
-                        (_fullProfitUnlockDate - block.timestamp) *
-                        (totalLockedShares - sharesToLock);
+                    previouslyLockedTime = (_fullProfitUnlockDate - block.timestamp) * (totalLockedShares - sharesToLock);
                 }
             }
 
             // newProfitLockingPeriod is a weighted average between the remaining
             // time of the previously locked shares and the profitMaxUnlockTime.
-            uint256 newProfitLockingPeriod = (previouslyLockedTime +
-                sharesToLock *
-                _profitMaxUnlockTime) / totalLockedShares;
+            uint256 newProfitLockingPeriod = (previouslyLockedTime + sharesToLock * _profitMaxUnlockTime) / totalLockedShares;
 
             // Calculate how many shares unlock per second.
-            S.profitUnlockingRate =
-                (totalLockedShares * MAX_BPS_EXTENDED) /
-                newProfitLockingPeriod;
+            S.profitUnlockingRate = (totalLockedShares * MAX_BPS_EXTENDED) / newProfitLockingPeriod;
 
             // Calculate how long until the full amount of shares is unlocked.
-            S.fullProfitUnlockDate = uint128(
-                block.timestamp + newProfitLockingPeriod
-            );
+            S.fullProfitUnlockDate = uint128(block.timestamp + newProfitLockingPeriod);
         } else {
             // Only setting this to 0 will turn in the desired effect,
             // no need to update fullProfitUnlockDate.
@@ -1221,9 +1102,7 @@ contract TokenizedStrategy {
         uint128 _fullProfitUnlockDate = S.fullProfitUnlockDate;
         if (_fullProfitUnlockDate > block.timestamp) {
             unchecked {
-                unlocked =
-                    (S.profitUnlockingRate * (block.timestamp - S.lastReport)) /
-                    MAX_BPS_EXTENDED;
+                unlocked = (S.profitUnlockingRate * (block.timestamp - S.lastReport)) / MAX_BPS_EXTENDED;
             }
         } else if (_fullProfitUnlockDate != 0) {
             // All shares have been unlocked.
@@ -1338,9 +1217,7 @@ contract TokenizedStrategy {
      *
      * @param amount The amount of asset to attempt to free.
      */
-    function emergencyWithdraw(
-        uint256 amount
-    ) external nonReentrant onlyEmergencyAuthorized {
+    function emergencyWithdraw(uint256 amount) external nonReentrant onlyEmergencyAuthorized {
         // Make sure the strategy has been shutdown.
         require(_strategyStorage().shutdown, "not shutdown");
 
@@ -1539,9 +1416,7 @@ contract TokenizedStrategy {
      *
      * @param _emergencyAdmin New address to set `emergencyAdmin` to.
      */
-    function setEmergencyAdmin(
-        address _emergencyAdmin
-    ) external onlyManagement {
+    function setEmergencyAdmin(address _emergencyAdmin) external onlyManagement {
         _strategyStorage().emergencyAdmin = _emergencyAdmin;
 
         emit UpdateEmergencyAdmin(_emergencyAdmin);
@@ -1573,9 +1448,7 @@ contract TokenizedStrategy {
      *
      * @param _performanceFeeRecipient New address to set `management` to.
      */
-    function setPerformanceFeeRecipient(
-        address _performanceFeeRecipient
-    ) external onlyManagement {
+    function setPerformanceFeeRecipient(address _performanceFeeRecipient) external onlyManagement {
         require(_performanceFeeRecipient != address(0), "ZERO ADDRESS");
         require(_performanceFeeRecipient != address(this), "Cannot be self");
         _strategyStorage().performanceFeeRecipient = _performanceFeeRecipient;
@@ -1597,9 +1470,7 @@ contract TokenizedStrategy {
      *
      * @param _profitMaxUnlockTime New `profitMaxUnlockTime`.
      */
-    function setProfitMaxUnlockTime(
-        uint256 _profitMaxUnlockTime
-    ) external onlyManagement {
+    function setProfitMaxUnlockTime(uint256 _profitMaxUnlockTime) external onlyManagement {
         // Must be less than a year.
         require(_profitMaxUnlockTime <= SECONDS_PER_YEAR, "too long");
         StrategyData storage S = _strategyStorage();
@@ -1636,8 +1507,7 @@ contract TokenizedStrategy {
      * @return . The symbol the strategy is using for its tokens.
      */
     function symbol() public view returns (string memory) {
-        return
-            string(abi.encodePacked("ys", _strategyStorage().asset.symbol()));
+        return string(abi.encodePacked("ys", _strategyStorage().asset.symbol()));
     }
 
     /**
@@ -1690,10 +1560,7 @@ contract TokenizedStrategy {
      * @param spender The address who would be moving the owners shares.
      * @return . The remaining amount of shares of `owner` that could be moved by `spender`.
      */
-    function allowance(
-        address owner,
-        address spender
-    ) public view returns (uint256) {
+    function allowance(address owner, address spender) public view returns (uint256) {
         return _strategyStorage().allowances[owner][spender];
     }
 
@@ -1753,11 +1620,7 @@ contract TokenizedStrategy {
      * @param amount the quantity of shares to move.
      * @return . a boolean value indicating whether the operation succeeded.
      */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
         _spendAllowance(from, msg.sender, amount);
         _transfer(from, to, amount);
         return true;
@@ -1780,10 +1643,7 @@ contract TokenizedStrategy {
      * @param addedValue the extra amount to add to the current allowance.
      * @return . a boolean value indicating whether the operation succeeded.
      */
-    function increaseAllowance(
-        address spender,
-        uint256 addedValue
-    ) external returns (bool) {
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
         address owner = msg.sender;
         _approve(owner, spender, allowance(owner, spender) + addedValue);
         return true;
@@ -1807,10 +1667,7 @@ contract TokenizedStrategy {
      * @param subtractedValue the amount to decrease the current allowance by.
      * @return . a boolean value indicating whether the operation succeeded.
      */
-    function decreaseAllowance(
-        address spender,
-        uint256 subtractedValue
-    ) external returns (bool) {
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
         address owner = msg.sender;
         _approve(owner, spender, allowance(owner, spender) - subtractedValue);
         return true;
@@ -1918,17 +1775,10 @@ contract TokenizedStrategy {
      *
      * Might emit an {Approval} event.
      */
-    function _spendAllowance(
-        address owner,
-        address spender,
-        uint256 amount
-    ) private {
+    function _spendAllowance(address owner, address spender, uint256 amount) private {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
-            require(
-                currentAllowance >= amount,
-                "ERC20: insufficient allowance"
-            );
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
             unchecked {
                 _approve(owner, spender, currentAllowance - amount);
             }
@@ -1974,15 +1824,7 @@ contract TokenizedStrategy {
      * https://eips.ethereum.org/EIPS/eip-2612#specification[relevant EIP
      * section].
      */
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         require(deadline >= block.timestamp, "ERC20: PERMIT_DEADLINE_EXPIRED");
 
         // Unchecked because the only math done is incrementing
@@ -1995,9 +1837,7 @@ contract TokenizedStrategy {
                         DOMAIN_SEPARATOR(),
                         keccak256(
                             abi.encode(
-                                keccak256(
-                                    "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-                                ),
+                                keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
                                 owner,
                                 spender,
                                 value,
@@ -2012,10 +1852,7 @@ contract TokenizedStrategy {
                 s
             );
 
-            require(
-                recoveredAddress != address(0) && recoveredAddress == owner,
-                "ERC20: INVALID_SIGNER"
-            );
+            require(recoveredAddress != address(0) && recoveredAddress == owner, "ERC20: INVALID_SIGNER");
 
             _approve(recoveredAddress, spender, value);
         }
@@ -2033,10 +1870,7 @@ contract TokenizedStrategy {
      */
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
         StrategyData storage S = _strategyStorage();
-        return
-            block.chainid == S.INITIAL_CHAIN_ID
-                ? S.INITIAL_DOMAIN_SEPARATOR
-                : _computeDomainSeparator();
+        return block.chainid == S.INITIAL_CHAIN_ID ? S.INITIAL_DOMAIN_SEPARATOR : _computeDomainSeparator();
     }
 
     /**
@@ -2052,9 +1886,7 @@ contract TokenizedStrategy {
         return
             keccak256(
                 abi.encode(
-                    keccak256(
-                        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                    ),
+                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                     keccak256(bytes(_strategyStorage().name)),
                     keccak256(bytes(API_VERSION)),
                     block.chainid,

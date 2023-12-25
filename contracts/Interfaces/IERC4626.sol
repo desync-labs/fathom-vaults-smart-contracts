@@ -17,13 +17,7 @@ interface IERC4626 is IERC20, IERC20Metadata {
     // solhint-disable max-line-length
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
 
-    event Withdraw(
-        address indexed sender,
-        address indexed receiver,
-        address indexed owner,
-        uint256 assets,
-        uint256 shares
-    );
+    event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
 
     /**
      * @dev Returns the address of the underlying token used for the Vault for accounting, depositing, and withdrawing.
@@ -189,7 +183,13 @@ interface IERC4626 is IERC20, IERC20Metadata {
      * Note that some implementations will require pre-requesting to the Vault before a withdrawal may be performed.
      * Those methods should be performed separately.
      */
-    function withdraw(uint256 assets, address receiver, address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256 shares);
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner,
+        uint256 maxLoss,
+        address[] memory strategies
+    ) external returns (uint256 shares);
 
     /**
      * @dev Returns the maximum amount of Vault shares that can be redeemed from the owner balance in the Vault,

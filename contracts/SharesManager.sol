@@ -4,10 +4,9 @@ pragma solidity 0.8.19;
 import "./VaultStorage.sol";
 import "./Interfaces/IVaultEvents.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
-
 
 interface ISharesManagerUpgradeable {
     function setImplementation(address implementation, bytes memory _data) external;
@@ -30,7 +29,7 @@ contract SharesManager is Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, Ree
      * Requirements:
      *
      * - If `data` is empty, `msg.value` must be zero.
-     */    
+     */
     constructor(address implementation, bytes memory _data) payable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _upgradeToAndCall(implementation, _data, false);
@@ -51,4 +50,3 @@ contract SharesManager is Proxy, ERC1967Upgrade, VaultStorage, IVaultEvents, Ree
         return ERC1967Upgrade._getImplementation();
     }
 }
-    
