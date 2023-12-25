@@ -55,11 +55,19 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         sharesSymbol = _symbol;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ACCOUNTANT_MANAGER, msg.sender);
+        _grantRole(QUEUE_MANAGER, msg.sender);
         _grantRole(DEPOSIT_LIMIT_MANAGER, msg.sender);
+        _grantRole(WITHDRAW_LIMIT_MANAGER, msg.sender);
+        _grantRole(MINIMUM_IDLE_MANAGER, msg.sender);
+        _grantRole(PROFIT_UNLOCK_MANAGER, msg.sender);
         _grantRole(ADD_STRATEGY_MANAGER, msg.sender);
+        _grantRole(FORCE_REVOKE_MANAGER, msg.sender);
         _grantRole(MAX_DEBT_MANAGER, msg.sender);
+        _grantRole(EMERGENCY_MANAGER, msg.sender);
         _grantRole(DEBT_MANAGER, msg.sender);
         _grantRole(REPORTING_MANAGER, msg.sender);
+        _grantRole(DEBT_PURCHASER, msg.sender);
 
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
