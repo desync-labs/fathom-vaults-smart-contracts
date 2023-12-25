@@ -646,24 +646,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return _approve(msg.sender, spender, amount);
     }
 
-    /// @notice Increase the allowance for a spender.
-    /// @param spender The address to increase the allowance for.
-    /// @param amount The amount to increase the allowance by.
-    /// @return True if the increase was successful.
-    function increaseAllowance(address spender, uint256 amount) external override returns (bool) {
-        return _increaseAllowance(msg.sender, spender, amount);
-    }
-
-    /// @notice Decrease the allowance for a spender.
-    /// @param spender The address to decrease the allowance for.
-    /// @param amount The amount to decrease the allowance by.
-    /// @return True if the decrease was successful.
-    function decreaseAllowance(address spender, uint256 amount) external override returns (bool) {
-        uint256 newAllowance = _allowance[msg.sender][spender] - amount;
-        _approve(msg.sender, spender, newAllowance);
-        return true;
-    }
-
     /// @notice Transfer shares to a receiver.
     /// @param receiver The address to transfer shares to.
     /// @param amount The amount of shares to transfer.

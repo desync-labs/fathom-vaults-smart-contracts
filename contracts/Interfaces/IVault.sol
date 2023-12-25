@@ -59,10 +59,6 @@ interface IVault is IERC4626 {
 
     function approve(address spender, uint256 amount) external returns (bool);
 
-    function increaseAllowance(address spender, uint256 amount) external returns (bool);
-
-    function decreaseAllowance(address spender, uint256 amount) external returns (bool);
-
     function transfer(address receiver, uint256 amount) external returns (bool);
 
     function transferFrom(address sender, address receiver, uint256 amount) external returns (bool);
