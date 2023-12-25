@@ -29,6 +29,62 @@ contract TokenizedStrategy {
     using Math for uint256;
     using SafeERC20 for ERC20;
 
+    /// @dev The struct that will hold all the data for each strategy that
+    /// uses this implementation.
+    ///
+    /// This replaces all state variables for a traditional contract. This
+    /// full struct will be initialized on the creation of the strategy
+    /// and continually updated and read from for the life of the contract.
+    ///
+    /// We combine all the variables into one struct to limit the amount of
+    /// times the custom storage slots need to be loaded during complex functions.
+    ///
+    /// Loading the corresponding storage slot for the struct does not
+    /// load any of the contents of the struct into memory. So the size
+    /// has no effect on gas usage.
+    struct StrategyData {
+        bytes32 initialDomainSeparator; // The domain separator used for permits on the initial chain.
+        uint256 initialChainId; // The initial chain id when the strategy was created.
+
+        uint256 totalSupply; // The total amount of shares currently issued.
+        
+        // Assets data to track totals the strategy holds.
+        // We manually track idle instead of relying on asset.balanceOf(address(this))
+        // to prevent PPS manipulation through airdrops.
+        uint256 totalIdle; // The total amount of loose `asset` the strategy holds.
+        uint256 totalDebt; // The total amount `asset` that is currently deployed by the strategy.
+        
+        // Variables for profit reporting and locking.
+        // We use uint128 for time stamps which is 1,025 years in the future.
+        uint256 profitUnlockingRate; // The rate at which locked profit is unlocking.
+        uint128 fullProfitUnlockDate; // The timestamp at which all locked shares will unlock.
+        uint128 lastReport; // The last time a {report} was called.
+
+        ERC20 asset; // The ERC20 compliant underlying asset that will be used by the Strategy
+
+        address performanceFeeRecipient; // The address to pay the `performanceFee` to.
+
+        address management; // Main address that can set all configurable variables.
+        address keeper; // Address given permission to call {report} and {tend}.
+        address pendingManagement; // Address that is pending to take over `management`.
+        address emergencyAdmin; // Address to act in emergencies as well as `management`.
+
+        uint32 profitMaxUnlockTime; // The amount of seconds that the reported profit unlocks over.
+
+        uint16 performanceFee; // The percent in basis points of profit that is charged as a fee.
+
+        uint8 decimals; // The amount of decimals that `asset` and strategy use.
+        
+        bool entered; // Bool to prevent reentrancy.
+        bool shutdown; // Bool that can be used to stop deposits into the strategy.
+        
+        string name; // The name of the token for the strategy.
+
+        mapping(address => uint256) nonces; // Mapping of nonces used for permit functions.
+        mapping(address => uint256) balances; // Mapping to track current balances for each account that holds shares.
+        mapping(address => mapping(address => uint256)) allowances; // Mapping to track the allowances for the strategies shares.
+    }
+
     /// @notice Emitted when the 'pendingManagement' address is updated to 'newPendingManagement'.
     event UpdatePendingManagement(address indexed newPendingManagement);
 
@@ -79,55 +135,6 @@ contract TokenizedStrategy {
     /// @dev Emitted on the initialization of any new `strategy` that uses `asset`
     /// with this specific `apiVersion`.
     event NewTokenizedStrategy(address indexed strategy, address indexed asset, string apiVersion);
-
-    /// @dev The struct that will hold all the data for each strategy that
-    /// uses this implementation.
-    ///
-    /// This replaces all state variables for a traditional contract. This
-    /// full struct will be initialized on the creation of the strategy
-    /// and continually updated and read from for the life of the contract.
-    ///
-    /// We combine all the variables into one struct to limit the amount of
-    /// times the custom storage slots need to be loaded during complex functions.
-    ///
-    /// Loading the corresponding storage slot for the struct does not
-    /// load any of the contents of the struct into memory. So the size
-    /// has no effect on gas usage.
-    struct StrategyData {
-        // The ERC20 compliant underlying asset that will be
-        // used by the Strategy
-        ERC20 asset;
-        // These are the corresponding ERC20 variables needed for the
-        // strategies token that is issued and burned on each deposit or withdraw.
-        uint8 decimals; // The amount of decimals that `asset` and strategy use.
-        string name; // The name of the token for the strategy.
-        uint256 totalSupply; // The total amount of shares currently issued.
-        uint256 INITIAL_CHAIN_ID; // The initial chain id when the strategy was created.
-        bytes32 INITIAL_DOMAIN_SEPARATOR; // The domain separator used for permits on the initial chain.
-        mapping(address => uint256) nonces; // Mapping of nonces used for permit functions.
-        mapping(address => uint256) balances; // Mapping to track current balances for each account that holds shares.
-        mapping(address => mapping(address => uint256)) allowances; // Mapping to track the allowances for the strategies shares.
-        // Assets data to track totals the strategy holds.
-        // We manually track idle instead of relying on asset.balanceOf(address(this))
-        // to prevent PPS manipulation through airdrops.
-        uint256 totalIdle; // The total amount of loose `asset` the strategy holds.
-        uint256 totalDebt; // The total amount `asset` that is currently deployed by the strategy.
-        // Variables for profit reporting and locking.
-        // We use uint128 for time stamps which is 1,025 years in the future.
-        uint256 profitUnlockingRate; // The rate at which locked profit is unlocking.
-        uint128 fullProfitUnlockDate; // The timestamp at which all locked shares will unlock.
-        uint128 lastReport; // The last time a {report} was called.
-        uint32 profitMaxUnlockTime; // The amount of seconds that the reported profit unlocks over.
-        uint16 performanceFee; // The percent in basis points of profit that is charged as a fee.
-        address performanceFeeRecipient; // The address to pay the `performanceFee` to.
-        // Access management variables.
-        address management; // Main address that can set all configurable variables.
-        address keeper; // Address given permission to call {report} and {tend}.
-        address pendingManagement; // Address that is pending to take over `management`.
-        address emergencyAdmin; // Address to act in emergencies as well as `management`.
-        bool entered; // Bool to prevent reentrancy.
-        bool shutdown; // Bool that can be used to stop deposits into the strategy.
-    }
 
     /// @dev Require that the call is coming from the strategies management.
     modifier onlyManagement() {
@@ -294,9 +301,9 @@ contract TokenizedStrategy {
         // Set decimals based off the `asset`.
         S.decimals = ERC20(_asset).decimals();
         // Set initial chain id for permit replay protection
-        S.INITIAL_CHAIN_ID = block.chainid;
+        S.initialChainId = block.chainid;
         // Set the initial domain separator for permit functions
-        S.INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
+        S.initialDomainSeparator = _computeDomainSeparator();
 
         // Default to a 10 day profit unlock period
         S.profitMaxUnlockTime = 10 days;
@@ -1561,7 +1568,7 @@ contract TokenizedStrategy {
     /// @return The domain separator that will be used for any {permit} calls.
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
         StrategyData storage S = _strategyStorage();
-        return block.chainid == S.INITIAL_CHAIN_ID ? S.INITIAL_DOMAIN_SEPARATOR : _computeDomainSeparator();
+        return block.chainid == S.initialChainId ? S.initialDomainSeparator : _computeDomainSeparator();
     }
 
     /// @dev Calculates and returns the domain separator to be used in any
