@@ -48,7 +48,7 @@ contract VaultStorage {
 
     // Total amount of assets that has been deposited in strategies.
     uint256 public totalDebtAmount;
-    // Current assets held in the vault contract. Replacing balanceOf(this) to avoid price_per_share manipulation.
+    // Current assets held in the vault contract. Replacing balanceOf(this) to avoid pricePerShare manipulation.
     uint256 public totalIdleAmount;
     // Minimum amount of assets that should be kept in the vault contract to allow for fast, cheap redeems.
     uint256 public minimumTotalIdle;
@@ -85,6 +85,7 @@ contract VaultStorage {
     // EIP-2612 permit() nonces and typehashes
     mapping(address => uint256) public nonces;
     bytes32 public constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    // solhint-disable-next-line var-name-mixedcase
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant PERMIT_TYPE_HASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 

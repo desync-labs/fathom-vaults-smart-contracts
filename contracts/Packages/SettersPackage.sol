@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
+import "../CommonErrors.sol";
 import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/ISettersPackage.sol";
 import "../Interfaces/ISharesManager.sol";
@@ -17,13 +18,6 @@ contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPa
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
     // solhint-disable max-line-length
-
-    error InactiveStrategy();
-    error StrategyIsShutdown();
-    error UsingModule();
-    error UsingDepositLimit();
-    error ProfitUnlockTimeTooLong();
-    error AlreadyInitialized();
 
     function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
@@ -50,7 +44,7 @@ contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPa
         for (uint256 i = 0; i < newDefaultQueue.length; i++) {
             address strategy = newDefaultQueue[i];
             if (strategies[strategy].activation == 0) {
-                revert InactiveStrategy();
+                revert InactiveStrategy(strategy);
             }
         }
         // Save the new queue.

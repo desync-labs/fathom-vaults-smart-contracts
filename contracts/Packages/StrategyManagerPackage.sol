@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
+import "../CommonErrors.sol";
 import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/IStrategyManagerPackage.sol";
 import "../Interfaces/IStrategy.sol";
@@ -31,19 +32,6 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
     // Factory address
     address public FACTORY;
 
-    error ZeroAddress();
-    error InactiveStrategy();
-    error InvalidAsset();
-    error StrategyAlreadyActive();
-    error StrategyHasDebt();
-    error DebtDidntChange();
-    error ZeroValue();
-    error StrategyHasUnrealisedLosses();
-    error DebtHigherThanMaxDebt();
-    error InsufficientFunds();
-    error StrategyDebtIsLessThanAssetsNeeded();
-    error AlreadyInitialized();
-
     function initialize(address _asset, address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
@@ -60,8 +48,9 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         if (newStrategy == address(0) || newStrategy == address(this)) {
             revert ZeroAddress();
         }
-        if (IStrategy(newStrategy).asset() != address(ASSET)) {
-            revert InvalidAsset();
+        address asset = IStrategy(newStrategy).asset();
+        if (asset != address(ASSET)) {
+            revert InvalidAsset(asset);
         }
         if (strategies[newStrategy].activation != 0) {
             revert StrategyAlreadyActive();
@@ -81,13 +70,13 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
     function revokeStrategy(address strategy, bool force) external override {
         if (strategies[strategy].activation == 0) {
-            revert InactiveStrategy();
+            revert InactiveStrategy(strategy);
         }
 
         // If force revoking a strategy, it will cause a loss.
         uint256 loss = 0;
         if (strategies[strategy].currentDebt != 0 && !force) {
-            revert StrategyHasDebt();
+            revert StrategyHasDebt(strategies[strategy].currentDebt);
         }
 
         // Vault realizes the full loss of outstanding debt.
@@ -120,7 +109,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override {
         if (strategies[strategy].activation == 0) {
-            revert InactiveStrategy();
+            revert InactiveStrategy(strategy);
         }
         strategies[strategy].maxDebt = newMaxDebt;
         emit UpdatedMaxDebtForStrategy(tx.origin, strategy, newMaxDebt);
@@ -176,7 +165,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             // If there are unrealised losses we don't let the vault reduce its debt until there is a new report
             uint256 unrealisedLossesShare = ISharesManager(sharesManager).assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
             if (unrealisedLossesShare != 0) {
-                revert StrategyHasUnrealisedLosses();
+                revert StrategyHasUnrealisedLosses(unrealisedLossesShare);
             }
 
             // Always check the actual amount withdrawn.
@@ -207,7 +196,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
             // Revert if target_debt cannot be achieved due to configured max_debt for given strategy
             if (newDebt > strategies[strategy].maxDebt) {
-                revert DebtHigherThanMaxDebt();
+                revert DebtHigherThanMaxDebt(newDebt, strategies[strategy].maxDebt);
             }
 
             // Vault is increasing debt with the strategy by sending more funds.
@@ -282,7 +271,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
     function processReport(address strategy) external override returns (uint256, uint256) {
         // Make sure we have a valid strategy.
         if (strategies[strategy].activation == 0) {
-            revert InactiveStrategy();
+            revert InactiveStrategy(strategy);
         }
 
         // Burn shares that have been unlocked since the last update
@@ -377,7 +366,9 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         if (token == address(0) || spender == address(0)) {
             revert ZeroAddress();
         }
-        require(IERC20(token).approve(spender, amount), "approval failed");
+        if (!IERC20(token).approve(spender, amount)) {
+            revert ERC20ApprovalFailed();
+        }
     }
 
     function getDefaultQueueLength() external view override returns (uint256 length) {

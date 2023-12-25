@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../CommonErrors.sol";
 import "../VaultStorage.sol";
 import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/ISharesManagerPackage.sol";
@@ -29,25 +30,6 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     // solhint-disable ordering
 
     using Math for uint256;
-
-    error ERC20InsufficientAllowance();
-    error InsufficientFunds();
-    error ZeroAddress();
-    error ERC20PermitExpired();
-    error ERC20PermitInvalidSignature();
-    error InsufficientShares();
-    error InactiveStrategy();
-    error StrategyIsShutdown();
-    error ExceedDepositLimit();
-    error ZeroValue();
-    error StrategyDebtIsLessThanAssetsNeeded();
-    error MaxLoss();
-    error InsufficientAssets();
-    error TooMuchLoss();
-    error InvalidAssetDecimals();
-    error UsingModule();
-    error AlreadyInitialized();
-    error AmountTooHigh();
 
     // IMMUTABLE
     // Address of the underlying token used by the vault
@@ -105,7 +87,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         // Unlimited approval does nothing (saves an SSTORE)
         uint256 currentAllowance = _allowance[owner][spender];
         if (currentAllowance < amount) {
-            revert ERC20InsufficientAllowance();
+            revert ERC20InsufficientAllowance(currentAllowance);
         }
         _approve(owner, spender, currentAllowance - amount);
     }
@@ -191,7 +173,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != owner) {
-            revert ERC20PermitInvalidSignature();
+            revert ERC20PermitInvalidSignature(recoveredAddress);
         }
 
         // Set the allowance to the specified amount
@@ -206,7 +188,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
     function _burnShares(uint256 shares, address owner) internal {
         if (_balanceOf[owner] < shares) {
-            revert InsufficientShares();
+            revert InsufficientShares(_balanceOf[owner]);
         }
         _balanceOf[owner] -= shares;
         totalSupplyAmount -= shares;
@@ -274,14 +256,14 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _totalAssets();
     }
 
-    // assets = shares * (total_assets / total_supply) --- (== price_per_share * shares)
+    // assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
     function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
         if (shares == type(uint256).max || shares == 0) {
             return shares;
         }
 
         uint256 currentTotalSupply = _totalSupply();
-        // if total_supply is 0, price_per_share is 1
+        // if totalSupply is 0, pricePerShare is 1
         if (currentTotalSupply == 0) {
             return shares;
         }
@@ -299,7 +281,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _convertToAssets(shares, rounding);
     }
 
-    // shares = amount * (total_supply / total_assets) --- (== amount / price_per_share)
+    // shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
     function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
         if (assets == type(uint256).max || assets == 0) {
             return assets;
@@ -309,11 +291,11 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         uint256 currentTotalAssets = _totalAssets();
 
         if (currentTotalAssets == 0) {
-            // if total_assets and total_supply is 0, price_per_share is 1
+            // if totalAssets and totalSupply is 0, pricePerShare is 1
             if (currentTotalSupply == 0) {
                 return assets;
             } else {
-                // Else if total_supply > 0 price_per_share is 0
+                // Else if totalSupply > 0 pricePerShare is 0
                 return 0;
             }
         }
@@ -337,7 +319,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (token == address(0) || spender == address(0)) {
             revert ZeroAddress();
         }
-        require(IERC20(token).approve(spender, amount), "approval failed");
+        if (!IERC20(token).approve(spender, amount)) {
+            revert ERC20ApprovalFailed();
+        }
     }
 
     // Used only to transfer tokens that are not the type managed by this Vault.
@@ -346,7 +330,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (token == address(0) || sender == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
-        require(IERC20(token).transferFrom(sender, receiver, amount), "transfer failed");
+        if (!IERC20(token).transferFrom(sender, receiver, amount)) {
+            revert ERC20TransferFailed();
+        }
     }
 
     function erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) external override {
@@ -359,7 +345,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         if (token == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
-        require(IERC20(token).transfer(receiver, amount), "transfer failed");
+        if (!IERC20(token).transfer(receiver, amount)) {
+            revert ERC20TransferFailed();
+        }
     }
 
     function erc20SafeTransfer(address token, address receiver, uint256 amount) external override {
@@ -381,7 +369,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
     // Issues shares that are worth 'amount' in the underlying token (asset).
     // WARNING: this takes into account that any new assets have been summed
-    // to total_assets (otherwise pps will go down).
+    // to totalAssets (otherwise pps will go down).
     function _issueSharesForAmount(uint256 amount, address recipient) internal returns (uint256) {
         if (recipient == address(0)) {
             revert ZeroAddress();
@@ -396,9 +384,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         } else if (currentTotalAssets > amount) {
             newShares = (amount * currentTotalSupply) / (currentTotalAssets - amount);
         } else {
-            // If total_supply > 0 but amount = totalAssets we want to revert because
+            // If totalSupply > 0 but amount = totalAssets we want to revert because
             // after first deposit, getting here would mean that the rest of the shares
-            // would be diluted to a price_per_share of 0. Issuing shares would then mean
+            // would be diluted to a pricePerShare of 0. Issuing shares would then mean
             // either the new depositor or the previous depositors will loose money.
             revert AmountTooHigh();
         }
@@ -453,7 +441,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
     // @dev Returns the max amount of `asset` an `owner` can withdraw.
     // This will do a full simulation of the withdraw in order to determine
-    // how much is currently liquid and if the `max_loss` would allow for the
+    // how much is currently liquid and if the `maxLoss` would allow for the
     // tx to not revert.
     // This will track any expected loss to check if the tx will revert, but
     // not account for it in the amount returned since it is unrealised and
@@ -490,7 +478,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
                 address strategy = currentStrategies[i];
                 // Can't use an invalid strategy.
                 if (strategies[strategy].activation == 0) {
-                    revert InactiveStrategy();
+                    revert InactiveStrategy(strategy);
                 }
 
                 // Get the maximum amount the vault would withdraw from the strategy.
@@ -518,7 +506,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
                     continue;
                 }
 
-                // If there would be a loss with a non-maximum `max_loss` value.
+                // If there would be a loss with a non-maximum `maxLoss` value.
                 if (unrealisedLoss > 0 && _maxLoss < MAX_BPS) {
                     // Check if the loss is greater than the allowed range.
                     if (loss + unrealisedLoss > ((have + toWithdraw) * _maxLoss) / MAX_BPS) {
@@ -563,7 +551,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     // @param assets The amount of asset to withdraw.
     // @param receiver The address to receive the assets.
     // @param owner The address who's shares are being burnt.
-    // @param max_loss Optional amount of acceptable loss in Basis Points.
+    // @param maxLoss Optional amount of acceptable loss in Basis Points.
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of shares actually burnt.
     function withdraw(
@@ -581,7 +569,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     // @notice Get the maximum amount of shares that can be redeemed.
     // @dev Complies to normal 4626 interface and takes custom params.
     // @param owner The address that owns the shares.
-    // @param max_loss Custom max_loss if any.
+    // @param maxLoss Custom maxLoss if any.
     // @param strategies Custom strategies queue if any.
     // @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {
@@ -605,7 +593,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             revert StrategyIsShutdown();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit();
+            revert ExceedDepositLimit(_maxDeposit(recipient));
         }
         if (assets <= 0) {
             revert ZeroValue();
@@ -659,7 +647,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             revert ZeroValue();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit();
+            revert ExceedDepositLimit(_maxDeposit(recipient));
         }
 
         // Transfer the tokens to the vault first.
@@ -711,7 +699,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         // Assuming strategies mapping and _assess_share_of_unrealised_losses are defined
         (, , uint256 strategyCurrentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
         if (strategyCurrentDebt < assetsNeeded) {
-            revert StrategyDebtIsLessThanAssetsNeeded();
+            revert StrategyDebtIsLessThanAssetsNeeded(strategyCurrentDebt);
         }
         return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
     }
@@ -773,7 +761,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             revert ZeroValue();
         }
         if (_balanceOf[owner] < sharesToBurn) {
-            revert InsufficientShares();
+            revert InsufficientShares(_balanceOf[owner]);
         }
     }
 
@@ -821,7 +809,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
                 // Make sure we have a valid strategy.
                 (uint256 activation, , , ) = StrategyManager(strategyManager).strategies(strategy);
                 if (activation == 0) {
-                    revert InactiveStrategy();
+                    revert InactiveStrategy(strategy);
                 }
 
                 // How much should the strategy have.
@@ -954,7 +942,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
             // If we exhaust the queue and still have insufficient total idle, revert.
             if (state.currTotalIdle < state.requestedAssets) {
-                revert InsufficientAssets();
+                revert InsufficientAssets(state.currTotalIdle, state.requestedAssets);
             }
 
             // Commit memory to storage.
@@ -1059,7 +1047,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     // @param shares The amount of shares to burn.
     // @param receiver The address to receive the assets.
     // @param owner The address who's shares are being burnt.
-    // @param max_loss Optional amount of acceptable loss in Basis Points.
+    // @param maxLoss Optional amount of acceptable loss in Basis Points.
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of assets actually withdrawn.
     function redeem(
@@ -1090,7 +1078,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
 
         // Record any reported gains.
         if (gain > 0) {
-            // NOTE: this will increase total_assets
+            // NOTE: this will increase totalAssets
             IStrategyManager(strategyManager).setDebt(strategy, currentDebt + gain);
             totalDebtAmount += gain;
         }

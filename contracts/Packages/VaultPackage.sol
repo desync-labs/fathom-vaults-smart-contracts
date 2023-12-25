@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "../CommonErrors.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "./Interfaces/IVaultPackage.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -36,31 +37,6 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
 
     // Factory address
     address public FACTORY;
-
-    error ProfitUnlockTimeTooLong();
-    error InsufficientFunds();
-    error ZeroAddress();
-    error MaxLoss();
-    error ERC20InsufficientAllowance();
-    error ERC20PermitExpired();
-    error ERC20PermitInvalidSignature();
-    error InsufficientShares();
-    error InactiveStrategy();
-    error StrategyIsShutdown();
-    error ExceedDepositLimit();
-    error ZeroValue();
-    error StrategyDebtIsLessThanAssetsNeeded();
-    error InsufficientAssets();
-    error TooMuchLoss();
-    error InvalidAssetDecimals();
-    error UsingModule();
-    error InvalidAsset();
-    error StrategyAlreadyActive();
-    error StrategyHasDebt();
-    error DebtDidntChange();
-    error StrategyHasUnrealisedLosses();
-    error DebtHigherThanMaxDebt();
-    error AlreadyInitialized();
 
     function initialize(
         uint256 _profitMaxUnlockTime,
@@ -111,12 +87,12 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         ISharesManager(sharesManager).burnShares(shares, owner);
     }
 
-    // assets = shares * (total_assets / total_supply) --- (== price_per_share * shares)
+    // assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
     function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
         return ISharesManager(sharesManager).convertToAssets(shares, rounding);
     }
 
-    // shares = amount * (total_supply / total_assets) --- (== amount / price_per_share)
+    // shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
     function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
         return ISharesManager(sharesManager).convertToShares(assets, rounding);
     }
@@ -139,7 +115,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
 
     // Issues shares that are worth 'amount' in the underlying token (asset).
     // WARNING: this takes into account that any new assets have been summed
-    // to total_assets (otherwise pps will go down).
+    // to totalAssets (otherwise pps will go down).
     function _issueSharesForAmount(uint256 amount, address recipient) internal returns (uint256) {
         return ISharesManager(sharesManager).issueSharesForAmount(amount, recipient);
     }
@@ -324,7 +300,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @param assets The amount of asset to withdraw.
     // @param receiver The address to receive the assets.
     // @param owner The address who's shares are being burnt.
-    // @param max_loss Optional amount of acceptable loss in Basis Points.
+    // @param maxLoss Optional amount of acceptable loss in Basis Points.
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of shares actually burnt.
     function withdraw(
@@ -342,7 +318,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @param shares The amount of shares to burn.
     // @param receiver The address to receive the assets.
     // @param owner The address who's shares are being burnt.
-    // @param max_loss Optional amount of acceptable loss in Basis Points.
+    // @param maxLoss Optional amount of acceptable loss in Basis Points.
     // @param strategies Optional array of strategies to withdraw from.
     // @return The amount of assets actually withdrawn.
     function redeem(
@@ -502,7 +478,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @notice Get the maximum amount of assets that can be withdrawn.
     // @dev Complies to normal 4626 interface and takes custom params.
     // @param owner The address that owns the shares.
-    // @param max_loss Custom max_loss if any.
+    // @param maxLoss Custom maxLoss if any.
     // @param strategies Custom strategies queue if any.
     // @return The maximum amount of assets that can be withdrawn.
     function maxWithdraw(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {
@@ -512,7 +488,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     // @notice Get the maximum amount of shares that can be redeemed.
     // @dev Complies to normal 4626 interface and takes custom params.
     // @param owner The address that owns the shares.
-    // @param max_loss Custom max_loss if any.
+    // @param maxLoss Custom maxLoss if any.
     // @param strategies Custom strategies queue if any.
     // @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {

@@ -66,8 +66,10 @@ contract MockTokenizedStrategy is TokenizedStrategy {
         return type(uint256).max;
     }
 
+    // solhint-disable-next-line no-empty-blocks
     function deployFunds(uint256 _amount) external virtual {}
 
+    // solhint-disable-next-line no-empty-blocks
     function freeFunds(uint256 _amount) external virtual {}
 
     function harvestAndReport() external virtual returns (uint256) {

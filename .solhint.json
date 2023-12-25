@@ -14,12 +14,9 @@
     "code-complexity": ["error", 7],
     "function-max-lines": ["error", 50],
     "const-name-snakecase": "error",
-    "no-complex-fallback": "off",
     "no-inline-assembly": "off",
-    "private-vars-leading-underscore": "off",
-    "avoid-low-level-calls": "off",
-    "no-empty-blocks": "off",
+    "no-global-import": "off",
     "max-states-count": "off",
-    "no-global-import": "off"
+    "one-contract-per-file": "off"
   }
 }

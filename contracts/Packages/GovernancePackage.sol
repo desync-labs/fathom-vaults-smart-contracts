@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
+import "../CommonErrors.sol";
 import "../Interfaces/IVaultEvents.sol";
 import "./Interfaces/IGovernancePackage.sol";
 import "../Interfaces/IStrategy.sol";
@@ -19,10 +20,6 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
     // solhint-disable function-max-lines
     // solhint-disable code-complexity
     // solhint-disable max-line-length
-
-    error InactiveStrategy();
-    error ZeroValue();
-    error AlreadyInitialized();
 
     function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
@@ -44,7 +41,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
     // @param amount The amount of debt to buy from the vault.
     function buyDebt(address strategy, uint256 amount) external override onlyRole(DEBT_PURCHASER) nonReentrant {
         if (strategies[strategy].activation == 0) {
-            revert InactiveStrategy();
+            revert InactiveStrategy(strategy);
         }
 
         // Cache the current debt.
@@ -91,7 +88,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
     // @notice Shutdown the vault.
     function shutdownVault() external override onlyRole(EMERGENCY_MANAGER) {
         if (shutdown == true) {
-            revert InactiveStrategy();
+            revert InactiveVault();
         }
 
         // Shutdown the vault.
