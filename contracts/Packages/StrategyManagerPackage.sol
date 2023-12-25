@@ -13,16 +13,13 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
-/**
-@title STRATEGY MANAGEMENT
-*/
-
+/// @title STRATEGY MANAGEMENT
 contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IStrategyManagerPackage {
     using Math for uint256;
 
-    // Address of the underlying token used by the vault
+    /// @notice Address of the underlying token used by the vault
     IERC20 public ASSET;
-    // Factory address
+    /// @notice Factory address
     address public FACTORY;
 
     function initialize(address _asset, address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -247,20 +244,17 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         return newDebt;
     }
 
-    // Processing a report means comparing the debt that the strategy has taken
-    // with the current amount of funds it is reporting. If the strategy owes
-    // less than it currently has, it means it has had a profit, else (assets < debt)
-    // it has had a loss.
-
-    // Different strategies might choose different reporting strategies: pessimistic,
-    // only realised P&L, ... The best way to report depends on the strategy.
-
-    // The profit will be distributed following a smooth curve over the vaults
-    // profit_max_unlock_time seconds. Losses will be taken immediately, first from the
-    // profit buffer (avoiding an impact in pps), then will reduce pps.
-
-    // Any applicable fees are charged and distributed during the report as well
-    // to the specified recipients.
+    /// @notice Processing a report means comparing the debt that the strategy has taken
+    /// with the current amount of funds it is reporting. If the strategy owes
+    /// less than it currently has, it means it has had a profit, else (assets < debt)
+    /// it has had a loss.
+    /// Different strategies might choose different reporting strategies: pessimistic,
+    /// only realised P&L, ... The best way to report depends on the strategy.
+    /// The profit will be distributed following a smooth curve over the vaults
+    /// profitMaxUnlockTime seconds. Losses will be taken immediately, first from the
+    /// profit buffer (avoiding an impact in pps), then will reduce pps.
+    /// Any applicable fees are charged and distributed during the report as well
+    /// to the specified recipients.
     function processReport(address strategy) external override returns (uint256, uint256) {
         // Make sure we have a valid strategy.
         if (strategies[strategy].activation == 0) {
@@ -303,7 +297,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         return (gain, loss);
     }
 
-    // Assess the profit and loss of a strategy.
+    /// @notice Assess the profit and loss of a strategy.
     function _assessProfitAndLoss(address strategy) internal view returns (uint256 gain, uint256 loss) {
         // Vault assesses profits using 4626 compliant interface.
         // NOTE: It is important that a strategies `convertToAssets` implementation
@@ -329,7 +323,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         return (_gain, _loss);
     }
 
-    // Calculate and distribute any fees and refunds from the strategy's performance.
+    /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
         FeeAssessment memory _fees = fees;
 
@@ -353,8 +347,8 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         return _fees;
     }
 
-    // Used only to approve tokens that are not the type managed by this Vault.
-    // Used to handle non-compliant tokens like USDT
+    /// @notice Used only to approve tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
     function erc20SafeApprove(address token, address spender, uint256 amount) internal {
         if (token == address(0) || spender == address(0)) {
             revert ZeroAddress();
@@ -380,7 +374,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         strategies[strategy].currentDebt = _newDebt;
     }
 
-    // Set fees and refunds.
+    /// @notice Set fees and refunds.
     function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override {
         fees.totalFees = totalFees;
         fees.totalRefunds = totalRefunds;

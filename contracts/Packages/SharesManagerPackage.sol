@@ -17,21 +17,17 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-/**
-@title STRATEGY MANAGEMENT
-*/
-
+/// @title STRATEGY MANAGEMENT
 contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesManagerPackage, AccessControl {
     using Math for uint256;
 
-    // IMMUTABLE
-    // Address of the underlying token used by the vault
+    /// @notice Address of the underlying token used by the vault
     IERC20 public ASSET;
     uint8 public DECIMALS;
 
-    // ERC20 - name of the vault's token
+    /// @notice ERC20 - name of the vault's token
     string public override name;
-    // ERC20 - symbol of the vault's token
+    /// @notice ERC20 - symbol of the vault's token
     string public override symbol;
 
     function initialize(
@@ -59,12 +55,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         initialized = true;
     }
 
-    // SHARE MANAGEMENT
-    // ERC20
-
-    // @notice Get the balance of a user.
-    // @param addr The address to get the balance of.
-    // @return The balance of the user.
+    /// @notice Get the balance of a user.
+    /// @param addr The address to get the balance of.
+    /// @return The balance of the user.
     function balanceOf(address addr) external view override returns (uint256) {
         if (addr == address(this)) {
             return _balanceOf[addr] - _unlockedShares();
@@ -192,11 +185,11 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         _burnShares(shares, owner);
     }
 
-    // Returns the amount of shares that have been unlocked.
-    // To avoid sudden pricePerShare spikes, profits must be processed
-    // through an unlocking period. The mechanism involves shares to be
-    // minted to the vault which are unlocked gradually over time. Shares
-    // that have been locked are gradually unlocked over profitMaxUnlockTime.
+    /// @notice Returns the amount of shares that have been unlocked.
+    /// To avoid sudden pricePerShare spikes, profits must be processed
+    /// through an unlocking period. The mechanism involves shares to be
+    /// minted to the vault which are unlocked gradually over time. Shares
+    /// that have been locked are gradually unlocked over profitMaxUnlockTime.
     function _unlockedShares() internal view returns (uint256) {
         uint256 _fullProfitUnlockDate = Setters(setters).fullProfitUnlockDate();
         uint256 currUnlockedShares = 0;
@@ -214,7 +207,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _unlockedShares();
     }
 
-    // Need to account for the shares issued to the vault that have unlocked.
+    /// @notice Need to account for the shares issued to the vault that have unlocked.
     function _totalSupply() internal view returns (uint256) {
         return totalSupplyAmount - _unlockedShares();
     }
@@ -223,8 +216,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _totalSupply();
     }
 
-    // Burns shares that have been unlocked since last update.
-    // In case the full unlocking period has passed, it stops the unlocking.
+    /// @notice Burns shares that have been unlocked since last update.
+    /// In case the full unlocking period has passed, it stops the unlocking.
     function burnUnlockedShares() external override {
         // Get the amount of shares that have unlocked
         uint256 currUnlockedShares = _unlockedShares();
@@ -240,7 +233,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         _burnShares(currUnlockedShares, address(this));
     }
 
-    // Total amount of assets that are in the vault and in the strategies.
+    /// @notice Total amount of assets that are in the vault and in the strategies.
     function _totalAssets() internal view returns (uint256) {
         return totalIdleAmount + totalDebtAmount;
     }
@@ -249,7 +242,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _totalAssets();
     }
 
-    // assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
+    /// @notice assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
     function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
         if (shares == type(uint256).max || shares == 0) {
             return shares;
@@ -274,7 +267,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _convertToAssets(shares, rounding);
     }
 
-    // shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
+    /// @notice shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
     function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
         if (assets == type(uint256).max || assets == 0) {
             return assets;
@@ -306,8 +299,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _convertToShares(assets, rounding);
     }
 
-    // Used only to approve tokens that are not the type managed by this Vault.
-    // Used to handle non-compliant tokens like USDT
+    /// @notice Used only to approve tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
     function erc20SafeApprove(address token, address spender, uint256 amount) external override {
         if (token == address(0) || spender == address(0)) {
             revert ZeroAddress();
@@ -317,8 +310,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         }
     }
 
-    // Used only to transfer tokens that are not the type managed by this Vault.
-    // Used to handle non-compliant tokens like USDT
+    /// @notice Used only to transfer tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
     function _erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) internal {
         if (token == address(0) || sender == address(0) || receiver == address(0)) {
             revert ZeroAddress();
@@ -332,8 +325,8 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         _erc20SafeTransferFrom(token, sender, receiver, amount);
     }
 
-    // Used only to send tokens that are not the type managed by this Vault.
-    // Used to handle non-compliant tokens like USDT
+    /// @notice Used only to send tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
     function _erc20SafeTransfer(address token, address receiver, uint256 amount) internal {
         if (token == address(0) || receiver == address(0)) {
             revert ZeroAddress();
@@ -425,23 +418,23 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _maxDeposit(receiver);
     }
 
-    // @notice Preview the amount of shares that would be minted for a deposit.
-    // @param assets The amount of assets to deposit.
-    // @return The amount of shares that would be minted.
+    /// @notice Preview the amount of shares that would be minted for a deposit.
+    /// @param assets The amount of assets to deposit.
+    /// @return The amount of shares that would be minted.
     function previewDeposit(uint256 assets) external view override returns (uint256) {
         return _convertToShares(assets, Rounding.ROUND_DOWN);
     }
 
-    // @dev Returns the max amount of `asset` an `owner` can withdraw.
-    // This will do a full simulation of the withdraw in order to determine
-    // how much is currently liquid and if the `maxLoss` would allow for the
-    // tx to not revert.
-    // This will track any expected loss to check if the tx will revert, but
-    // not account for it in the amount returned since it is unrealised and
-    // therefore will not be accounted for in the conversion rates.
-    // i.e. If we have 100 debt and 10 of unrealised loss, the max we can get
-    // out is 90, but a user of the vault will need to call withdraw with 100
-    // in order to get the full 90 out.
+    /// @dev Returns the max amount of `asset` an `owner` can withdraw.
+    /// This will do a full simulation of the withdraw in order to determine
+    /// how much is currently liquid and if the `maxLoss` would allow for the
+    /// tx to not revert.
+    /// This will track any expected loss to check if the tx will revert, but
+    /// not account for it in the amount returned since it is unrealised and
+    /// therefore will not be accounted for in the conversion rates.
+    /// i.e. If we have 100 debt and 10 of unrealised loss, the max we can get
+    /// out is 90, but a user of the vault will need to call withdraw with 100
+    /// in order to get the full 90 out.
     function _maxWithdraw(address owner, uint256 _maxLoss, address[] memory _strategies) internal returns (uint256) {
         // Get the max amount for the owner if fully liquid.
         uint256 maxAssets = _convertToAssets(_balanceOf[owner], Rounding.ROUND_DOWN);
@@ -532,21 +525,21 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _maxWithdraw(owner, _maxLoss, _strategies);
     }
 
-    // @notice Preview the amount of shares that would be redeemed for a withdraw.
-    // @param assets The amount of assets to withdraw.
-    // @return The amount of shares that would be redeemed.
+    /// @notice Preview the amount of shares that would be redeemed for a withdraw.
+    /// @param assets The amount of assets to withdraw.
+    /// @return The amount of shares that would be redeemed.
     function previewWithdraw(uint256 assets) external view override returns (uint256) {
         return _convertToShares(assets, Rounding.ROUND_UP);
     }
 
-    // @notice Withdraw an amount of asset to `receiver` burning `owner`s shares.
-    // @dev The default behavior is to not allow any loss.
-    // @param assets The amount of asset to withdraw.
-    // @param receiver The address to receive the assets.
-    // @param owner The address who's shares are being burnt.
-    // @param maxLoss Optional amount of acceptable loss in Basis Points.
-    // @param strategies Optional array of strategies to withdraw from.
-    // @return The amount of shares actually burnt.
+    /// @notice Withdraw an amount of asset to `receiver` burning `owner`s shares.
+    /// @dev The default behavior is to not allow any loss.
+    /// @param assets The amount of asset to withdraw.
+    /// @param receiver The address to receive the assets.
+    /// @param owner The address who's shares are being burnt.
+    /// @param maxLoss Optional amount of acceptable loss in Basis Points.
+    /// @param _strategies Optional array of strategies to withdraw from.
+    /// @return The amount of shares actually burnt.
     function withdraw(
         uint256 assets,
         address receiver,
@@ -559,28 +552,28 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return shares;
     }
 
-    // @notice Get the maximum amount of shares that can be redeemed.
-    // @dev Complies to normal 4626 interface and takes custom params.
-    // @param owner The address that owns the shares.
-    // @param maxLoss Custom maxLoss if any.
-    // @param strategies Custom strategies queue if any.
-    // @return The maximum amount of shares that can be redeemed.
+    /// @notice Get the maximum amount of shares that can be redeemed.
+    /// @dev Complies to normal 4626 interface and takes custom params.
+    /// @param owner The address that owns the shares.
+    /// @param maxLoss Custom maxLoss if any.
+    /// @param _strategies Custom strategies queue if any.
+    /// @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {
         uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
         uint256 sharesEquivalent = _convertToShares(maxWithdrawAmount, Rounding.ROUND_UP);
         return Math.min(sharesEquivalent, _balanceOf[owner]);
     }
 
-    // @notice Preview the amount of assets that would be withdrawn for a redeem.
-    // @param shares The amount of shares to redeem.
-    // @return The amount of assets that would be withdrawn.
+    /// @notice Preview the amount of assets that would be withdrawn for a redeem.
+    /// @param shares The amount of shares to redeem.
+    /// @return The amount of assets that would be withdrawn.
     function previewRedeem(uint256 shares) external view override returns (uint256) {
         return _convertToAssets(shares, Rounding.ROUND_DOWN);
     }
 
-    // Used for `deposit` calls to transfer the amount of `asset` to the vault,
-    // issue the corresponding shares to the `recipient` and update all needed
-    // vault accounting.
+    /// @notice Used for `deposit` calls to transfer the amount of `asset` to the vault,
+    /// issue the corresponding shares to the `recipient` and update all needed
+    /// vault accounting.
     function _deposit(address sender, address recipient, uint256 assets) internal returns (uint256) {
         if (shutdown == true) {
             revert StrategyIsShutdown();
@@ -611,24 +604,24 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _deposit(sender, recipient, assets);
     }
 
-    // @notice Get the maximum amount of shares that can be minted.
-    // @param receiver The address that will receive the shares.
-    // @return The maximum amount of shares that can be minted.
+    /// @notice Get the maximum amount of shares that can be minted.
+    /// @param receiver The address that will receive the shares.
+    /// @return The maximum amount of shares that can be minted.
     function maxMint(address receiver) external view override returns (uint256) {
         uint256 maxDepositAmount = _maxDeposit(receiver);
         return _convertToShares(maxDepositAmount, Rounding.ROUND_DOWN);
     }
 
-    // @notice Preview the amount of assets that would be deposited for a mint.
-    // @param shares The amount of shares to mint.
-    // @return The amount of assets that would be deposited.
+    /// @notice Preview the amount of assets that would be deposited for a mint.
+    /// @param shares The amount of shares to mint.
+    /// @return The amount of assets that would be deposited.
     function previewMint(uint256 shares) external view override returns (uint256) {
         return _convertToAssets(shares, Rounding.ROUND_UP);
     }
 
-    // Used for `mint` calls to issue the corresponding shares to the `recipient`,
-    // transfer the amount of `asset` to the vault, and update all needed vault
-    // accounting.
+    /// @notice Used for `mint` calls to issue the corresponding shares to the `recipient`,
+    /// transfer the amount of `asset` to the vault, and update all needed vault
+    /// accounting.
     function _mint(address sender, address recipient, uint256 shares) internal returns (uint256) {
         if (shutdown == true) {
             revert StrategyIsShutdown();
@@ -659,9 +652,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _mint(sender, recipient, shares);
     }
 
-    // Returns the share of losses that a user would take if withdrawing from this strategy
-    // e.g. if the strategy has unrealised losses for 10% of its current debt and the user
-    // wants to withdraw 1000 tokens, the losses that he will take are 100 token
+    /// @notice Returns the share of losses that a user would take if withdrawing from this strategy
+    /// e.g. if the strategy has unrealised losses for 10% of its current debt and the user
+    /// wants to withdraw 1000 tokens, the losses that he will take are 100 token
     function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
         // Minimum of how much debt the debt should be worth.
         (, , uint256 strategyCurrentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
@@ -674,7 +667,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             return 0;
         }
 
-        // Users will withdraw assets_to_withdraw divided by loss ratio (strategy_assets / strategy_current_debt - 1),
+        // Users will withdraw assets_to_withdraw divided by loss ratio (strategyAssets / strategyCurrentDebt - 1),
         // but will only receive assets_to_withdraw.
         // NOTE: If there are unrealised losses, the user will take his share.
         uint256 numerator = assetsNeeded * strategyAssets;
@@ -689,7 +682,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
     }
 
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view override returns (uint256) {
-        // Assuming strategies mapping and _assess_share_of_unrealised_losses are defined
+        // Assuming strategies mapping and _assessShareOfUnrealisedLosses are defined
         (, , uint256 strategyCurrentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
         if (strategyCurrentDebt < assetsNeeded) {
             revert StrategyDebtIsLessThanAssetsNeeded(strategyCurrentDebt);
@@ -697,9 +690,9 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
     }
 
-    // This takes the amount denominated in asset and performs a {redeem}
-    // with the corresponding amount of shares.
-    // We use {redeem} to natively take on losses without additional non-4626 standard parameters.
+    /// @notice This takes the amount denominated in asset and performs a {redeem}
+    /// with the corresponding amount of shares.
+    /// We use {redeem} to natively take on losses without additional non-4626 standard parameters.
     function _withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) internal {
         // Need to get shares since we use redeem to be able to take on losses.
         uint256 sharesToRedeem = Math.min(
@@ -715,15 +708,15 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         _withdrawFromStrategy(strategy, assetsToWithdraw);
     }
 
-    // This will attempt to free up the full amount of assets equivalent to
-    // `shares_to_burn` and transfer them to the `receiver`. If the vault does
-    // not have enough idle funds it will go through any strategies provided by
-    // either the withdrawer or the queue_manager to free up enough funds to
-    // service the request.
-    // The vault will attempt to account for any unrealized losses taken on from
-    // strategies since their respective last reports.
-    // Any losses realized during the withdraw from a strategy will be passed on
-    // to the user that is redeeming their vault shares.
+    /// @notice This will attempt to free up the full amount of assets equivalent to
+    /// `sharesToBurn` and transfer them to the `receiver`. If the vault does
+    /// not have enough idle funds it will go through any strategies provided by
+    /// either the withdrawer or the queueManager to free up enough funds to
+    /// service the request.
+    /// The vault will attempt to account for any unrealized losses taken on from
+    /// strategies since their respective last reports.
+    /// Any losses realized during the withdraw from a strategy will be passed on
+    /// to the user that is redeeming their vault shares.
     function _redeem(
         address sender,
         address receiver,
@@ -742,7 +735,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return requestedAssets;
     }
 
-    // Validates the state and inputs for the redeem operation.
+    /// @notice Validates the state and inputs for the redeem operation.
     function _validateRedeem(address receiver, address owner, uint256 sharesToBurn, uint256 maxLoss) internal view {
         if (receiver == address(0)) {
             revert ZeroAddress();
@@ -758,14 +751,14 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         }
     }
 
-    // Handles the allowance check and spending.
+    /// @notice Handles the allowance check and spending.
     function _handleAllowance(address owner, address sender, uint256 sharesToBurn) internal {
         if (sender != owner) {
             _spendAllowance(owner, sender, sharesToBurn);
         }
     }
 
-    // Withdraws assets from strategies as needed and handles unrealized losses.
+    /// Withdraws assets from strategies as needed and handles unrealized losses.
     function _withdrawAssets(uint256 assets, address[] memory _strategies) internal returns (uint256, uint256) {
         // Initialize the state struct
         WithdrawalState memory state = WithdrawalState({
@@ -808,17 +801,13 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
                 // How much should the strategy have.
                 (, , uint256 currentDebt, ) = StrategyManager(strategyManager).strategies(strategy);
 
-                // What is the max amount to withdraw from this strategy.
-                // NEEDS ATTENTION!!!!
-                // ORIGINAL CODE IS MATH.MIN
-                // NEEDS TO CAREFUL REVIEW THIS AND TRY TO UNDERSTAND WHAT'S GOING ON HERE
+                // NOTE: What is the max amount to withdraw from this strategy is defined by min of asset need and debt.
                 uint256 assetsToWithdraw = Math.min(state.assetsNeeded, currentDebt);
 
                 // Cache max_withdraw now for use if unrealized loss > 0
                 // Use maxRedeem and convert since we use redeem.
                 uint256 currMaxWithdraw = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
 
-                // CHECK FOR UNREALIZED LOSSES
                 // If unrealised losses > 0, then the user will take the proportional share
                 // and realize it (required to avoid users withdrawing from lossy strategies).
                 // NOTE: strategies need to manage the fact that realising part of the loss can
@@ -945,7 +934,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return (state.requestedAssets, state.currTotalIdle);
     }
 
-    // Finalizes the redeem operation by burning shares and transferring assets.
+    /// @notice Finalizes the redeem operation by burning shares and transferring assets.
     function _finalizeRedeem(
         address receiver,
         address owner,
@@ -971,62 +960,60 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         _erc20SafeTransfer(address(ASSET), receiver, requestedAssets);
     }
 
-    // ## ERC20+4626 compatibility
-
-    // @notice Get the address of the asset.
-    // @return The address of the asset.
+    /// @notice Get the address of the asset.
+    /// @return The address of the asset.
     function asset() external view override returns (address) {
         return address(ASSET);
     }
 
-    // @notice Get the number of decimals of the asset/share.
-    // @return The number of decimals of the asset/share.
+    /// @notice Get the number of decimals of the asset/share.
+    /// @return The number of decimals of the asset/share.
     function decimals() external view override returns (uint8) {
         return uint8(DECIMALS);
     }
 
-    // @notice Approve an address to spend the vault's shares.
-    // @param spender The address to approve.
-    // @param amount The amount of shares to approve.
-    // @return True if the approval was successful.
+    /// @notice Approve an address to spend the vault's shares.
+    /// @param spender The address to approve.
+    /// @param amount The amount of shares to approve.
+    /// @return True if the approval was successful.
     function approve(address spender, uint256 amount) external override returns (bool) {
         return _approve(msg.sender, spender, amount);
     }
 
-    // @notice Convert an amount of shares to assets.
-    // @param shares The amount of shares to convert.
-    // @return The amount of assets.
+    /// @notice Convert an amount of shares to assets.
+    /// @param shares The amount of shares to convert.
+    /// @return The amount of assets.
     function convertToAssets(uint256 shares) external view override returns (uint256) {
         return _convertToAssets(shares, Rounding.ROUND_DOWN);
     }
 
-    // @notice Convert an amount of assets to shares.
-    // @param assets The amount of assets to convert.
-    // @return The amount of shares.
+    /// @notice Convert an amount of assets to shares.
+    /// @param assets The amount of assets to convert.
+    /// @return The amount of shares.
     function convertToShares(uint256 assets) external view override returns (uint256) {
         return _convertToShares(assets, Rounding.ROUND_DOWN);
     }
 
-    // @notice Deposit assets into the vault.
-    // @param assets The amount of assets to deposit.
-    // @param receiver The address to receive the shares.
-    // @return The amount of shares minted.
+    /// @notice Deposit assets into the vault.
+    /// @param assets The amount of assets to deposit.
+    /// @param receiver The address to receive the shares.
+    /// @return The amount of shares minted.
     function deposit(uint256 assets, address receiver) external override nonReentrant returns (uint256) {
         return _deposit(msg.sender, receiver, assets);
     }
 
-    // @notice Mint shares for the receiver.
-    // @param shares The amount of shares to mint.
-    // @param receiver The address to receive the shares.
-    // @return The amount of assets deposited.
+    /// @notice Mint shares for the receiver.
+    /// @param shares The amount of shares to mint.
+    /// @param receiver The address to receive the shares.
+    /// @return The amount of assets deposited.
     function mint(uint256 shares, address receiver) external override nonReentrant returns (uint256) {
         return _mint(msg.sender, receiver, shares);
     }
 
-    // @notice Transfer shares to a receiver.
-    // @param receiver The address to transfer shares to.
-    // @param amount The amount of shares to transfer.
-    // @return True if the transfer was successful.
+    /// @notice Transfer shares to a receiver.
+    /// @param receiver The address to transfer shares to.
+    /// @param amount The amount of shares to transfer.
+    /// @return True if the transfer was successful.
     function transfer(address receiver, uint256 amount) external override returns (bool) {
         if (receiver == address(this) || receiver == address(0)) {
             revert ZeroAddress();
@@ -1035,14 +1022,14 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return true;
     }
 
-    // @notice Redeems an amount of shares of `owners` shares sending funds to `receiver`.
-    // @dev The default behavior is to allow losses to be realized.
-    // @param shares The amount of shares to burn.
-    // @param receiver The address to receive the assets.
-    // @param owner The address who's shares are being burnt.
-    // @param maxLoss Optional amount of acceptable loss in Basis Points.
-    // @param strategies Optional array of strategies to withdraw from.
-    // @return The amount of assets actually withdrawn.
+    /// @notice Redeems an amount of shares of `owners` shares sending funds to `receiver`.
+    /// @dev The default behavior is to allow losses to be realized.
+    /// @param shares The amount of shares to burn.
+    /// @param receiver The address to receive the assets.
+    /// @param owner The address who's shares are being burnt.
+    /// @param maxLoss Optional amount of acceptable loss in Basis Points.
+    /// @param _strategies Optional array of strategies to withdraw from.
+    /// @return The amount of assets actually withdrawn.
     function redeem(
         uint256 shares,
         address receiver,
@@ -1055,7 +1042,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return _redeem(tx.origin, receiver, owner, assets, shares, maxLoss, _strategies);
     }
 
-    // Calculate share management based on gains, losses, and fees.
+    /// @notice Calculate share management based on gains, losses, and fees.
     function calculateShareManagement(
         uint256 gain,
         uint256 loss,
@@ -1101,7 +1088,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return shares;
     }
 
-    // Handle the burning and issuing of shares based on the strategy's report.
+    /// @notice Handle the burning and issuing of shares based on the strategy's report.
     function handleShareBurnsAndIssues(
         ShareManagement memory shares,
         FeeAssessment memory _fees,
@@ -1127,7 +1114,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         }
 
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
-        // newly_locked_shares have already been minted / transferred to the vault, so they need to be subtracted
+        // newlyLockedShares have already been minted / transferred to the vault, so they need to be subtracted
         // no risk of underflow because they have just been minted.
         uint256 _previouslyLockedShares = _balanceOf[address(this)] - _newlyLockedShares;
 
@@ -1158,7 +1145,7 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
         return (_previouslyLockedShares, _newlyLockedShares);
     }
 
-    // Manage the unlocking of shares over time based on the vault's configuration.
+    /// @notice Manage the unlocking of shares over time based on the vault's configuration.
     function manageUnlockingOfShares(uint256 previouslyLockedShares, uint256 newlyLockedShares) external override {
         // Update unlocking rate and time to fully unlocked.
         uint256 totalLockedShares = previouslyLockedShares + newlyLockedShares;
@@ -1181,15 +1168,15 @@ contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, IS
             lastProfitUpdate = block.timestamp;
         } else {
             // NOTE: only setting this to 0 will turn in the desired effect, no need
-            // to update last_profit_update or full_profit_unlock_date
+            // to update lastProfitUpdate or fullProfitUnlockDate
             profitUnlockingRate = 0;
         }
     }
 
-    // @notice Set the new deposit limit.
-    // @dev Can not be changed if a deposit_limit_module
-    //  is set or if shutdown.
-    // @param deposit_limit The new deposit limit.
+    /// @notice Set the new deposit limit.
+    /// @dev Can not be changed if a depositLimitModule
+    /// is set or if shutdown.
+    /// @param _depositLimit The new deposit limit.
     function setDepositLimit(uint256 _depositLimit) external override {
         if (shutdown == true) {
             revert StrategyIsShutdown();

@@ -10,10 +10,7 @@ import "../interfaces/ISharesManager.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-/**
-@title GOVERNANCE MANAGEMENT
-*/
-
+/// @title GOVERNANCE MANAGEMENT
 contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovernancePackage, ReentrancyGuard {
     function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
@@ -25,14 +22,13 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
         initialized = true;
     }
 
-    // @notice Used for governance to buy bad debt from the vault.
-    // @dev This should only ever be used in an emergency in place
-    //  of force revoking a strategy in order to not report a loss.
-    //  It allows the DEBT_PURCHASER role to buy the strategies debt
-    //  for an equal amount of `asset`.
-
-    // @param strategy The strategy to buy the debt for
-    // @param amount The amount of debt to buy from the vault.
+    /// @notice Used for governance to buy bad debt from the vault.
+    /// @dev This should only ever be used in an emergency in place
+    /// of force revoking a strategy in order to not report a loss.
+    /// It allows the DEBT_PURCHASER role to buy the strategies debt
+    /// for an equal amount of `asset`.
+    /// @param strategy The strategy to buy the debt for
+    /// @param amount The amount of debt to buy from the vault.
     function buyDebt(address strategy, uint256 amount) external override onlyRole(DEBT_PURCHASER) nonReentrant {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
@@ -77,9 +73,7 @@ contract GovernancePackage is AccessControl, VaultStorage, IVaultEvents, IGovern
         emit DebtPurchased(strategy, amount);
     }
 
-    // EMERGENCY MANAGEMENT
-
-    // @notice Shutdown the vault.
+    /// @notice Shutdown the vault.
     function shutdownVault() external override onlyRole(EMERGENCY_MANAGER) {
         if (shutdown == true) {
             revert InactiveVault();

@@ -32,7 +32,6 @@ struct WithdrawalState {
     uint256 unrealisedLossesShare;
 }
 
-// ENUMS
 enum StrategyChangeType {
     ADDED, // Corresponds to the strategy being added.
     REVOKED // Corresponds to the strategy being revoked.

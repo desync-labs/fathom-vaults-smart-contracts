@@ -4,10 +4,6 @@ pragma solidity 0.8.19;
 interface IBaseStrategy {
     function tokenizedStrategyAddress() external view returns (address);
 
-    /*//////////////////////////////////////////////////////////////
-                            IMMUTABLE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     function availableDepositLimit(address _owner) external view returns (uint256);
 
     function availableWithdrawLimit(address _owner) external view returns (uint256);

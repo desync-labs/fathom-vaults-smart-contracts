@@ -7,8 +7,8 @@ contract MockTokenizedStrategy is TokenizedStrategy {
     uint256 public minDebt;
     uint256 public maxDebt = type(uint256).max;
 
-    // Private variables and functions used in this mock.
-    bytes32 public constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
+    /// @notice Private variables and functions used in this mock.
+    bytes32 public constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("fathom.base.strategy.storage")) - 1);
 
     function strategyStorage() internal pure returns (StrategyData storage S) {
         // Since STORAGE_SLOT is a constant, we have to put a variable
