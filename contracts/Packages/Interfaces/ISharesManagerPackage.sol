@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.16;
+pragma solidity 0.8.19;
 
 import "../../VaultStructs.sol";
 import {IERC4626} from "../../Interfaces/IERC4626.sol";

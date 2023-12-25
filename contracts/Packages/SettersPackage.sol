@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GNU AGPLv3
-pragma solidity ^0.8.16;
+pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
 import "../Interfaces/IVaultEvents.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.16;
+pragma solidity 0.8.19;
 
 interface IStrategy {
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256);
