@@ -18,13 +18,6 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 */
 
 contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IStrategyManagerPackage {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
     using Math for uint256;
 
     // Address of the underlying token used by the vault

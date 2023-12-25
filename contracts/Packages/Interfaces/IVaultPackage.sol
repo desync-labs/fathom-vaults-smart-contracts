@@ -4,9 +4,6 @@ pragma solidity 0.8.19;
 import "../../VaultStructs.sol";
 
 interface IVault {
-    // solhint-disable ordering
-    // solhint-disable max-line-length
-
     function initialize(
         uint256 _profitMaxUnlockTime,
         address payable _strategyManagerAddress,

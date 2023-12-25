@@ -4,8 +4,6 @@ pragma solidity 0.8.19;
 import "../VaultStructs.sol";
 
 interface IVault {
-    // solhint-disable ordering
-
     function setAccountant(address newAccountant) external;
 
     function setDefaultQueue(address[] memory newDefaultQueue) external;

@@ -22,13 +22,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 */
 
 contract SharesManagerPackage is VaultStorage, IVaultEvents, ReentrancyGuard, ISharesManagerPackage, AccessControl {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
     using Math for uint256;
 
     // IMMUTABLE

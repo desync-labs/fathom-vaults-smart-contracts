@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 interface IStrategyManagerPackage {
-    // solhint-disable ordering
     function initialize(address _asset, address _sharesManager) external;
     function addStrategy(address newStrategy) external;
     function revokeStrategy(address strategy, bool force) external;

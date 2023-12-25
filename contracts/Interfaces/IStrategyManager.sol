@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 interface IStrategyManager {
-    // solhint-disable ordering
     function addStrategy(address newStrategy) external;
     function revokeStrategy(address strategy, bool force) external;
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external;

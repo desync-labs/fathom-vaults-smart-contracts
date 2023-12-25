@@ -13,12 +13,6 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 */
 
 contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPackage {
-    // solhint-disable not-rely-on-time
-    // solhint-disable var-name-mixedcase
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable max-line-length
-
     function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();

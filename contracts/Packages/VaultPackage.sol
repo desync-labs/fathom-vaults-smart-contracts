@@ -28,13 +28,6 @@ and manage accounting in a robust way.
 
 // Solidity version of the Vyper contract
 contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, IVaultEvents {
-    // solhint-disable not-rely-on-time
-    // solhint-disable function-max-lines
-    // solhint-disable code-complexity
-    // solhint-disable var-name-mixedcase
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
     // Factory address
     address public FACTORY;
 

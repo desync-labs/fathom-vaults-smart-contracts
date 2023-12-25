@@ -2,8 +2,6 @@
 pragma solidity 0.8.19;
 
 interface IBaseStrategy {
-    // solhint-disable ordering
-
     function tokenizedStrategyAddress() external view returns (address);
 
     /*//////////////////////////////////////////////////////////////

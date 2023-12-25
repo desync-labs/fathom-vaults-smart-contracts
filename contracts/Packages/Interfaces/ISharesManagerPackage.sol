@@ -5,9 +5,6 @@ import "../../VaultStructs.sol";
 import { IERC4626 } from "../../interfaces/IERC4626.sol";
 
 interface ISharesManagerPackage is IERC4626 {
-    // solhint-disable max-line-length
-    // solhint-disable ordering
-
     function initialize(
         address payable _strategyManager,
         address payable _setters,
