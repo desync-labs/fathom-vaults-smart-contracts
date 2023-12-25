@@ -4,5 +4,5 @@
 pragma solidity 0.8.19;
 
 interface IFactory {
-    function protocolFeeConfig() external view returns (uint16, address);
+    function protocolFeeConfig() external view returns (uint16 /*feeBps*/, address /*feeRecipient*/);
 }

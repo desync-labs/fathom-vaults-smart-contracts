@@ -69,8 +69,6 @@ contract VaultStorage {
     address payable public strategyManager;
     /// @notice The shares manager is the only address that can mint and burn shares.
     address public sharesManager;
-    /// @notice ConfigSetters can set the fees and the deposit limit.
-    address payable public configSetters;
     /// @notice The governance address is the only address that can set the setters.
     address public governance;
 
@@ -86,6 +84,12 @@ contract VaultStorage {
     /// @notice Temporary variable to store the address of the next role_manager until the role is accepted.
     address public futureRoleManager;
 
+    /// @notice Factory address
+    address public factoryAddress; // TODO
+
+    /// @notice Address of the underlying token used by the vault
+    IERC20 public assetAddress;
+
     /// @notice Should the vault use the default_queue regardless whats passed in.
     bool public useDefaultQueue;
 
@@ -95,8 +99,16 @@ contract VaultStorage {
     /// @notice Initialized state of the vault.
     bool internal initialized;
 
+    /// @notice The current decimals value of the vault.
+    uint8 public decimalsValue;
+
     /// @notice The current fees
     FeeAssessment public fees;
+
+    /// @notice ERC20 - name of the vault's token
+    string public sharesName;
+    /// @notice ERC20 - symbol of the vault's token
+    string public sharesSymbol;
 
     /// @notice The current default withdrawal queue.
     address[] public defaultQueue;
