@@ -69,8 +69,8 @@ contract VaultStorage {
     address payable public strategyManager;
     /// @notice The shares manager is the only address that can mint and burn shares.
     address public sharesManager;
-    /// @notice ProxySetters can set the fees and the deposit limit.
-    address payable public setters;
+    /// @notice ConfigSetters can set the fees and the deposit limit.
+    address payable public configSetters;
     /// @notice The governance address is the only address that can set the setters.
     address public governance;
 

@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.19;
 
-interface ISettersPackage {
+interface IConfigSettersPackage {
     function initialize(address _sharesManager) external;
 
     function setAccountant(address newAccountant) external;

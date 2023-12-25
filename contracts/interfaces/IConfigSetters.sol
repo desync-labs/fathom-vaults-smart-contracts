@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.19;
 
-interface ISetters {
+interface IConfigSetters {
     function setAccountant(address newAccountant) external;
 
     function setDefaultQueue(address[] calldata newDefaultQueue) external;

@@ -6,12 +6,12 @@ pragma solidity 0.8.19;
 import "../VaultStorage.sol";
 import "../CommonErrors.sol";
 import "../interfaces/IVaultEvents.sol";
-import "./interfaces/ISettersPackage.sol";
+import "./interfaces/IConfigSettersPackage.sol";
 import "../interfaces/ISharesManager.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @title SETTERS CONTRACT
-contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, ISettersPackage {
+contract SettersPackage is AccessControl, VaultStorage, IVaultEvents, IConfigSettersPackage {
     function initialize(address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();

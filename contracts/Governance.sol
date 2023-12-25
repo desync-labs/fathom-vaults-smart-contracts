@@ -5,17 +5,13 @@ pragma solidity 0.8.19;
 
 import "./VaultStorage.sol";
 import "./interfaces/IVaultEvents.sol";
+import "./interfaces/IUpgradeable.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-/// @title GOVERNANCE MANAGEMENT
-interface IGovernanceUpgradeable {
-    function setImplementation(address implementation, bytes memory _data) external;
-}
-
-contract Governance is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, IVaultEvents, IGovernanceUpgradeable, ReentrancyGuard {
+contract Governance is Proxy, ERC1967Upgrade, AccessControl, ReentrancyGuard, IUpgradeable, VaultStorage, IVaultEvents {
     /// @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
     /// If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an
     /// encoded function call, and allows initializing the storage of the proxy like a Solidity constructor.

@@ -18,7 +18,7 @@ import "../interfaces/IWithdrawLimitModule.sol";
 import "../interfaces/IFactory.sol";
 import "../interfaces/IStrategyManager.sol";
 import "../interfaces/ISharesManager.sol";
-import "../interfaces/ISetters.sol";
+import "../interfaces/IConfigSetters.sol";
 import "../interfaces/IGovernance.sol";
 
 /// @title Fathom Vault
@@ -49,7 +49,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         profitMaxUnlockTime = _profitMaxUnlockTime;
         strategyManager = _strategyManagerAddress;
         sharesManager = _sharesManagerAddress;
-        setters = _settersAddress;
+        configSetters = _settersAddress;
         governance = _governanceAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -76,7 +76,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     /// @dev Will check each strategy to make sure it is active.
     /// @param newDefaultQueue The new default queue array.
     function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
-        ISetters(setters).setDefaultQueue(newDefaultQueue);
+        IConfigSetters(configSetters).setDefaultQueue(newDefaultQueue);
     }
 
     /// @notice Set a new value for `use_default_queue`.
@@ -84,7 +84,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     /// used no matter whats passed in.
     /// @param _useDefaultQueue new value.
     function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
-        ISetters(setters).setUseDefaultQueue(_useDefaultQueue);
+        IConfigSetters(configSetters).setUseDefaultQueue(_useDefaultQueue);
     }
 
     /// @notice Set the new deposit limit.
@@ -100,20 +100,20 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     /// max uint256 since the module will override it.
     /// @param _depositLimitModule Address of the module.
     function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
-        ISetters(setters).setDepositLimitModule(_depositLimitModule);
+        IConfigSetters(configSetters).setDepositLimitModule(_depositLimitModule);
     }
 
     /// @notice Set a contract to handle the withdraw limit.
     /// @dev This will override the default `maxWithdraw`.
     /// @param _withdrawLimitModule Address of the module.
     function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(WITHDRAW_LIMIT_MANAGER) {
-        ISetters(setters).setWithdrawLimitModule(_withdrawLimitModule);
+        IConfigSetters(configSetters).setWithdrawLimitModule(_withdrawLimitModule);
     }
 
     /// @notice Set the new minimum total idle.
     /// @param _minimumTotalIdle The new minimum total idle.
     function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(MINIMUM_IDLE_MANAGER) {
-        ISetters(setters).setMinimumTotalIdle(_minimumTotalIdle);
+        IConfigSetters(configSetters).setMinimumTotalIdle(_minimumTotalIdle);
     }
 
     /// @notice Set the new profit max unlock time.
@@ -125,13 +125,13 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
     /// unlock and an immediate increase in the vaults Price Per Share.
     /// @param _newProfitMaxUnlockTime The new profit max unlock time.
     function setProfitMaxUnlockTime(uint256 _newProfitMaxUnlockTime) external override onlyRole(PROFIT_UNLOCK_MANAGER) {
-        ISetters(setters).setProfitMaxUnlockTime(_newProfitMaxUnlockTime);
+        IConfigSetters(configSetters).setProfitMaxUnlockTime(_newProfitMaxUnlockTime);
     }
 
     /// @notice Set the new accountant address.
     /// @param newAccountant The new accountant address.
     function setAccountant(address newAccountant) external override onlyRole(ACCOUNTANT_MANAGER) {
-        ISetters(setters).setAccountant(newAccountant);
+        IConfigSetters(configSetters).setAccountant(newAccountant);
     }
 
     /// @notice Process the report of a strategy.
