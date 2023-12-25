@@ -41,7 +41,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         if (_isContract(msg.sender)) {
             factoryAddress = msg.sender;
         } else {
-            factoryAddress = address(0x00);
+            factoryAddress = address(0);
             customFeeBPS = MAX_FEE_BPS;
             customFeeRecipient = msg.sender;
         }
