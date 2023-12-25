@@ -78,6 +78,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         initialized = true;
     }
 
+    /// @notice Set the new accountant address.
+    /// @param newAccountant The new accountant address.
+    function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        accountant = newAccountant;
+        emit UpdateAccountant(newAccountant);
+    }
+
     /// @notice Set the new default queue array.
     /// @dev Will check each strategy to make sure it is active.
     /// @param newDefaultQueue The new default queue array.

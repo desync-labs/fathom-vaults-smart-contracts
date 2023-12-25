@@ -16,6 +16,8 @@ interface IVault is IERC4626 {
         string calldata _symbol
     ) external;
 
+    function setAccountant(address newAccountant) external;
+
     function setDefaultQueue(address[] calldata newDefaultQueue) external;
 
     function setUseDefaultQueue(bool useDefaultQueue) external;
