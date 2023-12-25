@@ -4,9 +4,7 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "../CommonErrors.sol";
 import "../VaultStorage.sol";
 import "../interfaces/IVault.sol";
@@ -55,7 +53,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         if (decimalsValue >= 256) {
             revert InvalidAssetDecimals();
         }
-        assetAddress = IERC20(_asset);
+        assetContract = IERC20(_asset);
         sharesName = _name;
         sharesSymbol = _symbol;
 
@@ -221,7 +219,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert ZeroAddress();
         }
         address strategyAsset = IStrategy(newStrategy).asset();
-        if (strategyAsset != address(assetAddress)) {
+        if (strategyAsset != address(assetContract)) {
             revert InvalidAsset(strategyAsset);
         }
         if (strategies[newStrategy].activation != 0) {
@@ -401,9 +399,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             }
 
             // Always check the actual amount withdrawn.
-            uint256 preBalance = assetAddress.balanceOf(sender);
+            uint256 preBalance = assetContract.balanceOf(sender);
             _withdrawFromStrategy(strategy, assetsToWithdraw);
-            uint256 postBalance = assetAddress.balanceOf(sender);
+            uint256 postBalance = assetContract.balanceOf(sender);
 
             // making sure we are changing idle according to the real result no matter what.
             // We pull funds with {redeem} so there can be losses or rounding differences.
@@ -454,15 +452,15 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             // Can't Deposit 0.
             if (assetsToDeposit > 0) {
                 // Approve the strategy to pull only what we are giving it.
-                _erc20SafeApprove(address(assetAddress), strategy, assetsToDeposit);
+                _erc20SafeApprove(address(assetContract), strategy, assetsToDeposit);
 
                 // Always update based on actual amounts deposited.
-                uint256 preBalance = assetAddress.balanceOf(sharesManager);
+                uint256 preBalance = assetContract.balanceOf(sharesManager);
                 _depositToStrategy(strategy, assetsToDeposit);
-                uint256 postBalance = assetAddress.balanceOf(sharesManager);
+                uint256 postBalance = assetContract.balanceOf(sharesManager);
 
                 // Make sure our approval is always back to 0.
-                _erc20SafeApprove(address(assetAddress), strategy, 0);
+                _erc20SafeApprove(address(assetContract), strategy, 0);
 
                 // Making sure we are changing according to the real result no
                 // matter what. This will spend more gas but makes it more robust.
@@ -727,7 +725,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @notice Get the address of the asset.
     /// @return The address of the asset.
     function asset() external view override returns (address) {
-        return address(assetAddress);
+        return address(assetContract);
     }
 
     /// @notice Get the total assets held by the vault.
@@ -995,7 +993,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             // Make sure we have enough approval and enough asset to pull.
             _fees.totalRefunds = Math.min(_fees.totalRefunds, Math.min(balanceOf(accountant), allowance(accountant, address(this))));
             // Transfer the refunded amount of asset to the vault.
-            _erc20SafeTransferFrom(address(assetAddress), accountant, address(this), _fees.totalRefunds);
+            _erc20SafeTransferFrom(address(assetContract), accountant, address(this), _fees.totalRefunds);
             // Update storage to increase total assets.
             totalIdleAmount += _fees.totalRefunds;
         }
@@ -1200,7 +1198,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
 
         // Transfer the tokens to the vault first.
-        assetAddress.transferFrom(msg.sender, address(this), assets);
+        assetContract.transferFrom(msg.sender, address(this), assets);
         // Record the change in total assets.
         totalIdleAmount += assets;
 
@@ -1232,7 +1230,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
 
         // Transfer the tokens to the vault first.
-        assetAddress.transferFrom(sender, address(this), assets);
+        assetContract.transferFrom(sender, address(this), assets);
         // Record the change in total assets.
         totalIdleAmount += assets;
 
@@ -1305,7 +1303,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             currTotalIdle: totalIdleAmount,
             currTotalDebt: totalDebtAmount,
             assetsNeeded: 0,
-            previousBalance: assetAddress.balanceOf(address(this)),
+            previousBalance: assetContract.balanceOf(address(this)),
             unrealisedLossesShare: 0
         });
 
@@ -1397,7 +1395,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
                 // WITHDRAW FROM STRATEGY
                 _withdrawFromStrategy(strategy, assetsToWithdraw);
-                uint256 postBalance = assetAddress.balanceOf(address(this));
+                uint256 postBalance = assetContract.balanceOf(address(this));
 
                 // Always check withdrawn against the real amounts.
                 uint256 withdrawn = postBalance - state.previousBalance;
@@ -1496,7 +1494,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         // Commit memory to storage.
         totalIdleAmount = currTotalIdle - requestedAssets;
         // Transfer the requested amount to the receiver.
-        _erc20SafeTransfer(address(assetAddress), receiver, requestedAssets);
+        _erc20SafeTransfer(address(assetContract), receiver, requestedAssets);
     }
 
     /// @notice Revokes a strategy from the vault.

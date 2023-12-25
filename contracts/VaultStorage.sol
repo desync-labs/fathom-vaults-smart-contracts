@@ -95,7 +95,7 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     address public customFeeRecipient;
 
     /// @notice Address of the underlying token used by the vault
-    IERC20 public assetAddress;
+    IERC20 public assetContract;
 
     /// @notice The custom fee BPS charged for withdrawals.
     uint16 public customFeeBPS;
