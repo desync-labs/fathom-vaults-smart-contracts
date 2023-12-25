@@ -45,41 +45,29 @@ contract TokenizedStrategy {
     struct StrategyData {
         bytes32 initialDomainSeparator; // The domain separator used for permits on the initial chain.
         uint256 initialChainId; // The initial chain id when the strategy was created.
-
         uint256 totalSupply; // The total amount of shares currently issued.
-        
         // Assets data to track totals the strategy holds.
         // We manually track idle instead of relying on asset.balanceOf(address(this))
         // to prevent PPS manipulation through airdrops.
         uint256 totalIdle; // The total amount of loose `asset` the strategy holds.
         uint256 totalDebt; // The total amount `asset` that is currently deployed by the strategy.
-        
         // Variables for profit reporting and locking.
         // We use uint128 for time stamps which is 1,025 years in the future.
         uint256 profitUnlockingRate; // The rate at which locked profit is unlocking.
         uint128 fullProfitUnlockDate; // The timestamp at which all locked shares will unlock.
         uint128 lastReport; // The last time a {report} was called.
-
         ERC20 asset; // The ERC20 compliant underlying asset that will be used by the Strategy
-
         address performanceFeeRecipient; // The address to pay the `performanceFee` to.
-
         address management; // Main address that can set all configurable variables.
         address keeper; // Address given permission to call {report} and {tend}.
         address pendingManagement; // Address that is pending to take over `management`.
         address emergencyAdmin; // Address to act in emergencies as well as `management`.
-
         uint32 profitMaxUnlockTime; // The amount of seconds that the reported profit unlocks over.
-
         uint16 performanceFee; // The percent in basis points of profit that is charged as a fee.
-
         uint8 decimals; // The amount of decimals that `asset` and strategy use.
-        
         bool entered; // Bool to prevent reentrancy.
         bool shutdown; // Bool that can be used to stop deposits into the strategy.
-        
         string name; // The name of the token for the strategy.
-
         mapping(address => uint256) nonces; // Mapping of nonces used for permit functions.
         mapping(address => uint256) balances; // Mapping to track current balances for each account that holds shares.
         mapping(address => mapping(address => uint256)) allowances; // Mapping to track the allowances for the strategies shares.
