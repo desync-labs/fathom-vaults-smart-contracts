@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "./VaultStorage.sol";
-import "./Interfaces/IVaultEvents.sol";
+import "./interfaces/IVaultEvents.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";

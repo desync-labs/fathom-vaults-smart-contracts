@@ -3,10 +3,10 @@ pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
 import "../CommonErrors.sol";
-import "../Interfaces/IVaultEvents.sol";
-import "./Interfaces/IGovernancePackage.sol";
-import "../Interfaces/IStrategy.sol";
-import "../Interfaces/ISharesManager.sol";
+import "../interfaces/IVaultEvents.sol";
+import "./interfaces/IGovernancePackage.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/ISharesManager.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 

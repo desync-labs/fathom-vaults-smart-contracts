@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "../../VaultStructs.sol";
-import { IERC4626 } from "../../Interfaces/IERC4626.sol";
+import { IERC4626 } from "../../interfaces/IERC4626.sol";
 
 interface ISharesManagerPackage is IERC4626 {
     // solhint-disable max-line-length

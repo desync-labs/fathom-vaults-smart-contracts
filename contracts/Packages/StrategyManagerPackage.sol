@@ -3,12 +3,12 @@ pragma solidity 0.8.19;
 
 import "../VaultStorage.sol";
 import "../CommonErrors.sol";
-import "../Interfaces/IVaultEvents.sol";
-import "./Interfaces/IStrategyManagerPackage.sol";
-import "../Interfaces/IStrategy.sol";
-import "../Interfaces/ISharesManager.sol";
-import "../Interfaces/IAccountant.sol";
-import "../Interfaces/IFactory.sol";
+import "../interfaces/IVaultEvents.sol";
+import "./interfaces/IStrategyManagerPackage.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/ISharesManager.sol";
+import "../interfaces/IAccountant.sol";
+import "../interfaces/IFactory.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";

@@ -5,19 +5,19 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "../CommonErrors.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import "./Interfaces/IVaultPackage.sol";
+import "./interfaces/IVaultPackage.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../VaultStorage.sol";
-import "../Interfaces/IVaultEvents.sol";
-import "../Interfaces/IAccountant.sol";
-import "../Interfaces/IStrategy.sol";
-import "../Interfaces/IDepositLimitModule.sol";
-import "../Interfaces/IWithdrawLimitModule.sol";
-import "../Interfaces/IFactory.sol";
-import "../Interfaces/IStrategyManager.sol";
-import "../Interfaces/ISharesManager.sol";
-import "../Interfaces/ISetters.sol";
-import "../Interfaces/IGovernance.sol";
+import "../interfaces/IVaultEvents.sol";
+import "../interfaces/IAccountant.sol";
+import "../interfaces/IStrategy.sol";
+import "../interfaces/IDepositLimitModule.sol";
+import "../interfaces/IWithdrawLimitModule.sol";
+import "../interfaces/IFactory.sol";
+import "../interfaces/IStrategyManager.sol";
+import "../interfaces/ISharesManager.sol";
+import "../interfaces/ISetters.sol";
+import "../interfaces/IGovernance.sol";
 
 /**
 @title Yearn V3 Vault
