@@ -2,12 +2,6 @@
 pragma solidity 0.8.19;
 
 interface IBaseStrategy {
-    function tokenizedStrategyAddress() external view returns (address);
-
-    function availableDepositLimit(address _owner) external view returns (uint256);
-
-    function availableWithdrawLimit(address _owner) external view returns (uint256);
-
     function deployFunds(uint256 _assets) external;
 
     function freeFunds(uint256 _amount) external;
@@ -17,6 +11,12 @@ interface IBaseStrategy {
     function tendThis(uint256 _totalIdle) external;
 
     function shutdownWithdraw(uint256 _amount) external;
+
+    function tokenizedStrategyAddress() external view returns (address);
+
+    function availableDepositLimit(address _owner) external view returns (uint256);
+
+    function availableWithdrawLimit(address _owner) external view returns (uint256);
 
     function tendTrigger() external view returns (bool, bytes memory);
 }

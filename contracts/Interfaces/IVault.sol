@@ -6,7 +6,7 @@ import "../VaultStructs.sol";
 interface IVault {
     function setAccountant(address newAccountant) external;
 
-    function setDefaultQueue(address[] memory newDefaultQueue) external;
+    function setDefaultQueue(address[] calldata newDefaultQueue) external;
 
     function setUseDefaultQueue(bool) external;
 
@@ -36,13 +36,9 @@ interface IVault {
 
     function shutdownVault() external;
 
-    //// NON-STANDARD ERC-4626 FUNCTIONS \\\\
+    function withdraw(uint256 assets, address receiver, address owner, uint256 maxLoss, address[] calldata strategies) external returns (uint256);
 
-    function withdraw(uint256 assets, address receiver, address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
-
-    function redeem(uint256 shares, address receiver, address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
-
-    //// NON-STANDARD ERC-20 FUNCTIONS \\\\
+    function redeem(uint256 shares, address receiver, address owner, uint256 maxLoss, address[] calldata strategies) external returns (uint256);
 
     function increaseAllowance(address spender, uint256 amount) external returns (bool);
 
@@ -50,15 +46,9 @@ interface IVault {
 
     function permit(address owner, address spender, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool);
 
-    function maxWithdraw(address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
+    function maxWithdraw(address owner, uint256 maxLoss, address[] calldata strategies) external returns (uint256);
 
-    function maxRedeem(address owner, uint256 maxLoss, address[] memory strategies) external returns (uint256);
-
-    function unlockedShares() external view returns (uint256);
-
-    function pricePerShare() external view returns (uint256);
-
-    function totalSupply() external view returns (uint256);
+    function maxRedeem(address owner, uint256 maxLoss, address[] calldata strategies) external returns (uint256);
 
     function deposit(uint256 assets, address receiver) external returns (uint256);
 
@@ -69,6 +59,14 @@ interface IVault {
     function transfer(address receiver, uint256 amount) external returns (bool);
 
     function transferFrom(address sender, address receiver, uint256 amount) external returns (bool);
+
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
+
+    function unlockedShares() external view returns (uint256);
+
+    function pricePerShare() external view returns (uint256);
+
+    function totalSupply() external view returns (uint256);
 
     function balanceOf(address addr) external view returns (uint256);
 
@@ -97,6 +95,4 @@ interface IVault {
     function allowance(address owner, address spender) external view returns (uint256);
 
     function getDebt(address strategy) external view returns (uint256);
-
-    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
 }

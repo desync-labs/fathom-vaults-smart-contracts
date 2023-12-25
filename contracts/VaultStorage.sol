@@ -83,7 +83,7 @@ contract VaultStorage {
     /// @notice EIP-2612 permit() nonces and typehashes
     mapping(address => uint256) public nonces;
     bytes32 public constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    /// @notice solhint-disable-next-line var-name-mixedcase
+    // solhint-disable-next-line var-name-mixedcase
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant PERMIT_TYPE_HASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 

@@ -20,12 +20,12 @@ import "../interfaces/ISetters.sol";
 import "../interfaces/IGovernance.sol";
 
 /// @title Fathom Vault
-/// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of 
+/// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
 /// depositors for a specific `asset` into different opportunities (aka Strategies)
 /// and manage accounting in a robust way.
 contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, IVaultEvents {
     /// @notice Factory address
-    address public FACTORY;
+    address public factoryAddress;
 
     function initialize(
         uint256 _profitMaxUnlockTime,
@@ -38,7 +38,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
             revert AlreadyInitialized();
         }
 
-        FACTORY = msg.sender;
+        factoryAddress = msg.sender;
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
@@ -68,49 +68,6 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         );
 
         initialized = true;
-    }
-
-    function _burnShares(uint256 shares, address owner) internal {
-        ISharesManager(sharesManager).burnShares(shares, owner);
-    }
-
-    /// @notice assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
-    function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
-        return ISharesManager(sharesManager).convertToAssets(shares, rounding);
-    }
-
-    /// @notice shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
-    function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
-        return ISharesManager(sharesManager).convertToShares(assets, rounding);
-    }
-
-    /// @notice Used only to transfer tokens that are not the type managed by this Vault.
-    /// Used to handle non-compliant tokens like USDT
-    function _erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) internal {
-        ISharesManager(sharesManager).erc20SafeTransferFrom(token, sender, receiver, amount);
-    }
-
-    /// @notice Used only to send tokens that are not the type managed by this Vault.
-    /// Used to handle non-compliant tokens like USDT
-    function _erc20SafeTransfer(address token, address receiver, uint256 amount) internal {
-        ISharesManager(sharesManager).erc20SafeTransfer(token, receiver, amount);
-    }
-
-    function _issueShares(uint256 shares, address recipient) internal {
-        ISharesManager(sharesManager).issueShares(shares, recipient);
-    }
-
-    /// @notice Issues shares that are worth 'amount' in the underlying token (asset).
-    /// WARNING: this takes into account that any new assets have been summed
-    /// to totalAssets (otherwise pps will go down).
-    function _issueSharesForAmount(uint256 amount, address recipient) internal returns (uint256) {
-        return ISharesManager(sharesManager).issueSharesForAmount(amount, recipient);
-    }
-
-    /// @notice Set the new accountant address.
-    /// @param newAccountant The new accountant address.
-    function setAccountant(address newAccountant) external override onlyRole(ACCOUNTANT_MANAGER) {
-        ISetters(setters).setAccountant(newAccountant);
     }
 
     /// @notice Set the new default queue array.
@@ -169,18 +126,10 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         ISetters(setters).setProfitMaxUnlockTime(_newProfitMaxUnlockTime);
     }
 
-    /// @notice Get the amount of shares that have been unlocked.
-    /// @return The amount of shares that are have been unlocked.
-    function unlockedShares() external view override returns (uint256) {
-        return ISharesManager(sharesManager).unlockedShares();
-    }
-
-    /// @notice Get the price per share (pps) of the vault.
-    /// @dev This value offers limited precision. Integrations that require
-    /// exact precision should use convertToAssets or convertToShares instead.
-    /// @return The price per share.
-    function pricePerShare() external view override returns (uint256) {
-        return _convertToAssets(10 ** ISharesManager(sharesManager).decimals(), Rounding.ROUND_DOWN);
+    /// @notice Set the new accountant address.
+    /// @param newAccountant The new accountant address.
+    function setAccountant(address newAccountant) external override onlyRole(ACCOUNTANT_MANAGER) {
+        ISetters(setters).setAccountant(newAccountant);
     }
 
     /// @notice Process the report of a strategy.
@@ -278,7 +227,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         address receiver,
         address owner,
         uint256 maxLoss,
-        address[] memory _strategies
+        address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
         return ISharesManager(sharesManager).withdraw(assets, receiver, owner, maxLoss, _strategies);
     }
@@ -296,7 +245,7 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         address receiver,
         address owner,
         uint256 maxLoss,
-        address[] memory _strategies
+        address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
         return ISharesManager(sharesManager).redeem(shares, receiver, owner, maxLoss, _strategies);
     }
@@ -368,6 +317,49 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         bytes32 s
     ) external override returns (bool) {
         return ISharesManager(sharesManager).permit(owner, spender, amount, deadline, v, r, s);
+    }
+
+    /// @notice Get the maximum amount of assets that can be withdrawn.
+    /// @dev Complies to normal 4626 interface and takes custom params.
+    /// @param owner The address that owns the shares.
+    /// @param maxLoss Custom maxLoss if any.
+    /// @param _strategies Custom strategies queue if any.
+    /// @return The maximum amount of assets that can be withdrawn.
+    function maxWithdraw(address owner, uint256 maxLoss, address[] calldata _strategies) external override returns (uint256) {
+        return ISharesManager(sharesManager).maxWithdraw(owner, maxLoss, _strategies);
+    }
+
+    /// @notice Get the maximum amount of shares that can be redeemed.
+    /// @dev Complies to normal 4626 interface and takes custom params.
+    /// @param owner The address that owns the shares.
+    /// @param maxLoss Custom maxLoss if any.
+    /// @param _strategies Custom strategies queue if any.
+    /// @return The maximum amount of shares that can be redeemed.
+    function maxRedeem(address owner, uint256 maxLoss, address[] calldata _strategies) external override returns (uint256) {
+        return ISharesManager(sharesManager).maxRedeem(owner, maxLoss, _strategies);
+    }
+
+    function setFees(
+        uint256 totalFees,
+        uint256 totalRefunds,
+        uint256 protocolFees,
+        address protocolFeeRecipient
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        return IStrategyManager(strategyManager).setFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
+    }
+
+    /// @notice Get the amount of shares that have been unlocked.
+    /// @return The amount of shares that are have been unlocked.
+    function unlockedShares() external view override returns (uint256) {
+        return ISharesManager(sharesManager).unlockedShares();
+    }
+
+    /// @notice Get the price per share (pps) of the vault.
+    /// @dev This value offers limited precision. Integrations that require
+    /// exact precision should use convertToAssets or convertToShares instead.
+    /// @return The price per share.
+    function pricePerShare() external view override returns (uint256) {
+        return _convertToAssets(10 ** ISharesManager(sharesManager).decimals(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Get the balance of a user.
@@ -443,26 +435,6 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         return ISharesManager(sharesManager).maxMint(receiver);
     }
 
-    /// @notice Get the maximum amount of assets that can be withdrawn.
-    /// @dev Complies to normal 4626 interface and takes custom params.
-    /// @param owner The address that owns the shares.
-    /// @param maxLoss Custom maxLoss if any.
-    /// @param _strategies Custom strategies queue if any.
-    /// @return The maximum amount of assets that can be withdrawn.
-    function maxWithdraw(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {
-        return ISharesManager(sharesManager).maxWithdraw(owner, maxLoss, _strategies);
-    }
-
-    /// @notice Get the maximum amount of shares that can be redeemed.
-    /// @dev Complies to normal 4626 interface and takes custom params.
-    /// @param owner The address that owns the shares.
-    /// @param maxLoss Custom maxLoss if any.
-    /// @param _strategies Custom strategies queue if any.
-    /// @return The maximum amount of shares that can be redeemed.
-    function maxRedeem(address owner, uint256 maxLoss, address[] memory _strategies) external override returns (uint256) {
-        return ISharesManager(sharesManager).maxRedeem(owner, maxLoss, _strategies);
-    }
-
     /// @notice Preview the amount of shares that would be redeemed for a withdraw.
     /// @param assets The amount of assets to withdraw.
     /// @return The amount of shares that would be redeemed.
@@ -485,12 +457,40 @@ contract VaultPackage is AccessControl, IVault, ReentrancyGuard, VaultStorage, I
         return IStrategyManager(strategyManager).getDebt(strategy);
     }
 
-    function setFees(
-        uint256 totalFees,
-        uint256 totalRefunds,
-        uint256 protocolFees,
-        address protocolFeeRecipient
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        return IStrategyManager(strategyManager).setFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
+    function _burnShares(uint256 shares, address owner) internal {
+        ISharesManager(sharesManager).burnShares(shares, owner);
+    }
+
+    /// @notice Used only to transfer tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
+    function _erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) internal {
+        ISharesManager(sharesManager).erc20SafeTransferFrom(token, sender, receiver, amount);
+    }
+
+    /// @notice Used only to send tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
+    function _erc20SafeTransfer(address token, address receiver, uint256 amount) internal {
+        ISharesManager(sharesManager).erc20SafeTransfer(token, receiver, amount);
+    }
+
+    function _issueShares(uint256 shares, address recipient) internal {
+        ISharesManager(sharesManager).issueShares(shares, recipient);
+    }
+
+    /// @notice Issues shares that are worth 'amount' in the underlying token (asset).
+    /// WARNING: this takes into account that any new assets have been summed
+    /// to totalAssets (otherwise pps will go down).
+    function _issueSharesForAmount(uint256 amount, address recipient) internal returns (uint256) {
+        return ISharesManager(sharesManager).issueSharesForAmount(amount, recipient);
+    }
+
+    /// @notice assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
+    function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
+        return ISharesManager(sharesManager).convertToAssets(shares, rounding);
+    }
+
+    /// @notice shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
+    function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
+        return ISharesManager(sharesManager).convertToShares(assets, rounding);
     }
 }

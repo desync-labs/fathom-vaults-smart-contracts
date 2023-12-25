@@ -6,7 +6,6 @@
     "max-line-length": ["error", 150],
     "reason-string": ["error", {"maxLength": 96}],
     "func-visibility": ["error", {"ignoreConstructors": true}],
-    "not-rely-on-time": "error",
     "ordering": "error",
     "comprehensive-interface": "error",
     "func-param-name-mixedcase": "error",
@@ -17,6 +16,7 @@
     "no-inline-assembly": "off",
     "no-global-import": "off",
     "max-states-count": "off",
-    "one-contract-per-file": "off"
+    "one-contract-per-file": "off",
+    "not-rely-on-time": "off"
   }
 }

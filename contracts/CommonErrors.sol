@@ -30,4 +30,3 @@ error StrategyHasUnrealisedLosses(uint256 unrealisedLosses);
 error DebtHigherThanMaxDebt(uint256 newDebt, uint256 maxDebt);
 error UsingDepositLimit();
 error ProfitUnlockTimeTooLong();
-

@@ -3,6 +3,8 @@ pragma solidity 0.8.19;
 
 interface IGovernancePackage {
     function initialize(address _sharesManager) external;
+
     function buyDebt(address strategy, uint256 amount) external;
+
     function shutdownVault() external;
 }

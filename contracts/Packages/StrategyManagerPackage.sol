@@ -18,16 +18,16 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
     using Math for uint256;
 
     /// @notice Address of the underlying token used by the vault
-    IERC20 public ASSET;
+    IERC20 public assetAddress;
     /// @notice Factory address
-    address public FACTORY;
+    address public factoryAddress;
 
     function initialize(address _asset, address _sharesManager) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
-        ASSET = IERC20(_asset);
-        FACTORY = msg.sender;
+        assetAddress = IERC20(_asset);
+        factoryAddress = msg.sender;
         sharesManager = _sharesManager;
         _grantRole(DEFAULT_ADMIN_ROLE, _sharesManager);
 
@@ -39,7 +39,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             revert ZeroAddress();
         }
         address asset = IStrategy(newStrategy).asset();
-        if (asset != address(ASSET)) {
+        if (asset != address(assetAddress)) {
             revert InvalidAsset(asset);
         }
         if (strategies[newStrategy].activation != 0) {
@@ -105,6 +105,7 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         emit UpdatedMaxDebtForStrategy(tx.origin, strategy, newMaxDebt);
     }
 
+    // solhint-disable-next-line function-max-lines,code-complexity
     function updateDebt(address sender, address strategy, uint256 targetDebt) external override returns (uint256) {
         totalIdleAmount = ISharesManager(sharesManager).getTotalIdleAmount();
         minimumTotalIdle = ISharesManager(sharesManager).getMinimumTotalIdle();
@@ -159,9 +160,9 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             }
 
             // Always check the actual amount withdrawn.
-            uint256 preBalance = ASSET.balanceOf(sender);
+            uint256 preBalance = assetAddress.balanceOf(sender);
             ISharesManager(sharesManager).withdrawFromStrategy(strategy, assetsToWithdraw);
-            uint256 postBalance = ASSET.balanceOf(sender);
+            uint256 postBalance = assetAddress.balanceOf(sender);
 
             // making sure we are changing idle according to the real result no matter what.
             // We pull funds with {redeem} so there can be losses or rounding differences.
@@ -212,15 +213,15 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             // Can't Deposit 0.
             if (assetsToDeposit > 0) {
                 // Approve the strategy to pull only what we are giving it.
-                ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, assetsToDeposit);
+                ISharesManager(sharesManager).erc20SafeApprove(address(assetAddress), strategy, assetsToDeposit);
 
                 // Always update based on actual amounts deposited.
-                uint256 preBalance = ASSET.balanceOf(sharesManager);
+                uint256 preBalance = assetAddress.balanceOf(sharesManager);
                 ISharesManager(sharesManager).depositToStrategy(strategy, assetsToDeposit);
-                uint256 postBalance = ASSET.balanceOf(sharesManager);
+                uint256 postBalance = assetAddress.balanceOf(sharesManager);
 
                 // Make sure our approval is always back to 0.
-                ISharesManager(sharesManager).erc20SafeApprove(address(ASSET), strategy, 0);
+                ISharesManager(sharesManager).erc20SafeApprove(address(assetAddress), strategy, 0);
 
                 // Making sure we are changing according to the real result no
                 // matter what. This will spend more gas but makes it more robust.
@@ -266,17 +267,21 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
 
         (uint256 gain, uint256 loss) = _assessProfitAndLoss(strategy);
 
-        FeeAssessment memory fees = _assessFees(strategy, gain, loss);
+        FeeAssessment memory assessmentFees = _assessFees(strategy, gain, loss);
 
         ShareManagement memory shares = ISharesManager(sharesManager).calculateShareManagement(
             gain,
             loss,
-            fees.totalFees,
-            fees.protocolFees,
+            assessmentFees.totalFees,
+            assessmentFees.protocolFees,
             strategy
         );
 
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(shares, fees, gain);
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = ISharesManager(sharesManager).handleShareBurnsAndIssues(
+            shares,
+            assessmentFees,
+            gain
+        );
 
         ISharesManager(sharesManager).manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
 
@@ -291,10 +296,71 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
             strategies[strategy].currentDebt,
             ISharesManager(sharesManager).convertToAssets(shares.protocolFeesShares, Rounding.ROUND_DOWN),
             ISharesManager(sharesManager).convertToAssets(shares.protocolFeesShares + shares.accountantFeesShares, Rounding.ROUND_DOWN),
-            fees.totalRefunds
+            assessmentFees.totalRefunds
         );
 
         return (gain, loss);
+    }
+
+    function setDebt(address strategy, uint256 _newDebt) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        strategies[strategy].currentDebt = _newDebt;
+    }
+
+    /// @notice Set fees and refunds.
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override {
+        fees.totalFees = totalFees;
+        fees.totalRefunds = totalRefunds;
+        fees.protocolFees = protocolFees;
+        fees.protocolFeeRecipient = protocolFeeRecipient;
+
+        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
+    }
+
+    function getDefaultQueueLength() external view override returns (uint256 length) {
+        return defaultQueue.length;
+    }
+
+    function getDefaultQueue() external view override returns (address[] memory) {
+        return defaultQueue;
+    }
+
+    function getDebt(address strategy) external view override returns (uint256) {
+        return strategies[strategy].currentDebt;
+    }
+
+    /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
+    function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
+        FeeAssessment memory _fees = fees;
+
+        // If accountant is not set, fees and refunds remain unchanged.
+        if (accountant != address(0)) {
+            (_fees.totalFees, _fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+
+            // Protocol fees will be 0 if accountant fees are 0.
+            if (_fees.totalFees > 0) {
+                uint16 protocolFeeBps;
+                // Get the config for this vault.
+                (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
+
+                if (protocolFeeBps > 0) {
+                    // Protocol fees are a percent of the fees the accountant is charging.
+                    _fees.protocolFees = (_fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
+                }
+            }
+        }
+
+        return _fees;
+    }
+
+    /// @notice Used only to approve tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
+    function erc20SafeApprove(address token, address spender, uint256 amount) internal {
+        if (token == address(0) || spender == address(0)) {
+            revert ZeroAddress();
+        }
+        if (!IERC20(token).approve(spender, amount)) {
+            revert ERC20ApprovalFailed();
+        }
     }
 
     /// @notice Assess the profit and loss of a strategy.
@@ -321,66 +387,5 @@ contract StrategyManagerPackage is AccessControl, VaultStorage, IVaultEvents, IS
         }
 
         return (_gain, _loss);
-    }
-
-    /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
-    function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        FeeAssessment memory _fees = fees;
-
-        // If accountant is not set, fees and refunds remain unchanged.
-        if (accountant != address(0)) {
-            (_fees.totalFees, _fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
-
-            // Protocol fees will be 0 if accountant fees are 0.
-            if (_fees.totalFees > 0) {
-                uint16 protocolFeeBps;
-                // Get the config for this vault.
-                (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(FACTORY).protocolFeeConfig();
-
-                if (protocolFeeBps > 0) {
-                    // Protocol fees are a percent of the fees the accountant is charging.
-                    _fees.protocolFees = (_fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
-                }
-            }
-        }
-
-        return _fees;
-    }
-
-    /// @notice Used only to approve tokens that are not the type managed by this Vault.
-    /// Used to handle non-compliant tokens like USDT
-    function erc20SafeApprove(address token, address spender, uint256 amount) internal {
-        if (token == address(0) || spender == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!IERC20(token).approve(spender, amount)) {
-            revert ERC20ApprovalFailed();
-        }
-    }
-
-    function getDefaultQueueLength() external view override returns (uint256 length) {
-        return defaultQueue.length;
-    }
-
-    function getDefaultQueue() external view override returns (address[] memory) {
-        return defaultQueue;
-    }
-
-    function getDebt(address strategy) external view override returns (uint256) {
-        return strategies[strategy].currentDebt;
-    }
-
-    function setDebt(address strategy, uint256 _newDebt) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        strategies[strategy].currentDebt = _newDebt;
-    }
-
-    /// @notice Set fees and refunds.
-    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external override {
-        fees.totalFees = totalFees;
-        fees.totalRefunds = totalRefunds;
-        fees.protocolFees = protocolFees;
-        fees.protocolFeeRecipient = protocolFeeRecipient;
-
-        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 }

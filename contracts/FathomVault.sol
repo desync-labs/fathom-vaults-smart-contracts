@@ -13,7 +13,7 @@ interface IVaultUpgradeable {
 }
 
 /// @title Fathom Vault
-/// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of 
+/// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
 /// depositors for a specific `asset` into different opportunities (aka Strategies)
 /// and manage accounting in a robust way.
 contract FathomVault is Proxy, ERC1967Upgrade, AccessControl, IVaultUpgradeable, ReentrancyGuard, VaultStorage, IVaultEvents {
@@ -30,7 +30,7 @@ contract FathomVault is Proxy, ERC1967Upgrade, AccessControl, IVaultUpgradeable,
         _upgradeToAndCall(implementation, _data, false);
     }
 
-    function setImplementation(address implementation, bytes memory _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setImplementation(address implementation, bytes calldata _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         _upgradeToAndCall(implementation, _data, false);
     }
 

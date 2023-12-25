@@ -30,7 +30,7 @@ contract StrategyManager is Proxy, ERC1967Upgrade, AccessControl, VaultStorage, 
         _upgradeToAndCall(implementation, _data, false);
     }
 
-    function setImplementation(address implementation, bytes memory _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setImplementation(address implementation, bytes calldata _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         _upgradeToAndCall(implementation, _data, false);
     }
 
