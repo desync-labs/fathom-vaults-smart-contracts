@@ -612,7 +612,7 @@ contract VaultPackage is AccessControl, ReentrancyGuard, VaultStorage, IVault, I
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override nonReentrant returns (bool) {
+    ) external override returns (bool) {
         if (owner == address(0)) {
             revert ZeroAddress();
         }
