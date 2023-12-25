@@ -21,10 +21,6 @@ interface IVaultEvents {
     event RoleStatusChanged(bytes32 indexed role, RoleStatusChange status);
     event UpdateRoleManager(address roleManager);
 
-    event UpdateFactory(address factory);
-    event UpdateCustomFeeBPS(uint16 customFeeBPS);
-    event UpdateCustomFeeRecipient(address customFeeRecipient);
-    event UpdateAccountant(address accountant);
     event UpdateDefaultQueue(address[] newDefaultQueue);
     event UpdateUseDefaultQueue(bool useDefaultQueue);
     event UpdatedMaxDebtForStrategy(address indexed sender, address indexed strategy, uint256 newDebt);

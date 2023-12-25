@@ -7,15 +7,14 @@ import "../VaultStructs.sol";
 import { IERC4626 } from "./IERC4626.sol";
 
 interface IVault is IERC4626 {
-    function initialize(uint256 _profitMaxUnlockTime, address _asset, uint8 _decimals, string calldata _name, string calldata _symbol) external;
-
-    function setFactory(address newFactory) external;
-
-    function setCustomFeeBPS(uint16 newCustomFeeBPS) external;
-
-    function setCustomFeeRecipient(address newCustomFeeRecipient) external;
-
-    function setAccountant(address newAccountant) external;
+    function initialize(
+        uint256 _profitMaxUnlockTime,
+        address _asset,
+        uint8 _decimals,
+        address _accountant,
+        string calldata _name,
+        string calldata _symbol
+    ) external;
 
     function setDefaultQueue(address[] calldata newDefaultQueue) external;
 
@@ -63,10 +62,6 @@ interface IVault is IERC4626 {
 
     function transferFrom(address sender, address receiver, uint256 amount) external returns (bool);
 
-    function getTotalIdleAmount() external returns (uint256);
-
-    function getMinimumTotalIdle() external returns (uint256);
-
     function maxWithdraw(address owner, uint256 maxLoss, address[] calldata strategies) external view returns (uint256);
 
     function maxRedeem(address owner, uint256 maxLoss, address[] calldata strategies) external view returns (uint256);
@@ -108,6 +103,4 @@ interface IVault is IERC4626 {
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view returns (uint256);
 
     function getDefaultQueueLength() external view returns (uint256);
-
-    function getDefaultQueue() external view returns (address[] memory);
 }

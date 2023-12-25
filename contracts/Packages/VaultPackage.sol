@@ -27,6 +27,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         uint256 _profitMaxUnlockTime,
         address _asset,
         uint8 _decimals,
+        address _accountant,
         string calldata _name,
         string calldata _symbol
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -41,6 +42,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             customFeeBPS = MAX_FEE_BPS;
             customFeeRecipient = msg.sender;
         }
+
+        accountant = _accountant;
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -58,17 +61,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         sharesSymbol = _symbol;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ACCOUNTANT_MANAGER, msg.sender);
-        _grantRole(QUEUE_MANAGER, msg.sender);
-        _grantRole(DEPOSIT_LIMIT_MANAGER, msg.sender);
-        _grantRole(WITHDRAW_LIMIT_MANAGER, msg.sender);
-        _grantRole(MINIMUM_IDLE_MANAGER, msg.sender);
-        _grantRole(PROFIT_UNLOCK_MANAGER, msg.sender);
-        _grantRole(ADD_STRATEGY_MANAGER, msg.sender);
-        _grantRole(FORCE_REVOKE_MANAGER, msg.sender);
-        _grantRole(MAX_DEBT_MANAGER, msg.sender);
-        _grantRole(EMERGENCY_MANAGER, msg.sender);
-        _grantRole(DEBT_MANAGER, msg.sender);
+        _grantRole(STRATEGY_MANAGER, msg.sender);
         _grantRole(REPORTING_MANAGER, msg.sender);
         _grantRole(DEBT_PURCHASER, msg.sender);
 
@@ -85,41 +78,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         initialized = true;
     }
 
-    /// @notice Set the new factory address.
-    /// @param newFactory The new factory address.
-    function setFactory(address newFactory) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        factoryAddress = newFactory;
-        emit UpdateFactory(newFactory);
-    }
-
-    /// @notice Set custom fee BPS.
-    /// @param newCustomFeeBPS The new custom fee BPS.
-    function setCustomFeeBPS(uint16 newCustomFeeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (newCustomFeeBPS > MAX_FEE_BPS) {
-            revert FeeExceedsMax();
-        }
-        customFeeBPS = newCustomFeeBPS;
-        emit UpdateCustomFeeBPS(newCustomFeeBPS);
-    }
-
-    /// @notice Set custom fee recipient.
-    /// @param newCustomFeeRecipient The new custom fee recipient.
-    function setCustomFeeRecipient(address newCustomFeeRecipient) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        customFeeRecipient = newCustomFeeRecipient;
-        emit UpdateCustomFeeRecipient(newCustomFeeRecipient);
-    }
-
-    /// @notice Set the new accountant address.
-    /// @param newAccountant The new accountant address.
-    function setAccountant(address newAccountant) external override onlyRole(ACCOUNTANT_MANAGER) {
-        accountant = newAccountant;
-        emit UpdateAccountant(newAccountant);
-    }
-
     /// @notice Set the new default queue array.
     /// @dev Will check each strategy to make sure it is active.
     /// @param newDefaultQueue The new default queue array.
-    function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
+    function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
         // Make sure every strategy in the new queue is active.
         for (uint256 i = 0; i < newDefaultQueue.length; i++) {
             address strategy = newDefaultQueue[i];
@@ -136,7 +98,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @dev If set `True` the default queue will always be
     /// used no matter whats passed in.
     /// @param _useDefaultQueue new value.
-    function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(QUEUE_MANAGER) {
+    function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
         useDefaultQueue = _useDefaultQueue;
         emit UpdateUseDefaultQueue(_useDefaultQueue);
     }
@@ -145,7 +107,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @dev Can not be changed if a depositLimitModule
     /// is set or if shutdown.
     /// @param _depositLimit The new deposit limit.
-    function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
+    function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
@@ -160,7 +122,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @dev The default `depositLimit` will need to be set to
     /// max uint256 since the module will override it.
     /// @param _depositLimitModule Address of the module.
-    function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEPOSIT_LIMIT_MANAGER) {
+    function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
@@ -174,14 +136,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @notice Set a contract to handle the withdraw limit.
     /// @dev This will override the default `maxWithdraw`.
     /// @param _withdrawLimitModule Address of the module.
-    function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(WITHDRAW_LIMIT_MANAGER) {
+    function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         withdrawLimitModule = _withdrawLimitModule;
         emit UpdateWithdrawLimitModule(_withdrawLimitModule);
     }
 
     /// @notice Set the new minimum total idle.
     /// @param _minimumTotalIdle The new minimum total idle.
-    function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(MINIMUM_IDLE_MANAGER) {
+    function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         minimumTotalIdle = _minimumTotalIdle;
         emit UpdateMinimumTotalIdle(_minimumTotalIdle);
     }
@@ -194,7 +156,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     ///  Setting to 0 will cause any currently locked profit to instantly
     /// unlock and an immediate increase in the vaults Price Per Share.
     /// @param _newProfitMaxUnlockTime The new profit max unlock time.
-    function setProfitMaxUnlockTime(uint256 _newProfitMaxUnlockTime) external override onlyRole(PROFIT_UNLOCK_MANAGER) {
+    function setProfitMaxUnlockTime(uint256 _newProfitMaxUnlockTime) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         // Must be less than one year for report cycles
         if (_newProfitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
@@ -214,7 +176,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
     /// @notice Add a new strategy.
     /// @param newStrategy The new strategy to add.
-    function addStrategy(address newStrategy) external override onlyRole(ADD_STRATEGY_MANAGER) {
+    function addStrategy(address newStrategy) external override onlyRole(STRATEGY_MANAGER) {
         if (newStrategy == address(0) || newStrategy == address(this)) {
             revert ZeroAddress();
         }
@@ -240,7 +202,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
     /// @notice Revoke a strategy.
     /// @param strategy The strategy to revoke.
-    function revokeStrategy(address strategy) external override onlyRole(REVOKE_STRATEGY_MANAGER) {
+    function revokeStrategy(address strategy) external override onlyRole(STRATEGY_MANAGER) {
         _revokeStrategy(strategy, false);
     }
 
@@ -251,14 +213,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// strategy first via update_debt. If a strategy is removed erroneously it
     /// can be re-added and the loss will be credited as profit. Fees will apply.
     /// @param strategy The strategy to force revoke.
-    function forceRevokeStrategy(address strategy) external override onlyRole(FORCE_REVOKE_MANAGER) {
+    function forceRevokeStrategy(address strategy) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         _revokeStrategy(strategy, true);
     }
 
     /// @notice Update the max debt for a strategy.
     /// @param strategy The strategy to update the max debt for.
     /// @param newMaxDebt The new max debt for the strategy.
-    function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override onlyRole(MAX_DEBT_MANAGER) {
+    function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override onlyRole(STRATEGY_MANAGER) {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
         }
@@ -267,7 +229,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     }
 
     /// @notice Shutdown the vault.
-    function shutdownVault() external override onlyRole(EMERGENCY_MANAGER) {
+    function shutdownVault() external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
@@ -284,7 +246,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         depositLimit = 0;
         emit UpdateDepositLimit(0);
 
-        _grantRole(DEBT_MANAGER, msg.sender);
+        _grantRole(STRATEGY_MANAGER, msg.sender);
         emit Shutdown();
     }
 
@@ -347,7 +309,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         address sender,
         address strategy,
         uint256 targetDebt
-    ) external override onlyRole(DEBT_MANAGER) nonReentrant returns (uint256) {
+    ) external override onlyRole(STRATEGY_MANAGER) nonReentrant returns (uint256) {
         if (strategies[strategy].currentDebt != targetDebt && totalIdleAmount <= minimumTotalIdle) {
             revert InsufficientFunds();
         }
@@ -808,25 +770,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return defaultQueue.length;
     }
 
-    /// @notice Get default strategy queue.
-    function getDefaultQueue() external view override returns (address[] memory) {
-        return defaultQueue;
-    }
-
     /// @notice Get the number of decimals of the asset/share.
     /// @return The number of decimals of the asset/share.
     function decimals() external view override returns (uint8) {
         return decimalsValue;
-    }
-
-    /// @return Returns total idle.
-    function getTotalIdleAmount() external view override returns (uint256) {
-        return totalIdleAmount;
-    }
-
-    /// @return Returns minimum total idle.
-    function getMinimumTotalIdle() external view override returns (uint256) {
-        return minimumTotalIdle;
     }
 
     /// @notice Get debt for a strategy.

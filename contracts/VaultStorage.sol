@@ -23,21 +23,9 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     string public constant API_VERSION = "1.0.0";
 
     /// @notice Roles
-    bytes32 public constant ACCOUNTANT_MANAGER = keccak256("ACCOUNTANT_MANAGER");
-    bytes32 public constant QUEUE_MANAGER = keccak256("QUEUE_MANAGER");
-    bytes32 public constant DEPOSIT_LIMIT_MANAGER = keccak256("DEPOSIT_LIMIT_MANAGER");
-    bytes32 public constant WITHDRAW_LIMIT_MANAGER = keccak256("WITHDRAW_LIMIT_MANAGER");
-    bytes32 public constant MINIMUM_IDLE_MANAGER = keccak256("MINIMUM_IDLE_MANAGER");
-    bytes32 public constant PROFIT_UNLOCK_MANAGER = keccak256("PROFIT_UNLOCK_MANAGER");
-    bytes32 public constant ROLE_MANAGER = keccak256("ROLE_MANAGER");
+    bytes32 public constant STRATEGY_MANAGER = keccak256("STRATEGY_MANAGER");
     bytes32 public constant REPORTING_MANAGER = keccak256("REPORTING_MANAGER");
     bytes32 public constant DEBT_PURCHASER = keccak256("DEBT_PURCHASER");
-    bytes32 public constant ADD_STRATEGY_MANAGER = keccak256("ADD_STRATEGY_MANAGER");
-    bytes32 public constant REVOKE_STRATEGY_MANAGER = keccak256("REVOKE_STRATEGY_MANAGER");
-    bytes32 public constant FORCE_REVOKE_MANAGER = keccak256("FORCE_REVOKE_MANAGER");
-    bytes32 public constant MAX_DEBT_MANAGER = keccak256("MAX_DEBT_MANAGER");
-    bytes32 public constant DEBT_MANAGER = keccak256("DEBT_MANAGER");
-    bytes32 public constant EMERGENCY_MANAGER = keccak256("EMERGENCY_MANAGER");
 
     /// @notice EIP-2612 permit() typehashes
     bytes32 public constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -54,9 +42,9 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice Total amount of assets that has been deposited in strategies.
     uint256 public totalDebtAmount;
     /// @notice Current assets held in the vault contract. Replacing balanceOf(this) to avoid pricePerShare manipulation.
-    uint256 internal totalIdleAmount;
+    uint256 public totalIdleAmount;
     /// @notice Minimum amount of assets that should be kept in the vault contract to allow for fast, cheap redeems.
-    uint256 internal minimumTotalIdle;
+    uint256 public minimumTotalIdle;
     /// @notice Maximum amount of tokens that the vault can accept. If totalAssets > deposit_limit, deposits will revert.
     uint256 public depositLimit;
 
