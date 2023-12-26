@@ -108,6 +108,9 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice The current default withdrawal queue.
     address[] public defaultQueue;
 
+    // The custom fees
+    FeeAssessment public customFees;
+
     /// @notice HashMap that records all the strategies that are allowed to receive assets from the vault.
     mapping(address => StrategyParams) public strategies;
 
