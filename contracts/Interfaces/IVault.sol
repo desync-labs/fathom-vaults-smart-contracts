@@ -11,9 +11,9 @@ interface IVault is IERC4626 {
         uint256 _profitMaxUnlockTime,
         address _asset,
         uint8 _decimals,
-        address _accountant,
         string calldata _name,
-        string calldata _symbol
+        string calldata _symbol,
+        address _accountant
     ) external;
 
     function setAccountant(address newAccountant) external;

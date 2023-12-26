@@ -27,9 +27,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         uint256 _profitMaxUnlockTime,
         address _asset,
         uint8 _decimals,
-        address _accountant,
         string calldata _name,
-        string calldata _symbol
+        string calldata _symbol,
+        address _accountant
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
@@ -43,19 +43,21 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             customFeeRecipient = msg.sender;
         }
 
+        // Accountant can be 0 - in that case protocol will manage the fees.
         accountant = _accountant;
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
         }
-
         profitMaxUnlockTime = _profitMaxUnlockTime;
 
         decimalsValue = _decimals;
         if (decimalsValue >= 256) {
             revert InvalidAssetDecimals();
         }
+
+        // TODO: More verificaitons for asset, name, symbol
         assetContract = IERC20(_asset);
         sharesName = _name;
         sharesSymbol = _symbol;
