@@ -3,10 +3,7 @@
 
 pragma solidity 0.8.19;
 
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./VaultStorage.sol";
-import "./interfaces/IVaultEvents.sol";
 import "./interfaces/IUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
@@ -15,7 +12,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 /// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
 /// depositors for a specific `asset` into different opportunities (aka Strategies)
 /// and manage accounting in a robust way.
-contract FathomVault is Proxy, ERC1967Upgrade, AccessControl, ReentrancyGuard, IUpgradeable, VaultStorage, IVaultEvents {
+contract FathomVault is Proxy, ERC1967Upgrade, IUpgradeable, VaultStorage {
     /// @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
     ///
     /// If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an
