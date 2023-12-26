@@ -41,9 +41,10 @@ async function createProfit(asset, strategyManagerPackage, strategyManager, stra
     const reportTx = await strategy.connect(owner).report();
     await reportTx.wait();
 
+    // TODO - Check that the (profit-Number(strategyParams.currentDebt)) is appropriate way to calculate gain
     await expect(vaultPackage.attach(vault.target).connect(owner).processReport(strategy.target))
         .to.emit(strategyManagerPackage.attach(strategyManager.target), 'StrategyReported')
-        .withArgs(strategy.target, profit, loss, strategyParams.currentDebt, protocolFees, totalFees, totalRefunds);
+        .withArgs(strategy.target, profit-Number(strategyParams.currentDebt), loss, strategyParams.currentDebt, protocolFees, totalFees, totalRefunds);
 
     return totalFees;
 }
@@ -51,7 +52,7 @@ async function createProfit(asset, strategyManagerPackage, strategyManager, stra
 
 async function createStrategy(owner, sharesManagerPackage, sharesManager, profitMaxUnlockTime) {
     const Strategy = await ethers.getContractFactory("MockTokenizedStrategy");
-    const strategy = await Strategy.deploy(await sharesManagerPackage.attach(sharesManager.target).ASSET(), "Mock Tokenized Strategy", owner.address, owner.address, profitMaxUnlockTime, { gasLimit: "0x1000000" });
+    const strategy = await Strategy.deploy(await sharesManagerPackage.attach(sharesManager.target).asset(), "Mock Tokenized Strategy", owner.address, owner.address, profitMaxUnlockTime, { gasLimit: "0x1000000" });
 
     return strategy;
 }
