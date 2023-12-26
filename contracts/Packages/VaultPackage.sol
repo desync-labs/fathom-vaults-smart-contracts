@@ -800,6 +800,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return decimalsValue;
     }
 
+    /// @notice Get the vault's fees.
+    /// @return The vault's fees.
+    function fees() external view override returns (FeeAssessment memory) {
+        return customFees;
+    }
+
     /// @notice Get debt for a strategy.
     /// @param strategy The strategy to withdraw from.
     function getDebt(address strategy) external view override returns (uint256) {
@@ -847,21 +853,21 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
         // If accountant is not set, fees and refunds remain unchanged.
         if (accountant != address(0)) {
-            FeeAssessment memory fees = FeeAssessment(0, 0, 0, address(0));
+            FeeAssessment memory fees_ = FeeAssessment(0, 0, 0, address(0));
 
-            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+            (fees_.totalFees, fees_.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
 
             // Protocol fees will be 0 if accountant fees are 0.
-            if (fees.totalFees > 0) {
+            if (fees_.totalFees > 0) {
                 uint16 protocolFeeBps;
                 // Get the config for this vault.
                 if (factoryAddress == address(0)) {
                     // If the factory is not set, use the default config.
                     protocolFeeBps = customFeeBPS;
-                    fees.protocolFeeRecipient = customFeeRecipient;
+                    fees_.protocolFeeRecipient = customFeeRecipient;
                 } else {
                     // If the factory is set, use the config for this vault.
-                    (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
+                    (protocolFeeBps, fees_.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
                 }
 
                 if (protocolFeeBps > 0) {
@@ -869,10 +875,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                         revert FeeExceedsMax();
                     }
                     // Protocol fees are a percent of the fees the accountant is charging.
-                    fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
+                    fees_.protocolFees = (fees_.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
                 }
             }
-            return fees;
+            return fees_;
         } else {
             return customFees;
         }

@@ -80,6 +80,8 @@ interface IVault is IERC4626 {
 
     function balanceOf(address addr) external view returns (uint256);
 
+    function fees() external view returns (FeeAssessment memory);
+
     function decimals() external view returns (uint8);
 
     function asset() external view returns (address);
