@@ -82,7 +82,22 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @param newAccountant The new accountant address.
     function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         accountant = newAccountant;
-        emit UpdateAccountant(newAccountant);
+        emit UpdatedAccountant(newAccountant);
+    }
+
+    /// @notice Set fees and refunds.
+    function setFees(
+        uint256 totalFees,
+        uint256 totalRefunds,
+        uint256 protocolFees,
+        address protocolFeeRecipient
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        customFees.totalFees = totalFees;
+        customFees.totalRefunds = totalRefunds;
+        customFees.protocolFees = protocolFees;
+        customFees.protocolFeeRecipient = protocolFeeRecipient;
+
+        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 
     /// @notice Set the new default queue array.
@@ -98,7 +113,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
         // Save the new queue.
         defaultQueue = newDefaultQueue;
-        emit UpdateDefaultQueue(newDefaultQueue);
+        emit UpdatedDefaultQueue(newDefaultQueue);
     }
 
     /// @notice Set a new value for `use_default_queue`.
@@ -107,7 +122,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @param _useDefaultQueue new value.
     function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
         useDefaultQueue = _useDefaultQueue;
-        emit UpdateUseDefaultQueue(_useDefaultQueue);
+        emit UpdatedUseDefaultQueue(_useDefaultQueue);
     }
 
     /// @notice Set the new deposit limit.
@@ -122,7 +137,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert UsingModule();
         }
         depositLimit = _depositLimit;
-        emit UpdateDepositLimit(_depositLimit);
+        emit UpdatedDepositLimit(_depositLimit);
     }
 
     /// @notice Set a contract to handle the deposit limit.
@@ -137,7 +152,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert UsingDepositLimit();
         }
         depositLimitModule = _depositLimitModule;
-        emit UpdateDepositLimitModule(_depositLimitModule);
+        emit UpdatedDepositLimitModule(_depositLimitModule);
     }
 
     /// @notice Set a contract to handle the withdraw limit.
@@ -145,14 +160,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @param _withdrawLimitModule Address of the module.
     function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         withdrawLimitModule = _withdrawLimitModule;
-        emit UpdateWithdrawLimitModule(_withdrawLimitModule);
+        emit UpdatedWithdrawLimitModule(_withdrawLimitModule);
     }
 
     /// @notice Set the new minimum total idle.
     /// @param _minimumTotalIdle The new minimum total idle.
     function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         minimumTotalIdle = _minimumTotalIdle;
-        emit UpdateMinimumTotalIdle(_minimumTotalIdle);
+        emit UpdatedMinimumTotalIdle(_minimumTotalIdle);
     }
 
     /// @notice Set the new profit max unlock time.
@@ -178,7 +193,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             fullProfitUnlockDate = 0;
         }
         profitMaxUnlockTime = _newProfitMaxUnlockTime;
-        emit UpdateProfitMaxUnlockTime(_newProfitMaxUnlockTime);
+        emit UpdatedProfitMaxUnlockTime(_newProfitMaxUnlockTime);
     }
 
     /// @notice Add a new strategy.
@@ -247,11 +262,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         // Set deposit limit to 0.
         if (depositLimitModule != address(0)) {
             depositLimitModule = address(0);
-            emit UpdateDepositLimitModule(address(0));
+            emit UpdatedDepositLimitModule(address(0));
         }
 
         depositLimit = 0;
-        emit UpdateDepositLimit(0);
+        emit UpdatedDepositLimit(0);
 
         _grantRole(STRATEGY_MANAGER, msg.sender);
         emit Shutdown();
@@ -828,23 +843,23 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
     /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        FeeAssessment memory _fees = FeeAssessment(0, 0, 0, address(0));
-
         // If accountant is not set, fees and refunds remain unchanged.
         if (accountant != address(0)) {
-            (_fees.totalFees, _fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+            FeeAssessment memory fees = FeeAssessment(0, 0, 0, address(0));
+
+            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
 
             // Protocol fees will be 0 if accountant fees are 0.
-            if (_fees.totalFees > 0) {
+            if (fees.totalFees > 0) {
                 uint16 protocolFeeBps;
                 // Get the config for this vault.
                 if (factoryAddress == address(0)) {
                     // If the factory is not set, use the default config.
                     protocolFeeBps = customFeeBPS;
-                    _fees.protocolFeeRecipient = customFeeRecipient;
+                    fees.protocolFeeRecipient = customFeeRecipient;
                 } else {
                     // If the factory is set, use the config for this vault.
-                    (protocolFeeBps, _fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
+                    (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factoryAddress).protocolFeeConfig();
                 }
 
                 if (protocolFeeBps > 0) {
@@ -852,12 +867,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                         revert FeeExceedsMax();
                     }
                     // Protocol fees are a percent of the fees the accountant is charging.
-                    _fees.protocolFees = (_fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
+                    fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
                 }
             }
+            return fees;
+        } else {
+            return customFees;
         }
-
-        return _fees;
     }
 
     /// @notice Burns shares that have been unlocked since last update.

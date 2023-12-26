@@ -18,6 +18,8 @@ interface IVault is IERC4626 {
 
     function setAccountant(address newAccountant) external;
 
+    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
+
     function setDefaultQueue(address[] calldata newDefaultQueue) external;
 
     function setUseDefaultQueue(bool useDefaultQueue) external;

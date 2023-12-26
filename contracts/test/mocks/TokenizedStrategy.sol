@@ -132,7 +132,7 @@ contract TokenizedStrategy is ReentrancyGuard {
     event UpdatePerformanceFeeRecipient(address indexed newPerformanceFeeRecipient);
 
     /// @notice Emitted when the 'profitMaxUnlockTime' is updated to 'newProfitMaxUnlockTime'.
-    event UpdateProfitMaxUnlockTime(uint256 newProfitMaxUnlockTime);
+    event UpdatedProfitMaxUnlockTime(uint256 newProfitMaxUnlockTime);
 
     /// @notice Emitted when a strategy is shutdown.
     event StrategyShutdown();
@@ -638,7 +638,7 @@ contract TokenizedStrategy is ReentrancyGuard {
 
         stor.profitMaxUnlockTime = uint32(_profitMaxUnlockTime);
 
-        emit UpdateProfitMaxUnlockTime(_profitMaxUnlockTime);
+        emit UpdatedProfitMaxUnlockTime(_profitMaxUnlockTime);
     }
 
     /// @notice Transfer '_amount` of shares from `msg.sender` to `to`.
