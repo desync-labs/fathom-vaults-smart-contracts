@@ -441,9 +441,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 _erc20SafeApprove(address(assetContract), strategy, assetsToDeposit);
 
                 // Always update based on actual amounts deposited.
-                uint256 preBalance = assetContract.balanceOf(sharesManager);
+                uint256 preBalance = assetContract.balanceOf(address(this));
                 _depositToStrategy(strategy, assetsToDeposit);
-                uint256 postBalance = assetContract.balanceOf(sharesManager);
+                uint256 postBalance = assetContract.balanceOf(address(this));
 
                 // Make sure our approval is always back to 0.
                 _erc20SafeApprove(address(assetContract), strategy, 0);
@@ -502,7 +502,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert ZeroValue();
         }
 
-        _erc20SafeTransferFrom(sharesManager, msg.sender, address(this), amount);
+        _erc20SafeTransferFrom(address(this), msg.sender, address(this), amount);
 
         // Lower strategy debt
         strategies[strategy].currentDebt -= amount;
@@ -1604,7 +1604,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         // Vault assesses profits using 4626 compliant interface.
         // NOTE: It is important that a strategies `convertToAssets` implementation
         // cannot be manipulated or else the vault could report incorrect gains/losses.
-        uint256 strategyShares = IStrategy(strategy).balanceOf(sharesManager);
+        uint256 strategyShares = IStrategy(strategy).balanceOf(address(this));
         // How much the vaults position is worth.
         uint256 currentTotalAssets = IStrategy(strategy).convertToAssets(strategyShares);
         // How much the vault had deposited to the strategy.

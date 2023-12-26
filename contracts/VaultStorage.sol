@@ -57,13 +57,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice Last timestamp of the most recent profitable report.
     uint256 public lastProfitUpdate;
 
-    /// @notice The strategy manager is the only address that can add and remove strategies.
-    address payable public strategyManager;
-    /// @notice The shares manager is the only address that can mint and burn shares.
-    address public sharesManager;
-    /// @notice The governance address is the only address that can set the setters.
-    address public governance;
-
     /// @notice Contract that charges fees and can give refunds.
     address public accountant;
     /// @notice Contract to control the deposit limit.
