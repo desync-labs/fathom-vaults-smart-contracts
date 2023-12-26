@@ -76,7 +76,7 @@ contract TokenizedStrategy is ReentrancyGuard {
     }
 
     /// @notice API version this TokenizedStrategy implements.
-    string private constant API_VERSION = "3.0.1";
+    string private constant API_VERSION = "1.0.0";
 
     /// @notice Used for fee calculations.
     uint256 private constant MAX_BPS = 10_000;
