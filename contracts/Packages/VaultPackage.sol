@@ -57,7 +57,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert InvalidAssetDecimals();
         }
 
-        // TODO: More verificaitons for asset, name, symbol
         assetContract = IERC20(_asset);
         sharesName = _name;
         sharesSymbol = _symbol;
