@@ -1,5 +1,6 @@
 /node_modules
 /artifacts
+/deployments
 /cache
 *.DS_Store
 .vscode
