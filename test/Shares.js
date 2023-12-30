@@ -15,11 +15,12 @@ describe("Vault Contract", function () {
     async function deployVault() {
         const vaultName = 'Vault Shares FXD';
         const vaultSymbol = 'vFXD';
-        const vaultDecimals = 18;
         const [owner, otherAccount] = await ethers.getSigners();
 
         const Asset = await ethers.getContractFactory("Token");
-        const asset = await Asset.deploy(vaultSymbol, vaultDecimals, { gasLimit: "0x1000000" });
+        const assetSymbol = 'FXD';
+        const vaultDecimals = 18;
+        const asset = await Asset.deploy(assetSymbol, vaultDecimals, { gasLimit: "0x1000000" });
 
         const assetAddress = asset.target;
         const profitMaxUnlockTime = 31536000; // 1 year in seconds
@@ -32,7 +33,6 @@ describe("Vault Contract", function () {
         const initializeTx = await vaultPackage.attach(vault.target).connect(owner).initialize(
             profitMaxUnlockTime,
             assetAddress,
-            vaultDecimals,
             vaultName,
             vaultSymbol,
             "0x0000000000000000000000000000000000000000",
@@ -71,7 +71,7 @@ describe("Vault Contract", function () {
             .withArgs(owner.address, owner.address, amount, amount);
     
         // Check the state after deposit
-        expect(await vaultPackage.attach(vault.target).totalIdleAmount()).to.equal(amount);
+        expect(await vaultPackage.attach(vault.target).totalIdle()).to.equal(amount);
         expect(await vaultPackage.attach(vault.target).balanceOf(owner.address)).to.equal(amount);
         expect(await vaultPackage.attach(vault.target).totalSupplyAmount()).to.equal(amount);
         // Assuming asset is the ERC20 token contract
@@ -151,7 +151,7 @@ describe("Vault Contract", function () {
             .to.emit(vaultPackage.attach(vault.target), 'Deposit')
             .withArgs(owner.address, owner.address, amount, amount);
     
-        expect(await vaultPackage.attach(vault.target).totalIdleAmount()).to.equal(amount);
+        expect(await vaultPackage.attach(vault.target).totalIdle()).to.equal(amount);
         expect(await vaultPackage.attach(vault.target).balanceOf(owner.address)).to.equal(amount);
         expect(await vaultPackage.attach(vault.target).totalSupplyAmount()).to.equal(amount);
         expect(await asset.balanceOf(owner.address)).to.equal(0);
@@ -198,7 +198,7 @@ describe("Vault Contract", function () {
             .withArgs(owner.address, owner.address, owner.address, amount, amount);
     
         // Check if vault is empty and owner has received the assets
-        expect(await vaultPackage.attach(vault.target).totalIdleAmount()).to.equal(0);
+        expect(await vaultPackage.attach(vault.target).totalIdle()).to.equal(0);
         expect(await asset.balanceOf(vault.target)).to.equal(0);
         expect(await asset.balanceOf(owner.address)).to.equal(amount);
     });

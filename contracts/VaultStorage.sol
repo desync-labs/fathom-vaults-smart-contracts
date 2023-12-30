@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./VaultStructs.sol";
@@ -40,9 +40,9 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     uint256 public totalSupplyAmount;
 
     /// @notice Total amount of assets that has been deposited in strategies.
-    uint256 public totalDebtAmount;
+    uint256 public totalDebt;
     /// @notice Current assets held in the vault contract. Replacing balanceOf(this) to avoid pricePerShare manipulation.
-    uint256 public totalIdleAmount;
+    uint256 public totalIdle;
     /// @notice Minimum amount of assets that should be kept in the vault contract to allow for fast, cheap redeems.
     uint256 public minimumTotalIdle;
     /// @notice Maximum amount of tokens that the vault can accept. If totalAssets > deposit_limit, deposits will revert.
@@ -70,13 +70,13 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     address public futureRoleManager;
 
     /// @notice Factory address
-    address public factoryAddress;
+    address public factory;
 
     /// @notice Address of the custom fee recipient.
     address public customFeeRecipient;
 
     /// @notice Address of the underlying token used by the vault
-    IERC20 public assetContract;
+    IERC20Metadata internal assetContract;
 
     /// @notice The custom fee BPS charged for withdrawals.
     uint16 public customFeeBPS;
@@ -91,12 +91,12 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     bool internal initialized;
 
     /// @notice The current decimals value of the vault.
-    uint8 public decimalsValue;
+    uint8 internal decimalsValue;
 
     /// @notice ERC20 - name of the vault's token
-    string public sharesName;
+    string internal sharesName;
     /// @notice ERC20 - symbol of the vault's token
-    string public sharesSymbol;
+    string internal sharesSymbol;
 
     /// @notice The current default withdrawal queue.
     address[] public defaultQueue;
@@ -108,9 +108,9 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     mapping(address => StrategyParams) public strategies;
 
     /// @notice ERC20 - amount of shares per account
-    mapping(address => uint256) internal _balanceOf;
+    mapping(address => uint256) internal sharesBalanceOf;
     /// @notice ERC20 - owner -> (spender -> amount)
-    mapping(address => mapping(address => uint256)) internal _allowance;
+    mapping(address => mapping(address => uint256)) internal sharesAllowance;
 
     /// @notice EIP-2612 permit() nonces
     mapping(address => uint256) public nonces;

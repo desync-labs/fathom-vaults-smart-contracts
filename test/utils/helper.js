@@ -27,8 +27,8 @@ async function userDeposit(user, vault, token, amount, sharesManagerPackage, sha
 async function checkVaultEmpty(vaultPackage, vault) {
     expect(await vaultPackage.attach(vault.target).totalAssets()).to.equal(0);
     expect(await vaultPackage.attach(vault.target).totalSupplyAmount()).to.equal(0);
-    expect(await vaultPackage.attach(vault.target).totalIdleAmount()).to.equal(0);
-    expect(await vaultPackage.attach(vault.target).totalDebtAmount()).to.equal(0);
+    expect(await vaultPackage.attach(vault.target).totalIdle()).to.equal(0);
+    expect(await vaultPackage.attach(vault.target).totalDebt()).to.equal(0);
 }
 
 async function createProfit(asset, strategyManagerPackage, strategyManager, strategy, owner, vaultPackage, vault, profit, loss, protocolFees, totalFees, totalRefunds, byPassFees) {

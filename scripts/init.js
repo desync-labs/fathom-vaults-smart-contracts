@@ -47,14 +47,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
-    const assetDecimals = 18;
 
     // Initialization logic
     console.log("Initializing Vault Package...");
     const initializeTx = await vaultPackage.attach(vaultAddress).connect(owner).initialize(
         profitMaxUnlockTime,
         assetAddress,
-        assetDecimals,
         vaultTokenName,
         vaultTokenSymbol,
         "0x0000000000000000000000000000000000000000",
