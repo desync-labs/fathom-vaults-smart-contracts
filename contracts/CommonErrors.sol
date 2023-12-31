@@ -13,6 +13,7 @@ error InsufficientShares(uint256 balanceOfOwner);
 error InactiveStrategy(address strategy);
 error InactiveVault();
 error ExceedDepositLimit(uint256 recipientMaxDeposit);
+error ExceedWithdrawLimit(uint256 recipientMaxWithdraw);
 error ZeroValue();
 error StrategyDebtIsLessThanAssetsNeeded(uint256 strageyCurrentDebt);
 error MaxLoss();

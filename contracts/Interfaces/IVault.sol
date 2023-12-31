@@ -102,4 +102,9 @@ interface IVault is IERC4626 {
     function assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) external view returns (uint256);
 
     function getDefaultQueueLength() external view returns (uint256);
+
+    function apiVersion() external view returns (string memory);
+
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
 }

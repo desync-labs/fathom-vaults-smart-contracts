@@ -59,20 +59,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         sharesName = _name;
         sharesSymbol = _symbol;
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(STRATEGY_MANAGER, msg.sender);
         _grantRole(REPORTING_MANAGER, msg.sender);
         _grantRole(DEBT_PURCHASER, msg.sender);
-
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                DOMAIN_TYPE_HASH,
-                keccak256(bytes(_name)), // "Fathom Vault" in the example
-                keccak256(bytes(API_VERSION)), // API_VERSION in the example
-                block.chainid, // Current chain ID
-                address(this) // Address of the contract
-            )
-        );
 
         initialized = true;
     }
@@ -400,9 +389,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             // Amount we tried to withdraw in case of losses
             totalDebt -= assetsToWithdraw;
 
-            _setTotalIdleAmount(totalIdle);
-            _setTotalDebtAmount(totalDebt);
-
             newDebt = currentDebt - assetsToWithdraw;
         } else {
             // We are increasing the strategies debt
@@ -452,12 +438,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 // Update storage.
                 totalIdle -= assetsToDeposit;
                 totalDebt += assetsToDeposit;
-
-                _setTotalIdleAmount(totalIdle);
-                _setTotalDebtAmount(totalDebt);
-
-                newDebt = currentDebt + assetsToDeposit;
             }
+
+            newDebt = currentDebt + assetsToDeposit;
         }
 
         // Commit memory to storage.
@@ -602,7 +585,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         bytes32 structHash = keccak256(abi.encode(PERMIT_TYPE_HASH, owner, spender, amount, nonce, deadline));
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != owner) {
@@ -826,24 +809,29 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return sharesBalanceOf[addr];
     }
 
+    /// @notice EIP-2612 permit() domain separator.
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() public view override returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    DOMAIN_TYPE_HASH,
+                    keccak256(bytes(sharesName)), // "Fathom Vault" in the example
+                    keccak256(bytes(apiVersion())), // API_VERSION in the example
+                    block.chainid, // Current chain ID
+                    address(this) // Address of the contract
+                )
+            );
+    }
+
+    /// @notice The version of this vault.
+    function apiVersion() public pure override returns (string memory) {
+        return "1.0.0";
+    }
+
     /// @notice Deposit assets into the strategy.
     function _depositToStrategy(address strategy, uint256 assetsToDeposit) internal {
         IStrategy(strategy).deposit(assetsToDeposit, address(this));
-    }
-
-    /// @notice Set the total debt.
-    function _setTotalDebtAmount(uint256 _totalDebt) internal {
-        totalDebt = _totalDebt;
-    }
-
-    /// @notice Set the total idle.
-    function _setTotalIdleAmount(uint256 _totalIdle) internal {
-        totalIdle = _totalIdle;
-    }
-
-    /// @notice Set the minimum total idle.
-    function _setMinimumTotalIdle(uint256 _minimumTotalIdle) internal {
-        minimumTotalIdle = _minimumTotalIdle;
     }
 
     /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
@@ -946,7 +934,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 // Accountant fees are total fees - protocol fees.
                 shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
                 if (protocolFees > 0) {
-                    uint256 numerator = protocolFees * gain;
+                    uint256 numerator = protocolFees * gain; // TODO: check if needs to multiply by gain
                     shares.protocolFeesShares = _convertToShares(numerator / 100, Rounding.ROUND_DOWN);
                 }
             }
@@ -962,13 +950,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         FeeAssessment memory _fees,
         uint256 gain
     ) internal returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
+        address refAddress = accountant != address(0) ? accountant : customFees.protocolFeeRecipient;
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;
         if (_fees.totalRefunds > 0) {
             // Make sure we have enough approval and enough asset to pull.
-            _fees.totalRefunds = Math.min(_fees.totalRefunds, Math.min(balanceOf(accountant), allowance(accountant, address(this))));
+            _fees.totalRefunds = Math.min(_fees.totalRefunds, Math.min(balanceOf(refAddress), allowance(refAddress, address(this))));
             // Transfer the refunded amount of asset to the vault.
-            _erc20SafeTransferFrom(address(assetContract), accountant, address(this), _fees.totalRefunds);
+            _erc20SafeTransferFrom(address(assetContract), refAddress, address(this), _fees.totalRefunds);
             // Update storage to increase total assets.
             totalIdle += _fees.totalRefunds;
         }
@@ -1000,7 +989,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         // Issue shares for fees that were calculated above if applicable.
         if (shares.accountantFeesShares > 0) {
-            _issueShares(shares.accountantFeesShares, accountant);
+            _issueShares(shares.accountantFeesShares, refAddress);
         }
 
         if (shares.protocolFeesShares > 0) {
@@ -1042,10 +1031,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     function _spendAllowance(address owner, address spender, uint256 amount) internal {
         // Unlimited approval does nothing (saves an SSTORE)
         uint256 currentAllowance = sharesAllowance[owner][spender];
-        if (currentAllowance < amount) {
-            revert ERC20InsufficientAllowance(currentAllowance);
+        if (currentAllowance < type(uint256).max) {
+            if (currentAllowance < amount) {
+                revert ERC20InsufficientAllowance(currentAllowance);
+            }
+            _approve(owner, spender, currentAllowance - amount);
         }
-        _approve(owner, spender, currentAllowance - amount);
     }
 
     /// @notice Transfers shares from a sender to a receiver.
@@ -1166,7 +1157,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
 
         // Transfer the tokens to the vault first.
-        assetContract.transferFrom(msg.sender, address(this), assets);
+        _erc20SafeTransferFrom(address(assetContract), msg.sender, address(this), assets);
         // Record the change in total assets.
         totalIdle += assets;
 
@@ -1198,7 +1189,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
 
         // Transfer the tokens to the vault first.
-        assetContract.transferFrom(sender, address(this), assets);
+        _erc20SafeTransferFrom(address(assetContract), sender, address(this), assets);
         // Record the change in total assets.
         totalIdle += assets;
 
@@ -1242,6 +1233,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         address[] memory _strategies
     ) internal returns (uint256) {
         _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
+        if (withdrawLimitModule != address(0)) {
+            uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
+            if (assets > maxWithdrawAmount) {
+                revert ExceedWithdrawLimit(maxWithdrawAmount);
+            }
+        }
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);
         _finalizeRedeem(receiver, owner, sharesToBurn, assets, requestedAssets, currTotalIdle, maxLoss);
@@ -1284,7 +1281,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             if (_strategies.length != 0 && !useDefaultQueue) {
                 // If a custom queue was passed, and we don't force the default queue.
                 // Use the custom queue.
-                defaultQueueLength = _strategies.length;
+                defaultQueueLength = _strategies.length; // TODO: doublecheck
                 currentStrategies = _strategies;
             } else {
                 currentStrategies = defaultQueue;

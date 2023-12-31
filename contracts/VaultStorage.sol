@@ -19,8 +19,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     uint256 public constant MAX_BPS_EXTENDED = 1_000_000_000_000;
     /// @notice One year constant for calculating the profit unlocking rate.
     uint256 public constant ONE_YEAR = 31_556_952;
-    /// @notice The version of this vault.
-    string public constant API_VERSION = "1.0.0";
 
     /// @notice Roles
     bytes32 public constant STRATEGY_MANAGER = keccak256("STRATEGY_MANAGER");
@@ -30,10 +28,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice EIP-2612 permit() typehashes
     bytes32 public constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 public constant PERMIT_TYPE_HASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-
-    /// @notice EIP-2612 permit() domain separator.
-    // solhint-disable-next-line var-name-mixedcase
-    bytes32 public DOMAIN_SEPARATOR;
 
     /// @notice Total amount of shares that are currently minted including those locked.
     /// NOTE: To get the ERC20 compliant version use totalSupply().
@@ -114,9 +108,4 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
 
     /// @notice EIP-2612 permit() nonces
     mapping(address => uint256) public nonces;
-
-    /// @notice HashMap mapping addresses to their roles
-    mapping(address => bytes32) public roles;
-    /// @notice HashMap mapping roles to their permissioned state. If false, the role is not open to the public.
-    mapping(bytes32 => bool) public openRoles;
 }
