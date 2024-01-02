@@ -438,9 +438,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 // Update storage.
                 totalIdle -= assetsToDeposit;
                 totalDebt += assetsToDeposit;
+                
+                newDebt = currentDebt + assetsToDeposit;
             }
 
-            newDebt = currentDebt + assetsToDeposit;
         }
 
         // Commit memory to storage.
@@ -1276,16 +1277,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         // funds from strategies.
         if (state.requestedAssets > state.currTotalIdle) {
             // Cache the default queue.
-            address[] memory currentStrategies;
-            uint256 defaultQueueLength;
-            if (_strategies.length != 0 && !useDefaultQueue) {
-                // If a custom queue was passed, and we don't force the default queue.
-                // Use the custom queue.
-                defaultQueueLength = _strategies.length; // TODO: doublecheck
-                currentStrategies = _strategies;
-            } else {
-                currentStrategies = defaultQueue;
-            }
+            // If a custom queue was passed, and we don't force the default queue.
+            // Use the custom queue.
+            address[] memory currentStrategies = _strategies.length != 0 && !useDefaultQueue ? _strategies : defaultQueue;
 
             // Withdraw from strategies only what idle doesn't cover.
             // `assetsNeeded` is the total amount we need to fill the request.
