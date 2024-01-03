@@ -7,11 +7,16 @@ import "../VaultStructs.sol";
 import { IERC4626 } from "./IERC4626.sol";
 
 interface IVault is IERC4626 {
-    function initialize(uint256 _profitMaxUnlockTime, address _asset, string calldata _name, string calldata _symbol, address _accountant) external;
+    function initialize(
+        uint256 _profitMaxUnlockTime,
+        address _asset,
+        string calldata _name,
+        string calldata _symbol,
+        address _accountant,
+        address _admin
+    ) external;
 
     function setAccountant(address newAccountant) external;
-
-    function setFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient) external;
 
     function setDefaultQueue(address[] calldata newDefaultQueue) external;
 
@@ -72,8 +77,6 @@ interface IVault is IERC4626 {
     function allowance(address owner, address spender) external view returns (uint256);
 
     function balanceOf(address addr) external view returns (uint256);
-
-    function fees() external view returns (FeeAssessment memory);
 
     function decimals() external view returns (uint8);
 

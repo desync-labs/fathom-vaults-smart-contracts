@@ -28,22 +28,16 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         address _asset,
         string calldata _name,
         string calldata _symbol,
-        address _accountant
+        address _accountant,
+        address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
 
-        if (_isContract(msg.sender)) {
-            factory = msg.sender;
-        } else {
-            factory = address(0);
-            customFeeBPS = MAX_FEE_BPS;
-            customFeeRecipient = msg.sender;
-        }
-
-        // Accountant can be 0 - in that case protocol will manage the fees.
-        accountant = _accountant;
+        if (_admin == address(0x00)) revert ZeroAddress();
+        if (_accountant == address(0x00)) revert ZeroAddress();
+        if (_admin == address(0x00)) revert ZeroAddress();
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -59,9 +53,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         sharesName = _name;
         sharesSymbol = _symbol;
 
-        _grantRole(STRATEGY_MANAGER, msg.sender);
-        _grantRole(REPORTING_MANAGER, msg.sender);
-        _grantRole(DEBT_PURCHASER, msg.sender);
+        factory = msg.sender;
+        accountant = _accountant;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+        _grantRole(STRATEGY_MANAGER, _admin);
+        _grantRole(REPORTING_MANAGER, _admin);
+        _grantRole(DEBT_PURCHASER, _admin);
+        _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         initialized = true;
     }
@@ -71,21 +70,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         accountant = newAccountant;
         emit UpdatedAccountant(newAccountant);
-    }
-
-    /// @notice Set fees and refunds.
-    function setFees(
-        uint256 totalFees,
-        uint256 totalRefunds,
-        uint256 protocolFees,
-        address protocolFeeRecipient
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        customFees.totalFees = totalFees;
-        customFees.totalRefunds = totalRefunds;
-        customFees.protocolFees = protocolFees;
-        customFees.protocolFeeRecipient = protocolFeeRecipient;
-
-        emit UpdatedFees(totalFees, totalRefunds, protocolFees, protocolFeeRecipient);
     }
 
     /// @notice Set the new default queue array.
@@ -438,10 +422,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 // Update storage.
                 totalIdle -= assetsToDeposit;
                 totalDebt += assetsToDeposit;
-                
-                newDebt = currentDebt + assetsToDeposit;
             }
 
+            newDebt = currentDebt + assetsToDeposit;
         }
 
         // Commit memory to storage.
@@ -781,12 +764,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return decimalsValue;
     }
 
-    /// @notice Get the vault's fees.
-    /// @return The vault's fees.
-    function fees() external view override returns (FeeAssessment memory) {
-        return customFees;
-    }
-
     /// @notice Get debt for a strategy.
     /// @param strategy The strategy to withdraw from.
     function getDebt(address strategy) external view override returns (uint256) {
@@ -837,37 +814,23 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
     /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        // If accountant is not set, fees and refunds remain unchanged.
-        if (accountant != address(0)) {
-            FeeAssessment memory fees_ = FeeAssessment(0, 0, 0, address(0));
+        FeeAssessment memory fees = FeeAssessment(0, 0, 0, address(0));
+        (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+        // Protocol fees will be 0 if accountant fees are 0.
+        if (fees.totalFees > 0) {
+            uint16 protocolFeeBps;
+            // Get the config for this vault.
+            (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factory).protocolFeeConfig();
 
-            (fees_.totalFees, fees_.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
-
-            // Protocol fees will be 0 if accountant fees are 0.
-            if (fees_.totalFees > 0) {
-                uint16 protocolFeeBps;
-                // Get the config for this vault.
-                if (factory == address(0)) {
-                    // If the factory is not set, use the default config.
-                    protocolFeeBps = customFeeBPS;
-                    fees_.protocolFeeRecipient = customFeeRecipient;
-                } else {
-                    // If the factory is set, use the config for this vault.
-                    (protocolFeeBps, fees_.protocolFeeRecipient) = IFactory(factory).protocolFeeConfig();
+            if (protocolFeeBps > 0) {
+                if (protocolFeeBps > MAX_BPS) {
+                    revert FeeExceedsMax();
                 }
-
-                if (protocolFeeBps > 0) {
-                    if (protocolFeeBps > MAX_BPS) {
-                        revert FeeExceedsMax();
-                    }
-                    // Protocol fees are a percent of the fees the accountant is charging.
-                    fees_.protocolFees = (fees_.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
-                }
+                // Protocol fees are a percent of the fees the accountant is charging.
+                fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
             }
-            return fees_;
-        } else {
-            return customFees;
         }
+        return fees;
     }
 
     /// @notice Burns shares that have been unlocked since last update.
@@ -935,8 +898,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 // Accountant fees are total fees - protocol fees.
                 shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
                 if (protocolFees > 0) {
-                    uint256 numerator = protocolFees * gain; // TODO: check if needs to multiply by gain
-                    shares.protocolFeesShares = _convertToShares(numerator / 100, Rounding.ROUND_DOWN);
+                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
                 }
             }
         }
@@ -948,24 +910,23 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     // solhint-disable-next-line function-max-lines
     function _handleShareBurnsAndIssues(
         ShareManagement memory shares,
-        FeeAssessment memory _fees,
+        FeeAssessment memory fees,
         uint256 gain
     ) internal returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
-        address refAddress = accountant != address(0) ? accountant : customFees.protocolFeeRecipient;
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;
-        if (_fees.totalRefunds > 0) {
+        if (fees.totalRefunds > 0) {
             // Make sure we have enough approval and enough asset to pull.
-            _fees.totalRefunds = Math.min(_fees.totalRefunds, Math.min(balanceOf(refAddress), allowance(refAddress, address(this))));
+            fees.totalRefunds = Math.min(fees.totalRefunds, Math.min(balanceOf(accountant), allowance(accountant, address(this))));
             // Transfer the refunded amount of asset to the vault.
-            _erc20SafeTransferFrom(address(assetContract), refAddress, address(this), _fees.totalRefunds);
+            _erc20SafeTransferFrom(address(assetContract), accountant, address(this), fees.totalRefunds);
             // Update storage to increase total assets.
-            totalIdle += _fees.totalRefunds;
+            totalIdle += fees.totalRefunds;
         }
 
         // Mint anything we are locking to the vault.
-        if (gain + _fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
-            _newlyLockedShares = _issueSharesForAmount(gain + _fees.totalRefunds, address(this));
+        if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
+            _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
         }
 
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
@@ -990,11 +951,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         // Issue shares for fees that were calculated above if applicable.
         if (shares.accountantFeesShares > 0) {
-            _issueShares(shares.accountantFeesShares, refAddress);
+            _issueShares(shares.accountantFeesShares, accountant);
         }
 
         if (shares.protocolFeesShares > 0) {
-            _issueShares(shares.protocolFeesShares, _fees.protocolFeeRecipient);
+            _issueShares(shares.protocolFeesShares, fees.protocolFeeRecipient);
         }
 
         return (_previouslyLockedShares, _newlyLockedShares);

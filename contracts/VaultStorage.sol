@@ -13,8 +13,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     uint256 public constant MAX_QUEUE = 10;
     /// @notice 100% in Basis Points.
     uint256 public constant MAX_BPS = 10000;
-    /// @notice 50% in BPS for fees.
-    uint16 public constant MAX_FEE_BPS = 5000;
     /// @notice Extended for profit locking calculations.
     uint256 public constant MAX_BPS_EXTENDED = 1_000_000_000_000;
     /// @notice One year constant for calculating the profit unlocking rate.
@@ -66,14 +64,8 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice Factory address
     address public factory;
 
-    /// @notice Address of the custom fee recipient.
-    address public customFeeRecipient;
-
     /// @notice Address of the underlying token used by the vault
     IERC20Metadata internal assetContract;
-
-    /// @notice The custom fee BPS charged for withdrawals.
-    uint16 public customFeeBPS;
 
     /// @notice Should the vault use the default_queue regardless whats passed in.
     bool public useDefaultQueue;
@@ -94,9 +86,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
 
     /// @notice The current default withdrawal queue.
     address[] public defaultQueue;
-
-    // The custom fees
-    FeeAssessment public customFees;
 
     /// @notice HashMap that records all the strategies that are allowed to receive assets from the vault.
     mapping(address => StrategyParams) public strategies;
