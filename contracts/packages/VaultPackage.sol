@@ -1383,6 +1383,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     }
 
     /// @notice Revokes a strategy from the vault.
+    // solhint-disable-next-line code-complexity
     function _revokeStrategy(address strategy, bool force) internal {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
@@ -1390,34 +1391,43 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         // If force revoking a strategy, it will cause a loss.
         uint256 loss = 0;
-        if (strategies[strategy].currentDebt != 0 && !force) {
-            revert StrategyHasDebt(strategies[strategy].currentDebt);
+        if (strategies[strategy].currentDebt != 0) {
+            if (!force) revert StrategyHasDebt(strategies[strategy].currentDebt);
+            // Vault realizes the full loss of outstanding debt.
+            loss = strategies[strategy].currentDebt;
+            // Adjust total vault debt.
+            totalDebt -= loss;
+            emit StrategyReported(strategy, 0, loss, 0, 0, 0, 0);
         }
-
-        // Vault realizes the full loss of outstanding debt.
-        loss = strategies[strategy].currentDebt;
-        // Adjust total vault debt.
-        totalDebt -= loss;
-
-        emit StrategyReported(strategy, 0, loss, 0, 0, 0, 0);
 
         // Set strategy params all back to 0 (WARNING: it can be re-added).
         strategies[strategy] = StrategyParams({ activation: 0, lastReport: 0, currentDebt: 0, maxDebt: 0 });
 
         // Remove strategy if it is in the default queue.
-        address[] memory newQueue;
-        if (defaultQueue.length > 0) {
-            for (uint256 i = 0; i < defaultQueue.length; i++) {
-                address _strategy = defaultQueue[i];
-                // Add all strategies to the new queue besides the one revoked.
-                if (_strategy != strategy) {
-                    newQueue[i] = _strategy;
+        uint256 defaultQueueLength = defaultQueue.length;
+        if (defaultQueueLength > 0) {
+            uint256 newDefaultQueueLength = defaultQueueLength;
+            // Find if there is a need to reduce the queue length
+            for (uint256 i = 0; i < defaultQueueLength; i++) {
+                if (defaultQueue[i] == strategy) {
+                    newDefaultQueueLength--;
+                    break;
                 }
             }
+            // If the queue length needs to be reduced, create a new queue with the new length
+            if (newDefaultQueueLength != defaultQueueLength) {
+                address[] memory newQueue = new address[](newDefaultQueueLength);
+                for (uint256 i = 0; i < defaultQueueLength; i++) {
+                    address _strategy = defaultQueue[i];
+                    // Add all strategies to the new queue besides the one revoked.
+                    if (_strategy != strategy) {
+                        newQueue[i] = _strategy;
+                    }
+                }
+                // Set the default queue to our updated queue.
+                defaultQueue = newQueue;
+            }
         }
-
-        // Set the default queue to our updated queue.
-        defaultQueue = newQueue;
 
         emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
     }
