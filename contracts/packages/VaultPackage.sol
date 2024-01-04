@@ -271,7 +271,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         FeeAssessment memory assessmentFees = _assessFees(strategy, gain, loss);
 
-        ShareManagement memory shares = _calculateShareManagement(gain, loss, assessmentFees.totalFees, assessmentFees.protocolFees);
+        ShareManagement memory shares = _calculateShareManagement(loss, assessmentFees.totalFees, assessmentFees.protocolFees);
 
         (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(shares, assessmentFees, gain, loss, strategy);
 
@@ -1423,12 +1423,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     }
 
     /// @notice Calculate share management based on gains, losses, and fees.
-    function _calculateShareManagement(
-        uint256 gain,
-        uint256 loss,
-        uint256 totalFees,
-        uint256 protocolFees
-    ) internal view returns (ShareManagement memory) {
+    function _calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees) internal view returns (ShareManagement memory) {
         // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
         // NOTE: this needs to be done before any pps changes
         ShareManagement memory shares;
@@ -1436,9 +1431,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         // Only need to burn shares if there is a loss or fees.
         if (loss + totalFees > 0) {
             // The amount of shares we will want to burn to offset losses and fees.
-            uint256 totalFeesNumerator = totalFees * gain;
-            uint256 totalFeesTokens = totalFeesNumerator / 100;
-            shares.sharesToBurn += _convertToShares(loss + totalFeesTokens, Rounding.ROUND_UP);
+            shares.sharesToBurn += _convertToShares(loss + totalFees, Rounding.ROUND_UP);
 
             // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
             if (totalFees > 0) {
