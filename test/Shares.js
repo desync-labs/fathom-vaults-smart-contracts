@@ -400,7 +400,7 @@ describe("Vault Contract", function () {
         // Simulate a Strategy creation, deposit and debt update
         const strategy = await initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime);
         await createProfit(asset, vault, strategy, owner, firstProfit, 0, 0, 0, 0, 0);
-        await vault.connect(owner).updateDebt(vault.target, strategy.target, 0);    
+        await vault.connect(owner).updateDebt(strategy.target, 0);    
         expect(await vault.totalSupply()).to.be.eq(amount);
 
         // User redeems shares

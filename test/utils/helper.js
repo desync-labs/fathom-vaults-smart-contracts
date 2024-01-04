@@ -79,7 +79,7 @@ async function addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategy
     await expect(vault.connect(owner).updateMaxDebtForStrategy(strategy.target, maxDebt))
         .to.emit(vault, 'UpdatedMaxDebtForStrategy')
         .withArgs(owner.address, strategy.target, maxDebt);
-    await expect(vault.connect(owner).updateDebt(vault.target, strategy.target, debt))
+    await expect(vault.connect(owner).updateDebt(strategy.target, debt))
         .to.emit(vault, 'DebtUpdated')
         .withArgs(strategy.target, strategyParams.currentDebt, debt);
 }
