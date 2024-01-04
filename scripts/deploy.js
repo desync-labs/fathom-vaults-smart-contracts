@@ -4,6 +4,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const [owner, addr1, addr2] = await ethers.getSigners();
 
     const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96"; // FXD Token on Apothem
+    const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
     const vaultTokenDecimals = 18;
@@ -38,7 +39,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const factory = await deploy("Factory", {
         from: deployer,
-        args: [vaultPackage.address, owner.address, protocolFee],
+        args: [vaultPackage.address, recipientAddress, protocolFee],
         log: true,
     });
 };
