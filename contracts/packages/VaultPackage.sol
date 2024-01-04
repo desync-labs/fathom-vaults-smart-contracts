@@ -271,9 +271,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         FeeAssessment memory assessmentFees = _assessFees(strategy, gain, loss);
 
-        ShareManagement memory shares = _calculateShareManagement(gain, loss, assessmentFees.totalFees, assessmentFees.protocolFees, strategy);
+        ShareManagement memory shares = _calculateShareManagement(gain, loss, assessmentFees.totalFees, assessmentFees.protocolFees);
 
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(shares, assessmentFees, gain);
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(shares, assessmentFees, gain, loss, strategy);
 
         _manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
 
@@ -861,57 +861,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
     }
 
-    /// @notice Calculate share management based on gains, losses, and fees.
-    function _calculateShareManagement(
-        uint256 gain,
-        uint256 loss,
-        uint256 totalFees,
-        uint256 protocolFees,
-        address strategy
-    ) internal returns (ShareManagement memory) {
-        // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
-        // NOTE: this needs to be done before any pps changes
-        ShareManagement memory shares;
-
-        uint256 currentDebt = strategies[strategy].currentDebt;
-
-        // Record any reported gains.
-        if (gain > 0) {
-            // NOTE: this will increase totalAssets
-            _setDebt(strategy, currentDebt + gain);
-            totalDebt += gain;
-        }
-
-        // Strategy is reporting a loss
-        if (loss > 0) {
-            _setDebt(strategy, currentDebt - loss);
-            totalDebt -= loss;
-        }
-
-        // Only need to burn shares if there is a loss or fees.
-        if (loss + totalFees > 0) {
-            // The amount of shares we will want to burn to offset losses and fees.
-            shares.sharesToBurn += _convertToShares(loss + totalFees, Rounding.ROUND_UP);
-
-            // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
-            if (totalFees > 0) {
-                // Accountant fees are total fees - protocol fees.
-                shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
-                if (protocolFees > 0) {
-                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
-                }
-            }
-        }
-
-        return shares;
-    }
-
     /// @notice Handle the burning and issuing of shares based on the strategy's report.
-    // solhint-disable-next-line function-max-lines
+    // solhint-disable-next-line function-max-lines, code-complexity
     function _handleShareBurnsAndIssues(
         ShareManagement memory shares,
         FeeAssessment memory fees,
-        uint256 gain
+        uint256 gain,
+        uint256 loss,
+        address strategy
     ) internal returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;
@@ -924,9 +881,22 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             totalIdle += fees.totalRefunds;
         }
 
+        // Record any reported gains.
+        if (gain > 0) {
+            // NOTE: this will increase totalAssets
+            strategies[strategy].currentDebt += gain;
+            totalDebt += gain;
+        }
+
         // Mint anything we are locking to the vault.
         if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
             _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
+        }
+
+        // Strategy is reporting a loss
+        if (loss > 0) {
+            strategies[strategy].currentDebt -= loss;
+            totalDebt -= loss;
         }
 
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
@@ -1216,11 +1186,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
     }
 
-    /// @notice Sets debt for a strategy.
-    function _setDebt(address strategy, uint256 _newDebt) internal {
-        strategies[strategy].currentDebt = _newDebt;
-    }
-
     /// Withdraws assets from strategies as needed and handles unrealized losses.
     // solhint-disable-next-line function-max-lines,code-complexity
     function _withdrawAssets(uint256 assets, address[] memory _strategies) internal returns (uint256, uint256) {
@@ -1298,7 +1263,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                         uint256 newDebt = currentDebt - unrealisedLossesShare;
 
                         // Update strategies storage
-                        _setDebt(strategy, newDebt);
+                        strategies[strategy].currentDebt = newDebt;
 
                         // Log the debt update
                         emit DebtUpdated(strategy, currentDebt, newDebt);
@@ -1362,7 +1327,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
                 }
 
                 // Update strategies storage
-                _setDebt(strategy, _newDebt);
+                strategies[strategy].currentDebt = _newDebt;
                 // Log the debt update
                 emit DebtUpdated(strategy, currentDebt, _newDebt);
 
@@ -1455,6 +1420,37 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         defaultQueue = newQueue;
 
         emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
+    }
+
+    /// @notice Calculate share management based on gains, losses, and fees.
+    function _calculateShareManagement(
+        uint256 gain,
+        uint256 loss,
+        uint256 totalFees,
+        uint256 protocolFees
+    ) internal view returns (ShareManagement memory) {
+        // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
+        // NOTE: this needs to be done before any pps changes
+        ShareManagement memory shares;
+
+        // Only need to burn shares if there is a loss or fees.
+        if (loss + totalFees > 0) {
+            // The amount of shares we will want to burn to offset losses and fees.
+            uint256 totalFeesNumerator = totalFees * gain;
+            uint256 totalFeesTokens = totalFeesNumerator / 100;
+            shares.sharesToBurn += _convertToShares(loss + totalFeesTokens, Rounding.ROUND_UP);
+
+            // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
+            if (totalFees > 0) {
+                // Accountant fees are total fees - protocol fees.
+                shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
+                if (protocolFees > 0) {
+                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
+                }
+            }
+        }
+
+        return shares;
     }
 
     /// @dev Returns the max amount of `asset` an `owner` can withdraw.

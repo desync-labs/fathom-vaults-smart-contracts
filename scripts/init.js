@@ -48,7 +48,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const factoryAddress = factoryFile.address;
     const factory = await ethers.getContractAt("Factory", factoryAddress);
 
-    await factory.deployVault(
+    const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,
         assetAddress,
         vaultTokenName,
@@ -56,7 +56,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         accountantAddress,
         owner.address
     );
-    await new Promise(r => setTimeout(r, 10000)); // Wait for the transaction to be confirmed
+    await deployVaultTx.wait();
     const vaults = await factory.getVaults();
     console.log("Existing Vaults = ", vaults);
     const vaultsCopy = [...vaults];
