@@ -273,7 +273,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         ShareManagement memory shares = _calculateShareManagement(gain, loss, assessmentFees.totalFees, assessmentFees.protocolFees, strategy);
 
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(shares, assessmentFees);
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(gain, shares, assessmentFees);
 
         _manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
 
@@ -907,6 +907,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @notice Handle the burning and issuing of shares based on the strategy's report.
     // solhint-disable-next-line function-max-lines, code-complexity
     function _handleShareBurnsAndIssues(
+        uint256 gain, 
         ShareManagement memory shares,
         FeeAssessment memory fees
     ) internal returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
@@ -921,10 +922,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             totalIdle += fees.totalRefunds;
         }
 
-        // // Mint anything we are locking to the vault.
-        // if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
-        //     _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
-        // }
+        // Mint anything we are locking to the vault.
+        if (gain + fees.totalRefunds > 0 && profitMaxUnlockTime != 0) {
+            _newlyLockedShares = _issueSharesForAmount(gain + fees.totalRefunds, address(this));
+        }
 
         // NOTE: should be precise (no new unlocked shares due to above's burn of shares)
         // newlyLockedShares have already been minted / transferred to the vault, so they need to be subtracted
