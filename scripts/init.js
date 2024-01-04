@@ -117,7 +117,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const updateMaxDebtForStrategyTx = await vault.connect(owner).updateMaxDebtForStrategy(strategy.target, maxDebt, { gasLimit: "0x1000000" });
     await updateMaxDebtForStrategyTx.wait();
     console.log("Update Vault's Strategy debt...");
-    const updateDebtTx = await vault.connect(owner).updateDebt(vaultAddress, strategy.target, balanceSharesManager, { gasLimit: "0x1000000" });
+    const updateDebtTx = await vault.connect(owner).updateDebt(strategy.target, balanceSharesManager, { gasLimit: "0x1000000" });
     await updateDebtTx.wait();
 
     console.log("Updating balances...");
@@ -174,6 +174,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Sleeping for 60 seconds...");
     await new Promise(r => setTimeout(r, 60000));
 
+    console.log("Update Vault's Strategy debt...");
+    const updateDebtTx2 = await vault.connect(owner).updateDebt(strategy.target, 0, { gasLimit: "0x1000000" });
+    await updateDebtTx2.wait();
     console.log("Create second report for Strategy after sleeping...");
     const reportTx2 = await strategy.connect(owner).report({ gasLimit: "0x1000000" });
     await reportTx2.wait();

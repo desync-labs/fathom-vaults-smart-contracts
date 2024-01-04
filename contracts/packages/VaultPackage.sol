@@ -300,14 +300,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @return The amount of debt added or removed.
     // solhint-disable-next-line function-max-lines,code-complexity
     function updateDebt(
-        address sender,
         address strategy,
         uint256 targetDebt
     ) external override onlyRole(STRATEGY_MANAGER) nonReentrant returns (uint256) {
-        if (strategies[strategy].currentDebt != targetDebt && totalIdle <= minimumTotalIdle) {
-            revert InsufficientFunds();
-        }
-
         // How much we want the strategy to have.
         uint256 newDebt = targetDebt;
         // How much the strategy currently has.
@@ -337,7 +332,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
             // Check how much we are able to withdraw.
             // Use maxRedeem and convert since we use redeem.
-            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(sender));
+            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
 
             if (withdrawable == 0) {
                 revert ZeroValue();
@@ -355,9 +350,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             }
 
             // Always check the actual amount withdrawn.
-            uint256 preBalance = assetContract.balanceOf(sender);
+            uint256 preBalance = assetContract.balanceOf(address(this));
             _withdrawFromStrategy(strategy, assetsToWithdraw);
-            uint256 postBalance = assetContract.balanceOf(sender);
+            uint256 postBalance = assetContract.balanceOf(address(this));
 
             // making sure we are changing idle according to the real result no matter what.
             // We pull funds with {redeem} so there can be losses or rounding differences.
@@ -383,7 +378,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             }
 
             // Vault is increasing debt with the strategy by sending more funds.
-            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(sender);
+            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(address(this));
             if (currentMaxDeposit == 0) {
                 revert ZeroValue();
             }
@@ -393,6 +388,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             if (assetsToDeposit > currentMaxDeposit) {
                 // Deposit as much as possible.
                 assetsToDeposit = currentMaxDeposit;
+            }
+
+            // Ensure we always have minimumTotalIdle when updating debt.
+            if (totalIdle <= minimumTotalIdle) {
+                revert InsufficientFunds();
             }
 
             uint256 availableIdle = totalIdle - minimumTotalIdle;

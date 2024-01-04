@@ -44,7 +44,7 @@ interface IVault is IERC4626 {
 
     function processReport(address strategy) external returns (uint256, uint256);
 
-    function updateDebt(address sender, address strategy, uint256 targetDebt) external returns (uint256);
+    function updateDebt(address strategy, uint256 targetDebt) external returns (uint256);
 
     function buyDebt(address strategy, uint256 amount) external;
 
