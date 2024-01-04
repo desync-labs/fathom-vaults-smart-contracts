@@ -56,11 +56,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice Contract to control the withdraw limit.
     address public withdrawLimitModule;
 
-    /// @notice Address that can add and remove roles to addresses.
-    address public roleManager;
-    /// @notice Temporary variable to store the address of the next role_manager until the role is accepted.
-    address public futureRoleManager;
-
     /// @notice Factory address
     address public factory;
 

@@ -204,6 +204,40 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     accountantShares = await vault.connect(owner).balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
 
+    // Sleep for 60 seconds
+    console.log("Sleeping for 60 seconds...");
+    await new Promise(r => setTimeout(r, 60000));
+
+    console.log("Update Vault's Strategy debt...");
+    const updateDebtTx3 = await vault.connect(owner).updateDebt(strategy.target, 0, { gasLimit: "0x1000000" });
+    await updateDebtTx3.wait();
+    console.log("Create third report for Strategy after sleeping...");
+    const reportTx3 = await strategy.connect(owner).report({ gasLimit: "0x1000000" });
+    await reportTx3.wait();
+    console.log("Process third report for Strategy on Vault after sleeping...");
+    const processReportTx3 = await vault.connect(owner).processReport(strategy.target, { gasLimit: "0x1000000" });
+    await processReportTx3.wait();
+
+    console.log("Updating balances...");
+    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
+    balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
+    console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
+    balanceSharesManager = await asset.connect(owner).balanceOf(vaultAddress);
+    console.log("Balance of Vault = ", ethers.formatUnits(balanceSharesManager, 18));
+    balanceStrategy = await asset.connect(owner).balanceOf(strategy.target);
+    console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
+    pricePerShare = await vault.connect(owner).pricePerShare();
+    console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
+    sharesManagerStrategyBalance = await strategy.connect(owner).balanceOf(vaultAddress);
+    console.log("Vault Balance on Strategy = ", ethers.formatUnits(sharesManagerStrategyBalance, 18));
+    sharesManagerStrategyBalanceInTokens = await strategy.connect(owner).convertToAssets(sharesManagerStrategyBalance);
+    console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(sharesManagerStrategyBalanceInTokens, 18));
+    recipientShares = await vault.connect(owner).balanceOf(recipientAddress);
+    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
+    accountantShares = await vault.connect(owner).balanceOf(accountantAddress);
+    console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
+
     // Simulate a redeem
     console.log("Redeeming...");
     const redeemTx = await vault.connect(owner).redeem(balanceInShares, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });

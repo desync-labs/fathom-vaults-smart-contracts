@@ -19,7 +19,6 @@ interface IVaultEvents {
     event DebtUpdated(address indexed strategy, uint256 currentDebt, uint256 newDebt);
     event RoleSet(address indexed account, bytes32 role);
     event RoleStatusChanged(bytes32 indexed role, RoleStatusChange status);
-    event UpdatedRoleManager(address roleManager);
 
     event UpdatedAccountant(address accountant);
     event UpdatedFees(uint256 totalFees, uint256 totalRefunds, uint256 protocolFees, address protocolFeeRecipient);
