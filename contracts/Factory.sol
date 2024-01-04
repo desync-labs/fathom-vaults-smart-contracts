@@ -39,6 +39,8 @@ contract Factory is AccessControl, IFactory {
         require(_feeBPS <= MAX_BPS, "Factory: feeBPS too high");
         feeBPS = _feeBPS;
 
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
     }
 
@@ -66,7 +68,7 @@ contract Factory is AccessControl, IFactory {
         string calldata _symbol,
         address _accountant,
         address _admin
-    ) external returns (address) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
         FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
         IVault(address(vault)).initialize(_profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
 
