@@ -41,10 +41,12 @@ async function createProfit(asset, vault, strategy, owner, profit, loss, protoco
     const reportTx = await strategy.connect(owner).report();
     await reportTx.wait();
 
-    // TODO - Check that the (profit-Number(strategyParams.currentDebt)) is appropriate way to calculate gain
+    let totalAssetsOnStrategy = await strategy.connect(owner).balanceOf(vault.target);
+    totalAssetsOnStrategy = await strategy.connect(owner).convertToAssets(totalAssetsOnStrategy);
+
     await expect(vault.connect(owner).processReport(strategy.target))
         .to.emit(vault, 'StrategyReported')
-        .withArgs(strategy.target, profit-Number(strategyParams.currentDebt), loss, strategyParams.currentDebt, protocolFees, totalFees, totalRefunds);
+        .withArgs(strategy.target, totalAssetsOnStrategy-strategyParams.currentDebt, loss, strategyParams.currentDebt, protocolFees, totalFees, totalRefunds);
 
     return totalFees;
 }
