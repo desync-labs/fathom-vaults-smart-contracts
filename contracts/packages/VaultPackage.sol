@@ -272,7 +272,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         ShareManagement memory shares = _calculateShareManagement(gain, loss, assessmentFees.totalFees, assessmentFees.protocolFees, strategy);
 
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(loss, shares, assessmentFees);
+        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(gain, shares, assessmentFees);
 
         _manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
 
