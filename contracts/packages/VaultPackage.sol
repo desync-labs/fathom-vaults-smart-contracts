@@ -774,14 +774,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @notice Get the allowance for a spender.
     /// @param owner The address that owns the shares.
     /// @param spender The address that is allowed to spend the shares.
-    function allowance(address owner, address spender) public view override returns (uint256) {
+    function allowance(address owner, address spender) external view override returns (uint256) {
         return sharesAllowance[owner][spender];
     }
 
     /// @notice Get the balance of a user.
     /// @param addr The address to get the balance of.
     /// @return The balance of the user.
-    function balanceOf(address addr) public view override returns (uint256) {
+    function balanceOf(address addr) external view override returns (uint256) {
         if (addr == address(this)) {
             return sharesBalanceOf[addr] - _unlockedShares();
         }
