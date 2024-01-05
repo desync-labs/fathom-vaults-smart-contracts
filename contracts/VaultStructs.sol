@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: AGPL 3.0
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright Fathom 2023
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.19;
 
 struct StrategyParams {
     uint256 activation;
@@ -32,7 +32,6 @@ struct WithdrawalState {
     uint256 unrealisedLossesShare;
 }
 
-// ENUMS
 enum StrategyChangeType {
     ADDED, // Corresponds to the strategy being added.
     REVOKED // Corresponds to the strategy being revoked.
