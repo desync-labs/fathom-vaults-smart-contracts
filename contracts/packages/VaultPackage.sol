@@ -462,7 +462,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert ZeroValue();
         }
 
-        _erc20SafeTransferFrom(address(this), msg.sender, address(this), amount);
+        _erc20SafeTransferFrom(address(assetContract), msg.sender, address(this), amount);
 
         // Lower strategy debt
         strategies[strategy].currentDebt -= amount;
