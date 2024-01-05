@@ -754,6 +754,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         return defaultQueue.length;
     }
 
+    /// @notice Get default strategy queue.
+    function getDefaultQueue() external view override returns (address[] memory) {
+        return defaultQueue;
+    }
+
     /// @notice Get the number of decimals of the asset/share.
     /// @return The number of decimals of the asset/share.
     function decimals() external view override returns (uint8) {

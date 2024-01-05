@@ -106,6 +106,8 @@ interface IVault is IERC4626 {
 
     function getDefaultQueueLength() external view returns (uint256);
 
+    function getDefaultQueue() external view returns (address[] memory);
+
     function apiVersion() external view returns (string memory);
 
     // solhint-disable-next-line func-name-mixedcase
