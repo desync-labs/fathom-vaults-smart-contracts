@@ -28,7 +28,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         address _asset,
         string calldata _name,
         string calldata _symbol,
-        address _accountant,
+        address _accountant, // can be zero
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
@@ -36,7 +36,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         }
 
         if (_admin == address(0x00)) revert ZeroAddress();
-        if (_accountant == address(0x00)) revert ZeroAddress();
         if (_admin == address(0x00)) revert ZeroAddress();
 
         // Must be less than one year for report cycles
@@ -812,21 +811,25 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
     function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
         FeeAssessment memory fees = FeeAssessment(0, 0, 0, address(0));
-        (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
-        // Protocol fees will be 0 if accountant fees are 0.
-        if (fees.totalFees > 0) {
-            uint16 protocolFeeBps;
-            // Get the config for this vault.
-            (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factory).protocolFeeConfig();
+        
+        if (accountant != address(0x00)) {
+            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
+            // Protocol fees will be 0 if accountant fees are 0.
+            if (fees.totalFees > 0) {
+                uint16 protocolFeeBps;
+                // Get the config for this vault.
+                (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factory).protocolFeeConfig();
 
-            if (protocolFeeBps > 0) {
-                if (protocolFeeBps > MAX_BPS) {
-                    revert FeeExceedsMax();
+                if (protocolFeeBps > 0) {
+                    if (protocolFeeBps > MAX_BPS) {
+                        revert FeeExceedsMax();
+                    }
+                    // Protocol fees are a percent of the fees the accountant is charging.
+                    fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
                 }
-                // Protocol fees are a percent of the fees the accountant is charging.
-                fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
             }
         }
+        
         return fees;
     }
 
