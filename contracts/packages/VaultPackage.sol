@@ -1442,11 +1442,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             // If the queue length needs to be reduced, create a new queue with the new length
             if (newDefaultQueueLength != defaultQueueLength) {
                 address[] memory newQueue = new address[](newDefaultQueueLength);
+                uint256 k;
                 for (uint256 i = 0; i < defaultQueueLength; i++) {
                     address _strategy = defaultQueue[i];
                     // Add all strategies to the new queue besides the one revoked.
                     if (_strategy != strategy) {
-                        newQueue[i] = _strategy;
+                        newQueue[k++] = _strategy;
                     }
                 }
                 // Set the default queue to our updated queue.
