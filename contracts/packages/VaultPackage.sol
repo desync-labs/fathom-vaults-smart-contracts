@@ -1295,29 +1295,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
                 // NOTE: strategy's debt decreases by the full amount but the total idle increases
                 // by the actual amount only (as the difference is considered lost).
-                if (state.currTotalIdle + assetsToWithdraw - loss == 0) {
-                    state.currTotalIdle = 0;
-                } else {
-                    state.currTotalIdle += assetsToWithdraw - loss;
-                }
-                if (state.requestedAssets - loss == 0) {
-                    state.requestedAssets = 0;
-                } else {
-                    state.requestedAssets -= loss;
-                }
-                if (state.currTotalDebt - assetsToWithdraw == 0) {
-                    state.currTotalDebt = 0;
-                } else {
-                    state.currTotalDebt -= assetsToWithdraw;
-                }
+                state.currTotalIdle += assetsToWithdraw - loss;
+                state.requestedAssets -= loss;
+                state.currTotalDebt -= assetsToWithdraw;
 
                 // Vault will reduce debt because the unrealised loss has been taken by user
-                uint256 _newDebt;
-                if (currentDebt < (assetsToWithdraw + unrealisedLossesShare)) {
-                    _newDebt = 0;
-                } else {
-                    _newDebt = currentDebt - (assetsToWithdraw + unrealisedLossesShare);
-                }
+                uint256 _newDebt = currentDebt - (assetsToWithdraw + unrealisedLossesShare);
 
                 // Update strategies storage
                 strategies[strategy].currentDebt = _newDebt;
