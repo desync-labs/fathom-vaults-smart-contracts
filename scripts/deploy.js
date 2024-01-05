@@ -1,42 +1,21 @@
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
+    const [owner, addr1, addr2] = await ethers.getSigners();
 
     const assetAddress = "0xdf29cb40cb92a1b8e8337f542e3846e185deff96"; // FXD Token on Apothem
+    const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
     const vaultTokenDecimals = 18;
     const assetSymbol = "FXD";
     const assetDecimals = 18;
+    const protocolFee = 2000;
     const profitMaxUnlockTime = 60; // 1 year in seconds
 
     const asset = await deploy("Token", {
         from: deployer,
         args: [assetSymbol, assetDecimals],
-        log: true,
-    });
-
-    const sharesManagerPackage = await deploy("SharesManagerPackage", {
-        from: deployer,
-        args: [],
-        log: true,
-    });
-
-    const sharesManager = await deploy("SharesManager", {
-        from: deployer,
-        args: [sharesManagerPackage.address, []],
-        log: true,
-    });
-
-    const strategyManagerPackage = await deploy("StrategyManagerPackage", {
-        from: deployer,
-        args: [],
-        log: true,
-    });
-
-    const strategyManager = await deploy("StrategyManager", {
-        from: deployer,
-        args: [strategyManagerPackage.address, []],
         log: true,
     });
 
@@ -46,27 +25,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
-    const settersPackage = await deploy("SettersPackage", {
+    const accountant = await deploy("GenericAccountant", {
         from: deployer,
         args: [],
-        log: true,
-    });
-
-    const setters = await deploy("Setters", {
-        from: deployer,
-        args: [settersPackage.address, []],
-        log: true,
-    });
-
-    const governancePackage = await deploy("GovernancePackage", {
-        from: deployer,
-        args: [],
-        log: true,
-    });
-
-    const governance = await deploy("Governance", {
-        from: deployer,
-        args: [governancePackage.address, []],
         log: true,
     });
 
@@ -76,11 +37,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
-    await deploy("FathomVault", {
+    const factory = await deploy("Factory", {
         from: deployer,
-        args: [vaultPackage.address, []],
+        args: [vaultPackage.address, recipientAddress, protocolFee],
         log: true,
     });
 };
 
-module.exports.tags = ["FathomVault"];
+module.exports.tags = ["Factory","GenericAccountant","Token","MockTokenizedStrategy"];

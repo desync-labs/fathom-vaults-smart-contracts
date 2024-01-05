@@ -15,250 +15,238 @@ describe("Vault Contract", function () {
     async function deployVault() {
         const vaultName = 'Vault Shares FXD';
         const vaultSymbol = 'vFXD';
-        const vaultDecimals = 18;
         const [owner, otherAccount] = await ethers.getSigners();
 
         const Asset = await ethers.getContractFactory("Token");
-        const asset = await Asset.deploy(vaultSymbol, vaultDecimals, { gasLimit: "0x1000000" });
+        const assetSymbol = 'FXD';
+        const vaultDecimals = 18;
+        const asset = await Asset.deploy(assetSymbol, vaultDecimals, { gasLimit: "0x1000000" });
 
         const assetAddress = asset.target;
+
+        const protocolFee = 2000;
         const profitMaxUnlockTime = 31536000; // 1 year in seconds
 
-        
-        const SharesManagerPackage = await ethers.getContractFactory("SharesManagerPackage");
-        const sharesManagerPackage = await SharesManagerPackage.deploy({ gasLimit: "0x1000000" });
-        const SharesManager = await ethers.getContractFactory("SharesManager");
-        const sharesManager = await SharesManager.deploy(sharesManagerPackage.target, '0x', { gasLimit: "0x1000000" });
-
-        const StrategyManagerPackage = await ethers.getContractFactory("StrategyManagerPackage");
-        const strategyManagerPackage = await StrategyManagerPackage.deploy({ gasLimit: "0x1000000" });
-        const StrategyManager = await ethers.getContractFactory("StrategyManager");
-        const strategyManager = await StrategyManager.deploy(strategyManagerPackage.target, '0x', { gasLimit: "0x1000000" });
-
-        const SettersPackage = await ethers.getContractFactory("SettersPackage");
-        const settersPackage = await SettersPackage.deploy({ gasLimit: "0x1000000" });
-        const Setters = await ethers.getContractFactory("Setters");
-        const setters = await Setters.deploy(settersPackage.target, '0x', { gasLimit: "0x1000000" });
-
-        const GovernancePackage = await ethers.getContractFactory("GovernancePackage");
-        const governancePackage = await GovernancePackage.deploy({ gasLimit: "0x1000000" });
-        const Governance = await ethers.getContractFactory("Governance");
-        const governance = await Governance.deploy(governancePackage.target, '0x', { gasLimit: "0x1000000" });
-        // const strategyManager = await ethers.getContractAt("StrategyManager", "0xEAf81a05C7bf87ba57A5265ff5aF6F37958118Da");
+        const Accountant = await ethers.getContractFactory("GenericAccountant");
+        const accountant = await Accountant.deploy({ gasLimit: "0x1000000" });
 
         const VaultPackage = await ethers.getContractFactory("VaultPackage");
         const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
-        const Vault = await ethers.getContractFactory("FathomVault");
-        const vault = await Vault.deploy(vaultPackage.target, '0x', { gasLimit: "0x1000000" });
-        // const vault = await ethers.getContractAt("FathomVault", "0x9989D6191dcc00382AA719B8F0Cc800464f300f1");
 
-        const initializeTx = await sharesManagerPackage.attach(sharesManager.target).connect(owner).initialize(strategyManager.target, setters.target, assetAddress, vaultDecimals, vaultName, vaultSymbol, { gasLimit: "0x1000000" });
-        await initializeTx.wait();
-        const initializeTx2 = await strategyManagerPackage.attach(strategyManager.target).connect(owner).initialize(assetAddress, sharesManager.target, { gasLimit: "0x1000000" });
-        await initializeTx2.wait();
-        const initializeTx3 = await settersPackage.attach(setters.target).connect(owner).initialize(sharesManager.target, { gasLimit: "0x1000000" });
-        await initializeTx3.wait();
-        const initializeTx4 = await governancePackage.attach(governance.target).connect(owner).initialize(sharesManager.target, { gasLimit: "0x1000000" });
-        await initializeTx4.wait();
-        const initializeTx5 = await vaultPackage.attach(vault.target).connect(owner).initialize(profitMaxUnlockTime, strategyManager.target, sharesManager.target, setters.target, governance.target, { gasLimit: "0x1000000" });
-        await initializeTx5.wait();
+        const Factory = await ethers.getContractFactory("Factory");
+        const factory = await Factory.deploy(vaultPackage.target, owner.address, protocolFee, { gasLimit: "0x1000000" });
+        
+        await factory.deployVault(
+            profitMaxUnlockTime,
+            assetAddress,
+            vaultName,
+            vaultSymbol,
+            accountant.target,
+            owner.address
+        );
+        const vaults = await factory.getVaults();
+        console.log("Existing Vaults = ", vaults);
+        const vaultsCopy = [...vaults];
+        const vaultAddress = vaultsCopy.pop();
+        const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
+        console.log("The Last Vault Address = ", vaultAddress);
 
-        return { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager, strategyManagerPackage, strategyManager, setters, governance };
+        return { vault, owner, otherAccount, asset };
     }
 
     it("should revert deposit with invalid recipient", async function () {
-        const { vaultPackage, vault, otherAccount } = await loadFixture(deployVault);
+        const { vault, otherAccount } = await loadFixture(deployVault);
         const amount = 1000;
 
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).deposit(amount, vault.target)).to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).deposit(amount, ethers.ZeroAddress)).to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
+        await expect(vault.connect(otherAccount).deposit(amount, vault.target)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
+        await expect(vault.connect(otherAccount).deposit(amount, ethers.ZeroAddress)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
 
     it("should revert deposit with zero funds", async function () {
-        const { vaultPackage, vault, otherAccount } = await loadFixture(deployVault);
+        const { vault, otherAccount } = await loadFixture(deployVault);
         const amount = 0;
 
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).deposit(amount, otherAccount.address)).to.be.revertedWithCustomError(vaultPackage, "ZeroValue");
+        await expect(vault.connect(otherAccount).deposit(amount, otherAccount.address)).to.be.revertedWithCustomError(vault, "ZeroValue");
     });
 
     it("should deposit balance within deposit limit", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         await asset.mint(owner.address, amount);
-        await asset.approve(sharesManager.target, amount);
+        await asset.approve(vault.target, amount);
     
-        await vaultPackage.attach(vault.target).connect(owner).setDepositLimit(amount);
+        await vault.connect(owner).setDepositLimit(amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).deposit(amount, owner.address))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Deposit')
+        await expect(vault.connect(owner).deposit(amount, owner.address))
+            .to.emit(vault, 'Deposit')
             .withArgs(owner.address, owner.address, amount, amount);
     
         // Check the state after deposit
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalIdleAmount()).to.equal(amount);
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(amount);
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalSupplyAmount()).to.equal(amount);
+        expect(await vault.totalIdle()).to.equal(amount);
+        expect(await vault.balanceOf(owner.address)).to.equal(amount);
+        expect(await vault.totalSupplyAmount()).to.equal(amount);
         // Assuming asset is the ERC20 token contract
         expect(await asset.balanceOf(owner.address)).to.equal(0);
     });
 
     it("should revert when deposit exceeds deposit limit", async function () {
-        const { vaultPackage, vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         await asset.mint(owner.address, amount);
         await asset.approve(vault.target, amount);
 
-        await vaultPackage.attach(vault.target).setDepositLimit(amount - 1);
+        await vault.setDepositLimit(amount - 1);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).deposit(amount, owner.address))
-            .to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
+        await expect(vault.connect(owner).deposit(amount, owner.address))
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
 
     it("should revert when deposit all exceeds deposit limit", async function () {
-        const { vaultPackage, vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         const depositLimit = amount / 2;
     
-        await vaultPackage.attach(vault.target).setDepositLimit(depositLimit);
+        await vault.setDepositLimit(depositLimit);
         await asset.approve(vault.target, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).deposit(ethers.MaxUint256, owner.address))
-            .to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
+        await expect(vault.connect(owner).deposit(ethers.MaxUint256, owner.address))
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should deposit to delegate", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
         await asset.mint(owner.address, amount);
-        await asset.approve(sharesManager.target, amount);
+        await asset.approve(vault.target, amount);
 
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).deposit(amount, otherAccount))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Deposit')
+        await expect(vault.connect(owner).deposit(amount, otherAccount))
+            .to.emit(vault, 'Deposit')
             .withArgs(owner.address, otherAccount.address, amount, amount);
     
         // owner has no more assets
         expect(await asset.balanceOf(owner.address)).to.equal(0);
         // owner has no shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(0);
+        expect(await vault.balanceOf(owner.address)).to.equal(0);
         // otherAccount has been issued vault shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(otherAccount.address)).to.equal(amount);
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(amount);
     });
 
     it("should revert mint with invalid recipient", async function () {
-        const { vaultPackage, vault, owner } = await loadFixture(deployVault);
+        const { vault, owner } = await loadFixture(deployVault);
         const shares = 100;
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(shares, vault.target))
-            .to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(shares, ethers.ZeroAddress))
-            .to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
+        await expect(vault.connect(owner).mint(shares, vault.target))
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
+        await expect(vault.connect(owner).mint(shares, ethers.ZeroAddress))
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should revert mint with zero funds", async function () {
-        const { vaultPackage, vault, owner } = await loadFixture(deployVault);
+        const { vault, owner } = await loadFixture(deployVault);
         const shares = 0;
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(shares, owner.address))
-            .to.be.revertedWithCustomError(vaultPackage, "ZeroValue");
+        await expect(vault.connect(owner).mint(shares, owner.address))
+            .to.be.revertedWithCustomError(vault, "ZeroValue");
     });
 
     it("should mint within deposit limit", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         await asset.mint(owner.address, amount);    
-        await asset.approve(sharesManager.target, amount);
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await asset.approve(vault.target, amount);
+        await vault.setDepositLimit(amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(amount, owner.address))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Deposit')
+        await expect(vault.connect(owner).mint(amount, owner.address))
+            .to.emit(vault, 'Deposit')
             .withArgs(owner.address, owner.address, amount, amount);
     
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalIdleAmount()).to.equal(amount);
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(amount);
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalSupplyAmount()).to.equal(amount);
+        expect(await vault.totalIdle()).to.equal(amount);
+        expect(await vault.balanceOf(owner.address)).to.equal(amount);
+        expect(await vault.totalSupplyAmount()).to.equal(amount);
         expect(await asset.balanceOf(owner.address)).to.equal(0);
     });
     
     it("should revert mint when exceeding deposit limit", async function () {
-        const { vaultPackage, vault, owner } = await loadFixture(deployVault);
+        const { vault, owner } = await loadFixture(deployVault);
         const amount = 1000;
 
-        await vaultPackage.attach(vault.target).setDepositLimit(amount - 1);
+        await vault.setDepositLimit(amount - 1);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(amount, owner.address))
-            .to.be.revertedWithCustomError(vaultPackage, "ExceedDepositLimit");
+        await expect(vault.connect(owner).mint(amount, owner.address))
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should mint to delegate", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
         await asset.mint(owner.address, amount);    
-        await asset.approve(sharesManager.target, amount);
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await asset.approve(vault.target, amount);
+        await vault.setDepositLimit(amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).mint(amount, otherAccount.address))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Deposit')
+        await expect(vault.connect(owner).mint(amount, otherAccount.address))
+            .to.emit(vault, 'Deposit')
             .withArgs(owner.address, otherAccount.address, amount, amount);
 
         // owner has no more assets
         expect(await asset.balanceOf(owner.address)).to.equal(0);
         // owner has no shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(0);
+        expect(await vault.balanceOf(owner.address)).to.equal(0);
         // otherAccount has been issued vault shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(otherAccount.address)).to.equal(amount);
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(amount);
     });
     
     it("should withdraw successfully", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
 
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).withdraw(amount, owner.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        await expect(vault.connect(owner).withdraw(amount, owner.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(owner.address, owner.address, owner.address, amount, amount);
     
         // Check if vault is empty and owner has received the assets
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalIdleAmount()).to.equal(0);
+        expect(await vault.totalIdle()).to.equal(0);
         expect(await asset.balanceOf(vault.target)).to.equal(0);
         expect(await asset.balanceOf(owner.address)).to.equal(amount);
     });
 
     it("should revert on withdraw with insufficient shares", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         const shares = amount + 1;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).withdraw(shares, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "InsufficientShares");
+        await expect(vault.connect(owner).withdraw(shares, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "InsufficientShares");
     });
 
     it("should revert on withdraw with no shares", async function () {
-        const { vaultPackage, vault, owner } = await loadFixture(deployVault);
+        const { vault, owner } = await loadFixture(deployVault);
         const shares = 0;
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).withdraw(shares, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "ZeroValue");
+        await expect(vault.connect(owner).withdraw(shares, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "ZeroValue");
     });
     
     it("should withdraw to delegate", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).withdraw(amount, otherAccount.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        await expect(vault.connect(owner).withdraw(amount, otherAccount.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(owner.address, otherAccount.address, owner.address, amount, amount);
     
         // owner no longer has shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(0);
+        expect(await vault.balanceOf(owner.address)).to.equal(0);
         // owner did not receive tokens
         expect(await asset.balanceOf(owner.address)).to.equal(0);
         // otherAccount has tokens
@@ -266,84 +254,84 @@ describe("Vault Contract", function () {
     });
     
     it("should withdraw with delegation and sufficient allowance", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount,);
     
-        await vaultPackage.attach(vault.target).connect(owner).approve(otherAccount.address, amount);
+        await vault.connect(owner).approve(otherAccount.address, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).withdraw(amount, owner.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        await expect(vault.connect(otherAccount).withdraw(amount, owner.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(otherAccount.address, owner.address, owner.address, amount, amount);
     
-        await checkVaultEmpty(sharesManagerPackage, sharesManager);
-        expect(await sharesManagerPackage.attach(sharesManager.target).allowance(owner.address, otherAccount.address)).to.equal(0);
+        await checkVaultEmpty(vault);
+        expect(await vault.allowance(owner.address, otherAccount.address)).to.equal(0);
         expect(await asset.balanceOf(vault.target)).to.equal(0);
         expect(await asset.balanceOf(owner.address)).to.equal(amount);
     });
 
     it("should revert on withdraw with delegation and insufficient allowance", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).withdraw(amount, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "ERC20InsufficientAllowance");
+        await expect(vault.connect(otherAccount).withdraw(amount, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "ERC20InsufficientAllowance");
     });
     
     it("should redeem successfully", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).redeem(amount, owner.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        await expect(vault.connect(owner).redeem(amount, owner.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(owner.address, owner.address, owner.address, amount, amount);
     
-        await checkVaultEmpty(sharesManagerPackage, sharesManager);
+        await checkVaultEmpty(vault);
         expect(await asset.balanceOf(vault.target)).to.equal(0);
         expect(await asset.balanceOf(owner.address)).to.equal(amount);
     });
 
     it("should revert on redeem with insufficient shares", async function () {
-        const { vaultPackage, vault, owner, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
         const redemptionAmount = amount + 1;
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).redeem(redemptionAmount, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "InsufficientShares");
+        await expect(vault.connect(owner).redeem(redemptionAmount, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "InsufficientShares");
     });
     
     it("should revert on redeem with no shares", async function () {
-        const { vaultPackage, vault, owner } = await loadFixture(deployVault);
+        const { vault, owner } = await loadFixture(deployVault);
         const amount = 0;
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).redeem(amount, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "ZeroValue");
+        await expect(vault.connect(owner).redeem(amount, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "ZeroValue");
     });
 
     it("should redeem to delegate", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(owner).redeem(amount, otherAccount.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        await expect(vault.connect(owner).redeem(amount, otherAccount.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(owner.address, otherAccount.address, owner.address, amount, amount);
     
         // owner no longer has shares
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(0);
+        expect(await vault.balanceOf(owner.address)).to.equal(0);
         // owner did not receive tokens
         expect(await asset.balanceOf(owner.address)).to.equal(0);
         // otherAccount has tokens
@@ -351,55 +339,55 @@ describe("Vault Contract", function () {
     });
 
     it("should redeem with delegation and sufficient allowance", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
-        await vaultPackage.attach(vault.target).connect(owner).approve(otherAccount.address, amount);
+        await userDeposit(owner, vault, asset, amount);
+        await vault.connect(owner).approve(otherAccount.address, amount);
     
         // withdraw as otherAccount to owner
-        vaultPackage.attach(vault.target).connect(owner).approve(otherAccount.address, amount);
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).redeem(amount, owner.address, owner.address, 0, []))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'Withdraw')
+        vault.connect(owner).approve(otherAccount.address, amount);
+        await expect(vault.connect(otherAccount).redeem(amount, owner.address, owner.address, 0, []))
+            .to.emit(vault, 'Withdraw')
             .withArgs(otherAccount.address, owner.address, owner.address, amount, amount);
     
-        await checkVaultEmpty(sharesManagerPackage, sharesManager);
-        expect(await sharesManagerPackage.attach(sharesManager.target).allowance(owner.address, otherAccount.address)).to.equal(0);
+        await checkVaultEmpty(vault);
+        expect(await vault.allowance(owner.address, otherAccount.address)).to.equal(0);
         expect(await asset.balanceOf(vault.target)).to.equal(0);
         expect(await asset.balanceOf(owner.address)).to.equal(amount);
     });
     
     it("should revert on redeem with delegation and insufficient allowance", async function () {
-        const { vaultPackage, vault, owner, otherAccount, asset, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
     
-        await userDeposit(owner, vault, asset, amount, sharesManagerPackage, sharesManager);
+        await userDeposit(owner, vault, asset, amount);
     
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).redeem(amount, owner.address, owner.address, 0, []))
-            .to.be.revertedWithCustomError(vaultPackage, "ERC20InsufficientAllowance");
+        await expect(vault.connect(otherAccount).redeem(amount, owner.address, owner.address, 0, []))
+            .to.be.revertedWithCustomError(vault, "ERC20InsufficientAllowance");
     });
     
     it("should set deposit limit correctly", async function () {
-        const { vaultPackage, vault, owner, otherAccount, sharesManagerPackage, sharesManager } = await loadFixture(deployVault);
+        const { vault, owner, otherAccount } = await loadFixture(deployVault);
         const depositLimit = 1000;
     
-        const DEPOSIT_LIMIT_MANAGER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("DEPOSIT_LIMIT_MANAGER"));
-        await vaultPackage.attach(vault.target).connect(owner).grantRole(DEPOSIT_LIMIT_MANAGER_ROLE, otherAccount.address);
-        await expect(vaultPackage.attach(vault.target).connect(otherAccount).setDepositLimit(depositLimit))
-            .to.emit(sharesManagerPackage.attach(sharesManager.target), 'UpdateDepositLimit')
+        const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+        await vault.connect(owner).grantRole(DEFAULT_ADMIN_ROLE, otherAccount.address);
+        await expect(vault.connect(otherAccount).setDepositLimit(depositLimit))
+            .to.emit(vault, 'UpdatedDepositLimit')
             .withArgs(depositLimit);
     
-        expect(await sharesManagerPackage.attach(sharesManager.target).depositLimit()).to.equal(depositLimit);
+        expect(await vault.depositLimit()).to.equal(depositLimit);
     });
 
     // Not working due to delegate call issues with hardhat
     // Needs attention
     it("should mint shares with zero total supply and positive assets", async function () {
-        const { vaultPackage, vault, owner, asset, strategyManagerPackage, strategyManager, sharesManagerPackage, sharesManager } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
+        const { vault, owner, asset } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
         const amount = 1000;
-        await vaultPackage.attach(vault.target).setDepositLimit(amount);
+        await vault.setDepositLimit(amount);
         const maxDebt = amount;
         const debt = amount / 10;
         const firstProfit = amount / 10;
@@ -410,25 +398,22 @@ describe("Vault Contract", function () {
         await time.increase(elapsedTime);
     
         // Simulate a Strategy creation, deposit and debt update
-        const strategy = await initialSetup(asset, vaultPackage, vault, owner, maxDebt, debt, amount, strategyManagerPackage, strategyManager, sharesManagerPackage, sharesManager, profitMaxUnlockTime);
-        await createProfit(asset, strategyManagerPackage, strategyManager, strategy, owner, vaultPackage, vault, firstProfit, 0, 0, 0, 0, 0);
-        await vaultPackage.attach(vault.target).connect(owner).updateDebt(sharesManager.target, strategy.target, 0);    
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalSupply()).to.be.eq(amount);
+        const strategy = await initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime);
+        await createProfit(asset, vault, strategy, owner, firstProfit, 0, 0, 0, 0, 0);
+        await vault.connect(owner).updateDebt(strategy.target, 0);    
+        expect(await vault.totalSupply()).to.be.eq(amount);
 
         // User redeems shares
-        await vaultPackage.attach(vault.target).connect(owner).redeem(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address), owner.address, owner.address, 0, []);    
-        expect(await sharesManagerPackage.attach(sharesManager.target).totalSupply()).to.be.eq(0);
+        await vault.connect(owner).redeem(await vault.balanceOf(owner.address), owner.address, owner.address, 0, []);    
+        expect(await vault.totalSupply()).to.be.eq(0);
     
         // Simulate time passing
         await time.increase(14 * 24 * 3600);
     
-        await vaultPackage.attach(vault.target).connect(owner).deposit(amount, owner.address);
+        await vault.connect(owner).deposit(amount, owner.address);
     
         // shares should be minted at 1:1
-        expect(await sharesManagerPackage.attach(sharesManager.target).balanceOf(owner.address)).to.equal(amount);
-        expect(await vaultPackage.attach(vault.target).pricePerShare()).to.be.eq(ethers.parseUnits("1", await sharesManager.decimals()));
+        expect(await vault.balanceOf(owner.address)).to.equal(amount);
+        expect(await vault.pricePerShare()).to.be.eq(ethers.parseUnits("1", await vault.decimals()));
     });
-    
-    
-
 });
