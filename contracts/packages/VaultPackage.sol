@@ -1428,10 +1428,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
     /// @notice Calculate share management based on gains, losses, and fees.
     function _calculateShareManagement(
-        uint256 gain, 
-        uint256 loss, 
-        uint256 totalFees, 
-        uint256 protocolFees, 
+        uint256 gain,
+        uint256 loss,
+        uint256 totalFees,
+        uint256 protocolFees,
         address strategy
     ) internal returns (ShareManagement memory) {
         // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
