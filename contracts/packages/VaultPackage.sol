@@ -562,6 +562,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
             revert ERC20PermitExpired();
         }
         uint256 nonce = nonces[owner];
+        nonces[owner]++;
 
         bytes32 structHash = keccak256(abi.encode(PERMIT_TYPE_HASH, owner, spender, amount, nonce, deadline));
 
@@ -574,9 +575,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
 
         // Set the allowance to the specified amount
         _approve(owner, spender, amount);
-
-        // Increase nonce for the owner
-        nonces[owner]++;
 
         emit Approval(owner, spender, amount);
         return true;
@@ -595,8 +593,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @param amount The amount of shares to transfer.
     /// @return True if the transfer was successful.
     function transfer(address receiver, uint256 amount) external override returns (bool) {
-        if (receiver == address(this) || receiver == address(0)) {
-            revert ZeroAddress();
+        if (receiver == address(this)) {
+            revert VaultReceiver();
         }
         _transfer(msg.sender, receiver, amount);
         return true;
@@ -608,8 +606,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     /// @param amount The amount of shares to transfer.
     /// @return True if the transfer was successful.
     function transferFrom(address sender, address receiver, uint256 amount) external override returns (bool) {
-        if (receiver == address(this) || receiver == address(0)) {
-            revert ZeroAddress();
+        if (receiver == address(this)) {
+            revert VaultReceiver();
         }
         _spendAllowance(sender, msg.sender, amount);
         _transfer(sender, receiver, amount);
@@ -973,6 +971,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         if (sender == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
+        if (sender == receiver) {
+            revert SelfTransfer();
+        }
 
         sharesBalanceOf[sender] = currentBalance - amount;
         uint256 receiverBalance = sharesBalanceOf[receiver];
@@ -984,6 +985,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
     function _approve(address owner, address spender, uint256 amount) internal returns (bool) {
         if (owner == address(0) || spender == address(0)) {
             revert ZeroAddress();
+        }
+        if (owner == spender) {
+            revert SelfApprove();
         }
         sharesAllowance[owner][spender] = amount;
         emit Approval(owner, spender, amount);
@@ -1119,7 +1123,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultEvents {
         totalIdle += assets;
 
         // Issue the corresponding shares for assets.
-        _issueShares(shares, recipient); // Assuming _issueShares is defined elsewhere
+        _issueShares(shares, recipient);
 
         emit Deposit(sender, recipient, assets, shares);
         return assets;
