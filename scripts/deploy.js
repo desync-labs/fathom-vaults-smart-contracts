@@ -10,7 +10,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vaultTokenDecimals = 18;
     const assetSymbol = "FXD";
     const assetDecimals = 18;
-    const protocolFee = 2000;
     const profitMaxUnlockTime = 60; // 1 year in seconds
 
     const asset = await deploy("Token", {
@@ -37,9 +36,15 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
+    const factoryPackage = await deploy("FactoryPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+
     const factory = await deploy("Factory", {
         from: deployer,
-        args: [vaultPackage.address, recipientAddress, protocolFee],
+        args: [factoryPackage.address, "0x"],
         log: true,
     });
 };

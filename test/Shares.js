@@ -33,8 +33,14 @@ describe("Vault Contract", function () {
         const VaultPackage = await ethers.getContractFactory("VaultPackage");
         const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
 
+        const FactoryPackage = await ethers.getContractFactory("FactoryPackage");
+        const factoryPackage = await FactoryPackage.deploy({ gasLimit: "0x1000000" });
+
         const Factory = await ethers.getContractFactory("Factory");
-        const factory = await Factory.deploy(vaultPackage.target, owner.address, protocolFee, { gasLimit: "0x1000000" });
+        const factoryProxy = await Factory.deploy(factoryPackage.target, "0x", { gasLimit: "0x1000000" });
+
+        const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
+        await factory.initialize(vaultPackage.target, owner.address, protocolFee);
         
         await factory.deployVault(
             profitMaxUnlockTime,

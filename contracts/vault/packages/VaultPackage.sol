@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../VaultErrors.sol";
 import "../VaultStorage.sol";
 import "../interfaces/IVault.sol";
+import "../interfaces/IVaultInit.sol";
 import "../interfaces/IVaultEvents.sol";
 import "../interfaces/IDepositLimitModule.sol";
 import "../interfaces/IWithdrawLimitModule.sol";
@@ -19,7 +20,7 @@ import "../../strategy/interfaces/IStrategy.sol";
 /// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
 /// depositors for a specific `asset` into different opportunities (aka Strategies)
 /// and manage accounting in a robust way.
-contract VaultPackage is VaultStorage, IVault, IVaultEvents {
+contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     using Math for uint256;
 
     // solhint-disable-next-line function-max-lines

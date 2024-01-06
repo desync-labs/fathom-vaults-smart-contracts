@@ -3,92 +3,36 @@
 
 pragma solidity 0.8.19;
 
-import "./interfaces/IFactory.sol";
-import "../vault/interfaces/IVault.sol";
-import "../vault/FathomVault.sol";
-import "../vault/packages/VaultPackage.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import "./FactoryStorage.sol";
+import "../common/interfaces/IUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/Proxy.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-// solhint-disable custom-errors
-contract Factory is AccessControl, IFactory {
-    uint16 public constant MAX_BPS = 10000;
-
-    uint16 public feeBPS;
-    address public feeRecipient;
-    address public vaultPackage;
-    address[] public vaults;
-    mapping(address => address) public vaultCreators;
-
-    event VaultPackageUpdated(address indexed vaultPackage);
-    event FeeConfigUpdated(address indexed feeRecipient, uint16 feeBPS);
-    event VaultDeployed(
-        address indexed vault,
-        uint32 profitMaxUnlockTime,
-        address indexed asset,
-        string name,
-        string symbol,
-        address indexed accountant,
-        address admin
-    );
-
-    constructor(address _vaultPackage, address _feeRecipient, uint16 _feeBPS) {
-        require(_vaultPackage != address(0), "Factory: vaultPackage cannot be 0");
-        vaultPackage = _vaultPackage;
-        require(_feeRecipient != address(0), "Factory: feeRecipient cannot be 0");
-        feeRecipient = _feeRecipient;
-        require(_feeBPS <= MAX_BPS, "Factory: feeBPS too high");
-        feeBPS = _feeBPS;
-
+/// @title Vault Factory
+contract Factory is Proxy, ERC1967Upgrade, IUpgradeable, FactoryStorage {
+    /// @dev Initializes the upgradeable proxy with an initial implementation specified by `implementation`.
+    ///
+    /// If `_data` is nonempty, it's used as data in a delegate call to `implementation`. This will typically be an
+    /// encoded function call, and allows initializing the storage of the proxy like a Solidity constructor.
+    ///
+    /// Requirements:
+    ///
+    /// - If `data` is empty, `msg.value` must be zero.
+    constructor(address implementation, bytes memory _data) payable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-
-        emit FeeConfigUpdated(_feeRecipient, _feeBPS);
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function updateVaultPackage(address _vaultPackage) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_vaultPackage != address(0), "Factory: vaultPackage cannot be 0");
-        vaultPackage = _vaultPackage;
-        emit VaultPackageUpdated(_vaultPackage);
+    function setImplementation(address implementation, bytes calldata _data) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _upgradeToAndCall(implementation, _data, false);
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_feeRecipient != address(0), "Factory: feeRecipient cannot be 0");
-        feeRecipient = _feeRecipient;
-        require(_feeBPS <= MAX_BPS, "Factory: feeBPS too high");
-        feeBPS = _feeBPS;
-        emit FeeConfigUpdated(_feeRecipient, _feeBPS);
-    }
-
-    // solhint-disable-next-line comprehensive-interface
-    function deployVault(
-        uint32 _profitMaxUnlockTime,
-        address _asset,
-        string calldata _name,
-        string calldata _symbol,
-        address _accountant,
-        address _admin
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
-        FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
-        IVault(address(vault)).initialize(_profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
-
-        vaults.push(address(vault));
-        vaultCreators[address(vault)] = msg.sender;
-        emit VaultDeployed(address(vault), _profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
-        return address(vault);
-    }
-
-    // solhint-disable-next-line comprehensive-interface
-    function getVaults() external view returns (address[] memory) {
-        return vaults;
-    }
-
-    // solhint-disable-next-line comprehensive-interface
-    function getVaultCreator(address _vault) external view returns (address) {
-        return vaultCreators[_vault];
-    }
-
-    function protocolFeeConfig() external view override returns (uint16 /*feeBps*/, address /*feeRecipient*/) {
-        return (feeBPS, feeRecipient);
+    /// @dev Returns the current implementation address.
+    ///
+    /// TIP: To get this value clients can read directly from the storage slot shown below (specified by EIP1967) using
+    /// the https://eth.wiki/json-rpc/API#eth_getstorageat[`eth_getStorageAt`] RPC call.
+    /// `0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc`
+    function _implementation() internal view virtual override returns (address impl) {
+        return ERC1967Upgrade._getImplementation();
     }
 }
