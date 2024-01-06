@@ -41,30 +41,36 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
     }
 
     // solhint-disable-next-line code-complexity
-    function setupDistribution(uint256 amount, uint256 periodStart, uint256 periodEnd) external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setupDistribution(
+        uint256 approxAmount,
+        uint256 periodStart,
+        uint256 periodEnd
+    ) external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (lastReport < distributionEnd) revert DistributionNotEnded();
         if (periodStart <= block.timestamp) revert PeriodStartInPast();
         if (periodEnd <= periodStart) revert WrongPeriod();
-        if (amount == 0) revert ZeroAmount();
+        if (approxAmount == 0) revert ZeroAmount();
 
-        uint256 accrualInSecond = amount / (periodEnd - periodStart);
+        uint256 accrualInSecond = approxAmount / (periodEnd - periodStart);
         if (accrualInSecond == 0) revert WrongAmount();
         rewardInSecond = accrualInSecond;
+        uint256 realDistributionAmount = accrualInSecond * (periodEnd - periodStart);
 
         distributionStart = periodStart;
         distributionEnd = periodEnd;
+        lastReport = periodStart;
 
-        emit DistributionSetup(amount, periodStart, periodEnd);
+        emit DistributionSetup(realDistributionAmount, periodStart, periodEnd);
 
         uint256 balance = STRATEGY_ASSET.balanceOf(address(this));
-        if (balance < amount) {
+        if (balance < realDistributionAmount) {
             // Transfer the difference, there might be some left from the previous distribution
-            _erc20SafeTransferFrom(address(STRATEGY_ASSET), msg.sender, address(this), amount - balance);
-        } else if (balance > amount) {
+            _erc20SafeTransferFrom(address(STRATEGY_ASSET), msg.sender, address(this), realDistributionAmount - balance);
+        } else if (balance > realDistributionAmount) {
             // Transfer the difference back to the rewards provider
-            _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance - amount);
-        } // else balance == amount, nothing to do
-        if (STRATEGY_ASSET.balanceOf(address(this)) != amount) revert WrongBalance();
+            _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance - realDistributionAmount);
+        } // else balance == realDistributionAmount, nothing to do
+        if (STRATEGY_ASSET.balanceOf(address(this)) != realDistributionAmount) revert WrongBalance();
     }
 
     function processReport() external override nonReentrant returns (uint256) {
@@ -83,20 +89,18 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
         return accruedRewards;
     }
 
-    function cancelDistribution() external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
-        if (lastReport >= distributionEnd) revert DistributionEnded();
+    function emergencyWithdraw() external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
+        uint256 balance = STRATEGY_ASSET.balanceOf(address(this));
+        if (balance == 0) revert ZeroAmount();
 
         rewardInSecond = 0;
         distributionStart = 0;
         distributionEnd = 0;
         lastReport = 0;
 
-        uint256 balance = STRATEGY_ASSET.balanceOf(address(this));
-        emit DistributionCancelled(block.timestamp, balance);
+        emit EmergencyWithdraw(block.timestamp, balance);
 
-        if (balance > 0) {
-            _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance);
-        }
+        _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance);
 
         return balance;
     }
@@ -122,7 +126,7 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
     }
 
     function rewardsAccrued() public view override returns (uint256) {
-        if (lastReport == distributionEnd) {
+        if (lastReport == distributionEnd || block.timestamp <= distributionStart) {
             return 0;
         } else if (block.timestamp >= distributionEnd) {
             return rewardsLeft();
