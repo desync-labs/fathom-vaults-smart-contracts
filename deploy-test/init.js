@@ -1,5 +1,3 @@
-// scripts/initializeVault.js
-
 const { ethers } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
@@ -30,7 +28,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vaultTokenSymbol = "vFXD";
 
     const { deployer } = await getNamedAccounts();
-    const [owner, addr1, addr2] = await ethers.getSigners();
     const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
 
     const factoryFile = getTheAbi("Factory");
@@ -61,7 +58,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         vaultTokenName,
         vaultTokenSymbol,
         accountantAddress,
-        owner.address
+        deployer
     );
     await deployVaultTx.wait();
     const vaults = await factory.getVaults();
@@ -72,7 +69,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("The Last Vault Address = ", vaultAddress);
 
     console.log("Minting tokens...");
-    const mintTx = await asset.connect(owner).mint(owner.address, amount, { gasLimit: "0x1000000" });
+    const mintTx = await asset.connect(owner).mint(deployer, amount, { gasLimit: "0x1000000" });
     await mintTx.wait(); // Wait for the transaction to be confirmed
     console.log("Approving tokens...");
     const approveTx = await asset.connect(owner).approve(vaultAddress, amount, { gasLimit: "0x1000000" });
@@ -82,7 +79,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
 
     console.log("Updating balances...");
-    let balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    let balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     let balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -99,11 +96,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     // Simulate a deposit
     console.log("Depositing...");
-    const depositTx = await vault.connect(owner).deposit(depositAmount, owner.address, { gasLimit: "0x1000000" });
+    const depositTx = await vault.connect(owner).deposit(depositAmount, deployer, { gasLimit: "0x1000000" });
     await depositTx.wait(); // Wait for the transaction to be confirmed
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -132,7 +129,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await updateDebtTx.wait();
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -170,7 +167,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Full Profit Unlock Date = ", fullProfitUnlockDate);
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -208,7 +205,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await processReportTx2.wait();
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -245,7 +242,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await processReportTx3.wait();
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -270,11 +267,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     // Simulate a redeem
     console.log("Redeeming...");
-    const redeemTx = await vault.connect(owner).redeem(balanceInShares, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
+    const redeemTx = await vault.connect(owner).redeem(balanceInShares, deployer, deployer, 0, [], { gasLimit: "0x1000000" });
     await redeemTx.wait();
 
     console.log("Updating balances...");
-    balanceInShares = await vault.connect(owner).balanceOf(owner.address);
+    balanceInShares = await vault.connect(owner).balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
     balanceInTokens = await vault.connect(owner).convertToAssets(balanceInShares);
     console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
@@ -301,8 +298,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const setDepositLimitTx2 = await vault.connect(owner).setDepositLimit(amount, { gasLimit: "0x1000000" });
     await setDepositLimitTx2.wait(); // Wait for the transaction to be confirmed
 
-    // const withdrawTxAfter = await vault.connect(owner).withdraw(balanceInTokens, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
-    // // const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, owner.address, owner.address, 0, [], { gasLimit: "0x1000000" });
+    // const withdrawTxAfter = await vault.connect(owner).withdraw(balanceInTokens, deployer, deployer, 0, [], { gasLimit: "0x1000000" });
+    // // const withdrawTx = await vault.connect(owner).withdraw(withdrawAmount, deployer, deployer, 0, [], { gasLimit: "0x1000000" });
     // await withdrawTxAfter.wait();
 
     // Additional initialization steps as needed...
