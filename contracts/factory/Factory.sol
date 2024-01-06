@@ -4,9 +4,9 @@
 pragma solidity 0.8.19;
 
 import "./interfaces/IFactory.sol";
-import "./interfaces/IVault.sol";
-import "./FathomVault.sol";
-import "./packages/VaultPackage.sol";
+import "../vault/interfaces/IVault.sol";
+import "../vault/FathomVault.sol";
+import "../vault/packages/VaultPackage.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 // solhint-disable custom-errors

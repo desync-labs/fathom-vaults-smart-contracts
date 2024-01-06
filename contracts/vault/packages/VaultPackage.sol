@@ -5,15 +5,15 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "../CommonErrors.sol";
+import "../VaultErrors.sol";
 import "../VaultStorage.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IVaultEvents.sol";
-import "../interfaces/IAccountant.sol";
-import "../interfaces/IFactory.sol";
-import "../interfaces/IStrategy.sol";
 import "../interfaces/IDepositLimitModule.sol";
 import "../interfaces/IWithdrawLimitModule.sol";
+import "../../accountant/interfaces/IAccountant.sol";
+import "../../factory/interfaces/IFactory.sol";
+import "../../strategy/interfaces/IStrategy.sol";
 
 /// @title Fathom Vault
 /// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of

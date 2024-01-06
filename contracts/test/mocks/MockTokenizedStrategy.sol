@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.19;
 
-import { TokenizedStrategy, ERC20 } from "./TokenizedStrategy.sol";
+import { TokenizedStrategy, ERC20 } from "../../strategy/TokenizedStrategy.sol";
 
 // solhint-disable comprehensive-interface, custom-errors
 contract MockTokenizedStrategy is TokenizedStrategy {

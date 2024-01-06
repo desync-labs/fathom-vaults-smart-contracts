@@ -4,7 +4,7 @@
 pragma solidity 0.8.19;
 
 import "../VaultStructs.sol";
-import { IERC4626 } from "./IERC4626.sol";
+import { IERC4626 } from "../../common/interfaces/IERC4626.sol";
 
 interface IVault is IERC4626 {
     function initialize(
