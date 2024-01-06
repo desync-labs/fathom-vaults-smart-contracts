@@ -4,7 +4,7 @@
 pragma solidity 0.8.19;
 
 import "./VaultStorage.sol";
-import "./interfaces/IUpgradeable.sol";
+import "../common/interfaces/IUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
