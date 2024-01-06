@@ -11,18 +11,19 @@ import "../FactoryErrors.sol";
 import "../../vault/interfaces/IVaultInit.sol";
 import "../../vault/FathomVault.sol";
 
-// solhint-disable custom-errors
 contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvents {
     function initialize(address _vaultPackage, address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (initialized == true) {
             revert AlreadyInitialized();
         }
-
-        require(_vaultPackage != address(0), "Factory: vaultPackage cannot be 0");
+        if (_vaultPackage == address(0) || _feeRecipient == address(0)) {
+            revert ZeroAddress();
+        }
+        if (_feeBPS > MAX_BPS) {
+            revert FeeGreaterThan100();
+        }
         vaultPackage = _vaultPackage;
-        require(_feeRecipient != address(0), "Factory: feeRecipient cannot be 0");
         feeRecipient = _feeRecipient;
-        require(_feeBPS <= MAX_BPS, "Factory: feeBPS too high");
         feeBPS = _feeBPS;
 
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
@@ -30,23 +31,26 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         initialized = true;
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function updateVaultPackage(address _vaultPackage) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_vaultPackage != address(0), "Factory: vaultPackage cannot be 0");
+    function updateVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_vaultPackage == address(0)) {
+            revert ZeroAddress();
+        }
         vaultPackage = _vaultPackage;
         emit VaultPackageUpdated(_vaultPackage);
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_feeRecipient != address(0), "Factory: feeRecipient cannot be 0");
+    function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_feeRecipient == address(0)) {
+            revert ZeroAddress();
+        }
+        if (_feeBPS > MAX_BPS) {
+            revert FeeGreaterThan100();
+        }
         feeRecipient = _feeRecipient;
-        require(_feeBPS <= MAX_BPS, "Factory: feeBPS too high");
         feeBPS = _feeBPS;
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
     }
 
-    // solhint-disable-next-line comprehensive-interface
     function deployVault(
         uint32 _profitMaxUnlockTime,
         address _asset,
@@ -54,7 +58,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         string calldata _symbol,
         address _accountant,
         address _admin
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
         FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
         IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
 
@@ -64,13 +68,11 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         return address(vault);
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function getVaults() external view returns (address[] memory) {
+    function getVaults() external view override returns (address[] memory) {
         return vaults;
     }
 
-    // solhint-disable-next-line comprehensive-interface
-    function getVaultCreator(address _vault) external view returns (address) {
+    function getVaultCreator(address _vault) external view override returns (address) {
         return vaultCreators[_vault];
     }
 
