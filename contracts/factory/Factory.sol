@@ -18,8 +18,8 @@ contract Factory is Proxy, ERC1967Upgrade, IUpgradeable, FactoryStorage {
     /// Requirements:
     ///
     /// - If `data` is empty, `msg.value` must be zero.
-    constructor(address implementation, bytes memory _data) payable {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    constructor(address implementation, address admin, bytes memory _data) payable {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _upgradeToAndCall(implementation, _data, false);
     }
 

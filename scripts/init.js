@@ -52,7 +52,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const factoryAddress = factoryFile.address;
     const factory = await ethers.getContractAt("FactoryPackage", factoryAddress);
 
-    await factory.initialize(vaultPackageAddress, recipientAddress, protocolFee);
+    const factoryInitTx = await factory.initialize(vaultPackageAddress, recipientAddress, protocolFee);
+    await factoryInitTx.wait();
 
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,

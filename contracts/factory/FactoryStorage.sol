@@ -17,5 +17,5 @@ contract FactoryStorage is AccessControl, ReentrancyGuard {
     mapping(address => address) public vaultCreators;
 
     /// @notice Initialized state of the factory.
-    bool internal initialized;
+    bool public initialized;
 }

@@ -11,6 +11,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const assetSymbol = "FXD";
     const assetDecimals = 18;
     const profitMaxUnlockTime = 60; // 1 year in seconds
+    const managementFee = 100;
 
     const asset = await deploy("Token", {
         from: deployer,
@@ -26,7 +27,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const accountant = await deploy("GenericAccountant", {
         from: deployer,
-        args: [],
+        args: [managementFee, owner.address, owner.address],
         log: true,
     });
 
@@ -44,7 +45,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const factory = await deploy("Factory", {
         from: deployer,
-        args: [factoryPackage.address, "0x"],
+        args: [factoryPackage.address, owner.address, "0x"],
         log: true,
     });
 };

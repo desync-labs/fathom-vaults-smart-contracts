@@ -69,7 +69,7 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     bool public shutdown;
 
     /// @notice Initialized state of the vault.
-    bool internal initialized;
+    bool public initialized;
 
     /// @notice The current decimals value of the vault.
     uint8 internal decimalsValue;
