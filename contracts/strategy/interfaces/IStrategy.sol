@@ -12,7 +12,7 @@ interface IStrategy {
 
     function balanceOf(address owner) external view returns (uint256);
 
-    function maxDeposit(address receiver) external view returns (uint256);
+    function maxDeposit(address owner) external view returns (uint256);
 
     function totalAssets() external view returns (uint256);
 

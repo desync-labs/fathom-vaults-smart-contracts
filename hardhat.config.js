@@ -33,6 +33,6 @@ module.exports = {
         deployer: 0,
     },
     paths: {
-        deploy: "./scripts/",
+        deploy: "./deploy/",
     },
 };

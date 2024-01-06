@@ -3,7 +3,8 @@
 
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IAccountant.sol";
 import "./interfaces/IGenericAccountant.sol";
@@ -12,6 +13,8 @@ import "./interfaces/IGenericAccountant.sol";
 /// @dev GenericAccountant is a simple accountant that charges a management fee.
 /// @dev GenericAccountant isn't giving any refunds in case of losses.
 contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
+    using SafeERC20 for ERC20;
+
     /// @notice Constant defining the fee basis points.
     uint256 internal constant FEE_BPS = 10000;
 
@@ -57,7 +60,7 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
     }
 
     function distribute(address token) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 balance = IERC20Metadata(token).balanceOf(address(this));
+        uint256 balance = ERC20(token).balanceOf(address(this));
         if (balance == 0) {
             revert ZeroAmount();
         }
@@ -76,14 +79,10 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
         return _managementFee;
     }
 
-    /// @notice Used only to send tokens that are not the type managed by this Vault.
-    /// Used to handle non-compliant tokens like USDT
     function _erc20SafeTransfer(address token, address receiver, uint256 amount) internal {
         if (token == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
-        if (!IERC20Metadata(token).transfer(receiver, amount)) {
-            revert ERC20TransferFailed();
-        }
+        ERC20(token).safeTransfer(receiver, amount);
     }
 }

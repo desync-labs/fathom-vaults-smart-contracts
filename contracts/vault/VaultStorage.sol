@@ -3,7 +3,7 @@
 
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./VaultStructs.sol";
@@ -60,7 +60,7 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     address public factory;
 
     /// @notice Address of the underlying token used by the vault
-    IERC20Metadata internal assetContract;
+    ERC20 internal assetContract;
 
     /// @notice Should the vault use the default_queue regardless whats passed in.
     bool public useDefaultQueue;
