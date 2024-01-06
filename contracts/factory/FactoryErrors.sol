@@ -4,3 +4,5 @@
 pragma solidity 0.8.19;
 
 error AlreadyInitialized();
+error ZeroAddress();
+error FeeGreaterThan100();
