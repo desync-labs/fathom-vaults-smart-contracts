@@ -31,7 +31,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         log: true,
     });
 
-    await deploy("FactoryPackage", {
+    const factoryPackage = await deploy("FactoryPackage", {
         from: deployer,
         args: [],
         log: true,
