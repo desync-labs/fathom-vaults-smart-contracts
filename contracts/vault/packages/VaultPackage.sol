@@ -3,7 +3,8 @@
 
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../VaultErrors.sol";
 import "../VaultStorage.sol";
@@ -22,6 +23,7 @@ import "../../strategy/interfaces/IStrategy.sol";
 /// and manage accounting in a robust way.
 contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     using Math for uint256;
+    using SafeERC20 for ERC20;
 
     // solhint-disable-next-line function-max-lines
     function initialize(
@@ -45,7 +47,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
         profitMaxUnlockTime = _profitMaxUnlockTime;
 
-        assetContract = IERC20Metadata(_asset);
+        assetContract = ERC20(_asset);
         decimalsValue = assetContract.decimals();
         if (decimalsValue >= 256) {
             revert InvalidAssetDecimals();
@@ -457,7 +459,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // We get the proportion of the debt that is being bought and
         // transfer the equivalent shares. We assume this is being used
         // due to strategy issues so won't rely on its conversion rates.
-        uint256 shares = (IERC20Metadata(strategy).balanceOf(address(this)) * amount) / currentDebt;
+        uint256 shares = (ERC20(strategy).balanceOf(address(this)) * amount) / currentDebt;
 
         if (shares == 0) {
             revert ZeroValue();
@@ -854,17 +856,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         _burnShares(currUnlockedShares, address(this));
     }
 
-    /// @notice Used only to approve tokens that are not the type managed by this Vault.
-    /// Used to handle non-compliant tokens like USDT
-    function _erc20SafeApprove(address token, address spender, uint256 amount) internal {
-        if (token == address(0) || spender == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!IERC20Metadata(token).approve(spender, amount)) {
-            revert ERC20ApprovalFailed();
-        }
-    }
-
     /// @notice Handle the burning and issuing of shares based on the strategy's report.
     // solhint-disable-next-line function-max-lines, code-complexity
     function _handleShareBurnsAndIssues(
@@ -1005,15 +996,22 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         emit Transfer(owner, address(0), shares);
     }
 
+    /// @notice Used only to approve tokens that are not the type managed by this Vault.
+    /// Used to handle non-compliant tokens like USDT
+    function _erc20SafeApprove(address token, address spender, uint256 amount) internal {
+        if (token == address(0) || spender == address(0)) {
+            revert ZeroAddress();
+        }
+        ERC20(token).safeApprove(spender, amount);
+    }
+
     /// @notice Used only to transfer tokens that are not the type managed by this Vault.
     /// Used to handle non-compliant tokens like USDT
     function _erc20SafeTransferFrom(address token, address sender, address receiver, uint256 amount) internal {
         if (token == address(0) || sender == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
-        if (!IERC20Metadata(token).transferFrom(sender, receiver, amount)) {
-            revert ERC20TransferFailed();
-        }
+        ERC20(token).safeTransferFrom(sender, receiver, amount);
     }
 
     /// @notice Used only to send tokens that are not the type managed by this Vault.
@@ -1022,9 +1020,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (token == address(0) || receiver == address(0)) {
             revert ZeroAddress();
         }
-        if (!IERC20Metadata(token).transfer(receiver, amount)) {
-            revert ERC20TransferFailed();
-        }
+        ERC20(token).safeTransfer(receiver, amount);
     }
 
     /// @notice Issues shares that are worth 'amount' in the underlying token (asset).
