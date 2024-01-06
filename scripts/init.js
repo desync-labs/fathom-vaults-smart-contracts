@@ -24,6 +24,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const newDebt = ethers.parseUnits("0", 18);
     const profit = ethers.parseUnits("100", 18);
     const profitMaxUnlockTime = 60; // 1 year in seconds
+    const protocolFee = 2000;
 
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
@@ -36,6 +37,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const accountantFile = getTheAbi("GenericAccountant");
     const tokenFile = getTheAbi("Token");
     const strategyFile = getTheAbi("MockTokenizedStrategy");
+    const vaultPackageFile = getTheAbi("VaultPackage");
 
     const assetAddress = tokenFile.address;
     const asset = await ethers.getContractAt("Token", assetAddress);
@@ -45,8 +47,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const accountantAddress = accountantFile.address;
 
+    const vaultPackageAddress = vaultPackageFile.address;
+
     const factoryAddress = factoryFile.address;
-    const factory = await ethers.getContractAt("Factory", factoryAddress);
+    const factory = await ethers.getContractAt("FactoryPackage", factoryAddress);
+
+    await factory.initialize(vaultPackageAddress, recipientAddress, protocolFee);
 
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,

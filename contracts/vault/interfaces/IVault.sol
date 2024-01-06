@@ -7,15 +7,6 @@ import "../VaultStructs.sol";
 import { IERC4626 } from "../../common/interfaces/IERC4626.sol";
 
 interface IVault is IERC4626 {
-    function initialize(
-        uint256 _profitMaxUnlockTime,
-        address _asset,
-        string calldata _name,
-        string calldata _symbol,
-        address _accountant,
-        address _admin
-    ) external;
-
     function setAccountant(address newAccountant) external;
 
     function setDefaultQueue(address[] calldata newDefaultQueue) external;
