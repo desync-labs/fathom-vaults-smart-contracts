@@ -10,7 +10,7 @@ import "./interfaces/IAccountant.sol";
 import "./interfaces/IGenericAccountant.sol";
 
 /// @title GenericAccountant
-/// @dev GenericAccountant is a simple accountant that charges a management fee.
+/// @dev GenericAccountant is a simple accountant that charges a performance fee.
 /// @dev GenericAccountant isn't giving any refunds in case of losses.
 contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
     using SafeERC20 for ERC20;
@@ -18,37 +18,34 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
     /// @notice Constant defining the fee basis points.
     uint256 internal constant FEE_BPS = 10000;
 
-    /// @notice Variable defining the management fee;
-    uint256 internal _managementFee;
+    /// @notice Variable defining the performance fee;
+    uint256 internal _performanceFee;
     /// @notice Variable defining the fee recipient.
     address internal _feeRecipient;
-
-    event ManagementFeeSet(uint256 fee);
-    event FeeRecipientSet(address feeRecipient);
 
     error ZeroAddress();
     error ERC20TransferFailed();
     error FeeGreaterThan100();
     error ZeroAmount();
 
-    constructor(uint256 managementFee_, address feeRecipient_, address admin_) {
-        if (managementFee_ > FEE_BPS) {
+    constructor(uint256 performanceFee_, address feeRecipient_, address admin_) {
+        if (performanceFee_ > FEE_BPS) {
             revert FeeGreaterThan100();
         }
         if (feeRecipient_ == address(0)) {
             revert ZeroAddress();
         }
-        _managementFee = managementFee_;
+        _performanceFee = performanceFee_;
         _feeRecipient = feeRecipient_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
-    function setManagementFee(uint256 fee) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPerformanceFee(uint256 fee) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (fee > FEE_BPS) {
             revert FeeGreaterThan100();
         }
-        emit ManagementFeeSet(fee);
+        emit PerformanceFeeSet(fee);
     }
 
     function setFeeRecipient(address recipient) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -68,15 +65,15 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
     }
 
     function report(address /*strategy*/, uint256 gain, uint256 /*loss*/) external view override returns (uint256, uint256) {
-        return ((gain * _managementFee) / FEE_BPS, 0);
+        return ((gain * _performanceFee) / FEE_BPS, 0);
     }
 
     function feeRecipient() external view override returns (address) {
         return _feeRecipient;
     }
 
-    function managementFee() external view override returns (uint256) {
-        return _managementFee;
+    function performanceFee() external view override returns (uint256) {
+        return _performanceFee;
     }
 
     function _erc20SafeTransfer(address token, address receiver, uint256 amount) internal {

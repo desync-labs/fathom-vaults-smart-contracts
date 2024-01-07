@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright Fathom 2023
+// SPDX-License-Identifier: AGPL-3.0
+// Modified Copyright Fathom 2023
+// Original Copyright Yearn.finance
 
 pragma solidity 0.8.19;
 
@@ -224,8 +225,8 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Set the initial domain separator for permit functions
         stor.initialDomainSeparator = _computeDomainSeparator();
 
-        // Default to a 10 day profit unlock period
-        stor.profitMaxUnlockTime = 10 days;
+        // Default to a 7 day profit unlock period
+        stor.profitMaxUnlockTime = 7 days;
         // Set address to receive performance fees.
         // Can't be address(0) or we will be burning fees.
         require(_performanceFeeRecipient != address(0), "ZERO ADDRESS");

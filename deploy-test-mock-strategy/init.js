@@ -21,8 +21,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const debt = ethers.parseUnits("200", 18);
     const newDebt = ethers.parseUnits("0", 18);
     const profit = ethers.parseUnits("100", 18);
-    const profitMaxUnlockTime = 60; // 1 year in seconds
-    const protocolFee = 2000;
+    const profitMaxUnlockTime = 60; // 1 minute in seconds
+    const protocolFee = 2000; // 20% of total fee
 
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
