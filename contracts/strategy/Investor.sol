@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright Fathom 2023
 pragma solidity 0.8.19;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -8,11 +9,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IInvestor.sol";
 import "./interfaces/IStrategy.sol";
 
-contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
+contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     using SafeERC20 for ERC20;
 
-    ERC20 public immutable STRATEGY_ASSET;
-    IStrategy public immutable STRATEGY;
+    ERC20 public strategyAsset;
+    IStrategy public strategy;
 
     uint256 public distributionStart;
     uint256 public distributionEnd;
@@ -29,15 +30,26 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
     error WrongBalance();
     error ZeroAmount();
     error WrongAmount();
+    error WrongAsset();
 
-    constructor(address _strategy) {
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function setStrategy(address _strategy) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_strategy == address(0)) {
             revert ZeroAddress();
         }
-        STRATEGY = IStrategy(_strategy);
-        STRATEGY_ASSET = ERC20(STRATEGY.asset());
+        strategy = IStrategy(_strategy);
 
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        address newStrategyAsset = strategy.asset();
+        if (address(strategyAsset) == address(0)) {
+            strategyAsset = ERC20(newStrategyAsset);
+        } else if (address(strategyAsset) != newStrategyAsset) {
+            revert WrongAsset();
+        }
+
+        emit StrategyUpdate(address(strategy), _strategy, newStrategyAsset);
     }
 
     // solhint-disable-next-line code-complexity
@@ -62,15 +74,15 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
 
         emit DistributionSetup(realDistributionAmount, periodStart, periodEnd);
 
-        uint256 balance = STRATEGY_ASSET.balanceOf(address(this));
+        uint256 balance = strategyAsset.balanceOf(address(this));
         if (balance < realDistributionAmount) {
             // Transfer the difference, there might be some left from the previous distribution
-            _erc20SafeTransferFrom(address(STRATEGY_ASSET), msg.sender, address(this), realDistributionAmount - balance);
+            _erc20SafeTransferFrom(address(strategyAsset), msg.sender, address(this), realDistributionAmount - balance);
         } else if (balance > realDistributionAmount) {
             // Transfer the difference back to the rewards provider
-            _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance - realDistributionAmount);
+            _erc20SafeTransfer(address(strategyAsset), msg.sender, balance - realDistributionAmount);
         } // else balance == realDistributionAmount, nothing to do
-        if (STRATEGY_ASSET.balanceOf(address(this)) != realDistributionAmount) revert WrongBalance();
+        if (strategyAsset.balanceOf(address(this)) != realDistributionAmount) revert WrongBalance();
     }
 
     function processReport() external override nonReentrant returns (uint256) {
@@ -84,13 +96,13 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
 
         emit Report(lastReport, accruedRewards);
 
-        _erc20SafeTransfer(address(STRATEGY_ASSET), address(STRATEGY), accruedRewards);
+        _erc20SafeTransfer(address(strategyAsset), address(strategy), accruedRewards);
 
         return accruedRewards;
     }
 
     function emergencyWithdraw() external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
-        uint256 balance = STRATEGY_ASSET.balanceOf(address(this));
+        uint256 balance = strategyAsset.balanceOf(address(this));
         if (balance == 0) revert ZeroAmount();
 
         rewardInSecond = 0;
@@ -100,13 +112,13 @@ contract StrategyInvestor is AccessControl, ReentrancyGuard, IInvestor {
 
         emit EmergencyWithdraw(block.timestamp, balance);
 
-        _erc20SafeTransfer(address(STRATEGY_ASSET), msg.sender, balance);
+        _erc20SafeTransfer(address(strategyAsset), msg.sender, balance);
 
         return balance;
     }
 
     function asset() external view override returns (address) {
-        return address(STRATEGY_ASSET);
+        return address(strategyAsset);
     }
 
     function rewardRate() external view override returns (uint256) {

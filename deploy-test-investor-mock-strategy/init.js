@@ -21,8 +21,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const debt = ethers.parseUnits("200", 18);
     const newDebt = ethers.parseUnits("0", 18);
     const profit = ethers.parseUnits("100", 18);
-    const profitMaxUnlockTime = 60; // 1 year in seconds
-    const protocolFee = 2000;
+    const profitMaxUnlockTime = 60; // 1 minute in seconds
+    const protocolFee = 2000; // 20% of total fee
 
     const vaultTokenName = "Vault Shares FXD";
     const vaultTokenSymbol = "vFXD";
@@ -35,7 +35,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const tokenFile = getTheAbi("Token");
     const strategyFile = getTheAbi("MockTokenizedStrategy");
     const vaultPackageFile = getTheAbi("VaultPackage");
-    const investorFile = getTheAbi("StrategyInvestor");
+    const investorFile = getTheAbi("Investor");
 
     const assetAddress = tokenFile.address;
     const asset = await ethers.getContractAt("Token", assetAddress);
@@ -44,7 +44,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const strategy = await ethers.getContractAt("MockTokenizedStrategy", strategyAddress);
 
     const investorAddress = investorFile.address;
-    const investor = await ethers.getContractAt("StrategyInvestor", investorAddress);
+    const investor = await ethers.getContractAt("Investor", investorAddress);
 
     const accountantAddress = accountantFile.address;
 
@@ -52,6 +52,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const factoryAddress = factoryFile.address;
     const factory = await ethers.getContractAt("FactoryPackage", factoryAddress);
+
+    const setInvestorStrategyTx = await investor.setStrategy(strategyAddress);
+    await setInvestorStrategyTx.wait();
 
     const factoryInitTx = await factory.initialize(vaultPackageAddress, recipientAddress, protocolFee);
     await factoryInitTx.wait();
@@ -127,8 +130,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await approveInvestorTx.wait(); // Wait for the transaction to be confirmed
     let blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
-    const startDistribution = blockTimestamp + 5;
-    const endDistribution = blockTimestamp + 6;
+    const startDistribution = blockTimestamp + 10;
+    const endDistribution = blockTimestamp + 11;
     console.log("Distribution start time = ", startDistribution);
     console.log("Distribution end time = ", endDistribution);
 
@@ -136,12 +139,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const depositToInvestorTx = await investor.setupDistribution(
         gain,
         startDistribution,
-        endDistribution,
-        { gasLimit: "0x1000000" }
+        endDistribution
     );
     await depositToInvestorTx.wait(); // Wait for the transaction to be confirmed
-    console.log("Sleeping for 5 seconds to allow distribution to start...");
-    await new Promise(r => setTimeout(r, 5000));
+    console.log("Sleeping for 10 seconds to allow distribution to start...");
+    await new Promise(r => setTimeout(r, 10000));
 
     console.log("Adding Strategy to the Vault...");
     const addStrategyTx = await vault.addStrategy(strategy.target, { gasLimit: "0x1000000" });

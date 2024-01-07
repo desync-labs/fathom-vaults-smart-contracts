@@ -24,12 +24,12 @@ describe("Vault Contract", function () {
 
         const assetAddress = asset.target;
 
-        const managementFee = 100; // 1% of total gain
-        const protocolFee = 2000; // 20% of management fee
+        const performanceFee = 100; // 1% of gain
+        const protocolFee = 2000; // 20% of total fee
         const profitMaxUnlockTime = 31536000; // 1 year in seconds
 
         const Accountant = await ethers.getContractFactory("GenericAccountant");
-        const accountant = await Accountant.deploy(managementFee, owner.address, owner.address, { gasLimit: "0x1000000" });
+        const accountant = await Accountant.deploy(performanceFee, owner.address, owner.address, { gasLimit: "0x1000000" });
 
         const VaultPackage = await ethers.getContractFactory("VaultPackage");
         const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });

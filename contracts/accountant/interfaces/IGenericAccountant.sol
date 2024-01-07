@@ -4,7 +4,10 @@
 pragma solidity 0.8.19;
 
 interface IGenericAccountant {
-    function setManagementFee(uint256 fee) external;
+    event PerformanceFeeSet(uint256 fee);
+    event FeeRecipientSet(address feeRecipient);
+
+    function setPerformanceFee(uint256 fee) external;
 
     function setFeeRecipient(address _feeRecipient) external;
 
@@ -12,5 +15,5 @@ interface IGenericAccountant {
 
     function feeRecipient() external view returns (address);
 
-    function managementFee() external view returns (uint256);
+    function performanceFee() external view returns (uint256);
 }

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright Fathom 2023
 pragma solidity 0.8.19;
 
 interface IInvestor {
     event DistributionSetup(uint256 amount, uint256 periodStart, uint256 periodEnd);
     event Report(uint256 timestamp, uint256 accruedRewards);
     event EmergencyWithdraw(uint256 timestamp, uint256 leftRewards);
+    event StrategyUpdate(address oldStrategy, address newStrategy, address newStrategyAsset);
+
+    function setStrategy(address _strategy) external;
 
     function setupDistribution(uint256 amount, uint256 periodStart, uint256 periodEnd) external;
 
