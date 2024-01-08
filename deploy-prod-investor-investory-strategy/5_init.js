@@ -33,7 +33,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const asset = await ethers.getContractAt("ERC20", assetAddress);
 
     const strategyAddress = strategyFile.address;
-    const strategy = await ethers.getContractAt("InvestorStrategy", strategyAddress);
+    const strategy = await ethers.getContractAt("TokenizedStrategy", strategyAddress);
 
     const investorAddress = investorFile.address;
     const investor = await ethers.getContractAt("Investor", investorAddress);
