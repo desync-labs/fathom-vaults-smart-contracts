@@ -45,6 +45,7 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
         if (fee > FEE_BPS) {
             revert FeeGreaterThan100();
         }
+        _performanceFee = fee;
         emit PerformanceFeeSet(fee);
     }
 
