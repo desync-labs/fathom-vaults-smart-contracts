@@ -1,3 +1,17 @@
+const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
+
+const getTheAbi = (contract) => {
+    try {
+        const dir = path.join(__dirname, "..", "deployments", "apothem", `${contract}.json`);
+        const json = JSON.parse(fs.readFileSync(dir, "utf8"));
+        return json;
+    } catch (e) {
+        console.log(`e`, e);
+    }
+};
+
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
@@ -11,6 +25,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Sleeping for 60 seconds to give a thought...");
     await new Promise(r => setTimeout(r, 60000));
 
+    const investorFile = getTheAbi("Investor");
     const investorAddress = investorFile.address;
     const investor = await ethers.getContractAt("Investor", investorAddress);
 

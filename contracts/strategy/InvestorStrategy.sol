@@ -8,7 +8,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // solhint-disable
-abstract contract InvestorStrategy is BaseStrategy {
+contract InvestorStrategy is BaseStrategy {
     using SafeERC20 for ERC20;
 
     IInvestor public immutable investor;
@@ -31,4 +31,8 @@ abstract contract InvestorStrategy is BaseStrategy {
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
         return TokenizedStrategy.totalIdle();
     }
+
+    function _deployFunds(uint256 _amount) internal pure override {}
+
+    function _freeFunds(uint256 _amount) internal pure override {}
 }
