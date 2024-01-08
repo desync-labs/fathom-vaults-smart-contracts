@@ -1,13 +1,43 @@
-# Sample Hardhat Project
+# Fathom Vaults
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This repository contains the Smart Contracts for Fathom Vault, Factory, Strategy, and Accountant implementations.
 
-Try running some of the following tasks:
+[Factory](contracts/factory) - The base Factory where all Vaults will be deployed and used to configure protocol fees.
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
+[Vault](contracts/vault) - The ERC4626-compliant Vault that will handle all logic associated with deposits, withdrawals, strategy management, profit reporting, etc.
+
+[Strategy](contracts/strategy) - The Strategy implementations. Used to gain income for Vaults.
+
+[Accountant](contracts/accountant) - The Accountant implementations for Vaults. Responsible for management, performance, and other fee accounting.
+
+## Requirements
+
+- Linux or macOS (Windows: Not tested)
+- node v16.4.0
+- npm v7.18.1
+- solc 0.8.19 or later
+- [Hardhat](https://hardhat.org/) installed globally
+
+## Setup
+
+Install Requirements.
+
+Fork the repository and clone onto your local device 
+
 ```
+git clone https://github.com/user/fathom-vaults-smart-contracts
+cd fathom-vaults-smart-contracts
+```
+
+```
+npm install
+```
+
+```
+npm run test
+```
+
+## Inspiration
+
+Fathom Vaults is inspired by Yearn Vaults V3 (https://github.com/yearn/yearn-vaults-v3) and is the indirect fork.
+We learned from Yearn and rewrote in Solidity with modifications Vault, wrote from scratch Factory, and Accountant and some Strategies.
