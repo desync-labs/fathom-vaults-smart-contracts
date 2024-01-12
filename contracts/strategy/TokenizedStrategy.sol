@@ -96,7 +96,7 @@ contract TokenizedStrategy is ReentrancyGuard {
     /// @notice Address of the previously deployed Vault factory that the
     /// @notice protocol fee config is retrieved from.
     /// @notice NOTE: This will be set to deployed factory. deterministic address for testing is used now
-    address public constant FACTORY = 0x0000000000000000000000000000000000000000;
+    address public constant FACTORY = 0x9432F4b35fD37b8776CfF318633B81bcDa11E98C;
 
     /// @dev Custom storage slot that will be used to store the
     /// `StrategyData` struct that holds each strategies

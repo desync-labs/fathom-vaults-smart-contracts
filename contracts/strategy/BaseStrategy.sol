@@ -98,7 +98,7 @@ abstract contract BaseStrategy {
      * and always be checked before any integration with the Strategy.
      */
     // NOTE: This is a holder address based on expected deterministic location for testing
-    address public constant tokenizedStrategyAddress = 0x0000000000000000000000000000000000000000;
+    address public constant tokenizedStrategyAddress = 0x29f89A56A1B4E6e15bfaaEbE1d2f8B755022f532;
 
     /*//////////////////////////////////////////////////////////////
                             IMMUTABLES
