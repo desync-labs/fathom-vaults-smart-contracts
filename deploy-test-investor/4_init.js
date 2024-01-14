@@ -13,35 +13,37 @@ const getTheAbi = (contract) => {
 };
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
-    const amount = ethers.parseUnits("1000000", 18);
-    const depositAmount = ethers.parseUnits("1000", 18);
-    const withdrawAmount = ethers.parseUnits("9", 18);
-    const redeemAmount = ethers.parseUnits("10", 18);
-    const maxDebt = ethers.parseUnits("1000", 18);
-    const debt = ethers.parseUnits("200", 18);
-    const newDebt = ethers.parseUnits("0", 18);
-    const profit = ethers.parseUnits("100", 18);
-    const profitMaxUnlockTime = 60; // 1 minute in seconds
+    
+    console.log("WARN: Ensure to set real asset address!!!");
+    console.log("WARN: Ensure profitMaxUnlockTime is matching TokenizedStrategy!!!");
+    console.log("WARN: Ensure startDistribution and endDistribution for Investor are set correctly!!!");
+    
+    console.log("Sleeping for 60 seconds to give a thought...");
+    await new Promise(r => setTimeout(r, 60000));
+
+    const totalGain = ethers.parseUnits("10", 18);
+    const depositAmount = ethers.parseUnits("10", 18);
+    const depositLimit = ethers.parseUnits("50", 18);
+    const maxDebt = ethers.parseUnits("100", 18);
+    const profitMaxUnlockTime = 300; // 5 minutes seconds
     const protocolFee = 2000; // 20% of total fee
 
-    const vaultTokenName = "Vault Shares FXD";
-    const vaultTokenSymbol = "vFXD";
+    const vaultTokenName = "FXD-fVault-1";
+    const vaultTokenSymbol = "fvFXD1";
 
     const { deployer } = await getNamedAccounts();
-    const recipientAddress = "0x0db96Eb1dc48554bB0f8203A6dE449B2FcCF51a6"
 
     const factoryFile = getTheAbi("Factory");
     const accountantFile = getTheAbi("GenericAccountant");
-    const tokenFile = getTheAbi("Token");
-    const strategyFile = getTheAbi("MockTokenizedStrategy");
+    const strategyFile = getTheAbi("InvestorStrategy");
     const vaultPackageFile = getTheAbi("VaultPackage");
     const investorFile = getTheAbi("Investor");
 
-    const assetAddress = tokenFile.address;
-    const asset = await ethers.getContractAt("Token", assetAddress);
+    const assetAddress = ""; // Real asset address
+    const asset = await ethers.getContractAt("ERC20", assetAddress);
 
     const strategyAddress = strategyFile.address;
-    const strategy = await ethers.getContractAt("MockTokenizedStrategy", strategyAddress);
+    const strategy = await ethers.getContractAt("TokenizedStrategy", strategyAddress);
 
     const investorAddress = investorFile.address;
     const investor = await ethers.getContractAt("Investor", investorAddress);
@@ -53,10 +55,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const factoryAddress = factoryFile.address;
     const factory = await ethers.getContractAt("FactoryPackage", factoryAddress);
 
-    const setInvestorStrategyTx = await investor.setStrategy(strategyAddress);
-    await setInvestorStrategyTx.wait();
-
-    const factoryInitTx = await factory.initialize(vaultPackageAddress, recipientAddress, protocolFee);
+    const factoryInitTx = await factory.initialize(vaultPackageAddress, deployer, protocolFee);
     await factoryInitTx.wait();
 
     const deployVaultTx = await factory.deployVault(
@@ -75,16 +74,17 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
 
-    console.log("Minting tokens...");
-    const mintTx = await asset.mint(deployer, amount, { gasLimit: "0x1000000" });
-    await mintTx.wait(); // Wait for the transaction to be confirmed
-    console.log("Approving tokens...");
-    const approveTx = await asset.approve(vaultAddress, amount, { gasLimit: "0x1000000" });
+    // Approve tokens for vault
+    console.log("Approving tokens for vault...");
+    const approveTx = await asset.approve(vaultAddress, depositAmount, { gasLimit: "0x1000000" });
     await approveTx.wait(); // Wait for the transaction to be confirmed
+
+    // Set deposit limit
     console.log("Setting deposit limit...");
-    const setDepositLimitTx = await vault.setDepositLimit(amount, { gasLimit: "0x1000000" });
+    const setDepositLimitTx = await vault.setDepositLimit(depositLimit, { gasLimit: "0x1000000" });
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
 
+    // Check balances
     console.log("Updating balances...");
     let balanceInShares = await vault.balanceOf(deployer);
     console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
@@ -96,8 +96,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Balance of Vault in Tokens = ", ethers.formatUnits(balanceVaultInTokens, 18));
     let balanceStrategy = await asset.balanceOf(strategy.target);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
-    let recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     let accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
 
@@ -118,26 +116,22 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     balanceStrategy = await asset.balanceOf(strategy.target);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
 
-    let gain = Math.floor(ethers.formatUnits(balanceVaultInTokens, 18) / 2);
-    gain = ethers.parseUnits(gain.toString(), 18);
-
-    // Simulate Strategy
+    // Setup investor
 
     console.log("Depositing to Investor...");
 
     console.log("Approving tokens...");
-    const approveInvestorTx = await asset.approve(investor.target, gain, { gasLimit: "0x1000000" });
+    const approveInvestorTx = await asset.approve(investor.target, totalGain, { gasLimit: "0x1000000" });
     await approveInvestorTx.wait(); // Wait for the transaction to be confirmed
     let blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
     const startDistribution = blockTimestamp + 10;
-    const endDistribution = blockTimestamp + 11;
+    const endDistribution = blockTimestamp + 604800; // +1 week
     console.log("Distribution start time = ", startDistribution);
     console.log("Distribution end time = ", endDistribution);
-
     
     const depositToInvestorTx = await investor.setupDistribution(
-        gain,
+        totalGain,
         startDistribution,
         endDistribution
     );
@@ -145,12 +139,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Sleeping for 10 seconds to allow distribution to start...");
     await new Promise(r => setTimeout(r, 10000));
 
+    // Setup Strategy
     console.log("Adding Strategy to the Vault...");
     const addStrategyTx = await vault.addStrategy(strategy.target, { gasLimit: "0x1000000" });
     await addStrategyTx.wait();
-    console.log("Setting Strategy maxDebt...");
-    const setMaxDebtTx = await strategy.setMaxDebt(ethers.MaxUint256, { gasLimit: "0x1000000" });
-    await setMaxDebtTx.wait();
     console.log("Setting Vault's Strategy maxDebt...");
     const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt, { gasLimit: "0x1000000" });
     await updateMaxDebtForStrategyTx.wait();
@@ -175,26 +167,24 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Vault Balance on Strategy = ", ethers.formatUnits(vaultStrategyBalance, 18));
     let vaultStrategyBalanceInTokens = await strategy.convertToAssets(vaultStrategyBalance);
     console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(vaultStrategyBalanceInTokens, 18));
-    recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
     let fullProfitUnlockDate = (await vault.fullProfitUnlockDate()).toString();
     console.log("Full Profit Unlock Date = ", fullProfitUnlockDate);
 
-    console.log("Creating profit for Strategy...");
-    const distributionTx = await investor.processReport({ gasLimit: "0x1000000" });
-    await distributionTx.wait();
-    console.log("Create report for Strategy...");
+    // Create profit 1
+
+    console.log("Creating profit 1 for Strategy...");
+    console.log("Create report 1 for Strategy...");
     const reportTx = await strategy.report({ gasLimit: "0x1000000" });
     await reportTx.wait();
     blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
-    console.log("Process report for Strategy on Vault...");
+    console.log("Process report 1 for Strategy on Vault...");
     const processReportTx = await vault.processReport(strategy.target, { gasLimit: "0x1000000" });
     await processReportTx.wait();
     fullProfitUnlockDate = (await vault.fullProfitUnlockDate()).toString();
-    console.log("Full Profit Unlock Date = ", fullProfitUnlockDate);
+    console.log("Full Profit 1 Unlock Date = ", fullProfitUnlockDate);
 
     console.log("Updating balances...");
     balanceInShares = await vault.balanceOf(deployer);
@@ -213,8 +203,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Vault Balance on Strategy = ", ethers.formatUnits(vaultStrategyBalance, 18));
     vaultStrategyBalanceInTokens = await strategy.convertToAssets(vaultStrategyBalance);
     console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(vaultStrategyBalanceInTokens, 18));
-    recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
 
@@ -222,15 +210,14 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Sleeping for 60 seconds...");
     await new Promise(r => setTimeout(r, 60000));
 
-    // console.log("Update Vault's Strategy debt...");
-    // const updateDebtTx2 = await vault.updateDebt(strategy.target, 0, { gasLimit: "0x1000000" });
-    // await updateDebtTx2.wait();
-    console.log("Create second report for Strategy after sleeping...");
+    // Create profit 2
+
+    console.log("Create second report 2 for Strategy after sleeping...");
     const reportTx2 = await strategy.report({ gasLimit: "0x1000000" });
     await reportTx2.wait();
     blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
-    console.log("Process second report for Strategy on Vault after sleeping...");
+    console.log("Process second report 2 for Strategy on Vault after sleeping...");
     const processReportTx2 = await vault.processReport(strategy.target, { gasLimit: "0x1000000" });
     await processReportTx2.wait();
 
@@ -251,23 +238,23 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Vault Balance on Strategy = ", ethers.formatUnits(vaultStrategyBalance, 18));
     vaultStrategyBalanceInTokens = await strategy.convertToAssets(vaultStrategyBalance);
     console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(vaultStrategyBalanceInTokens, 18));
-    recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
     fullProfitUnlockDate = (await vault.fullProfitUnlockDate()).toString();
-    console.log("Full Profit Unlock Date = ", fullProfitUnlockDate);
+    console.log("Full Profit 2 Unlock Date = ", fullProfitUnlockDate);
 
     // Sleep for another 60 seconds
     console.log("Sleeping for 60 seconds...");
     await new Promise(r => setTimeout(r, 60000));
 
-    console.log("Create third report for Strategy after sleeping...");
+    // Create profit 3
+
+    console.log("Create third report 3 for Strategy after sleeping...");
     const reportTx3 = await strategy.report({ gasLimit: "0x1000000" });
     await reportTx3.wait();
     blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
-    console.log("Process third report for Strategy on Vault after sleeping...");
+    console.log("Process third report 3 for Strategy on Vault after sleeping...");
     const processReportTx3 = await vault.processReport(strategy.target, { gasLimit: "0x1000000" });
     await processReportTx3.wait();
 
@@ -288,12 +275,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Vault Balance on Strategy = ", ethers.formatUnits(vaultStrategyBalance, 18));
     vaultStrategyBalanceInTokens = await strategy.convertToAssets(vaultStrategyBalance);
     console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(vaultStrategyBalanceInTokens, 18));
-    recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
     fullProfitUnlockDate = (await vault.fullProfitUnlockDate()).toString();
-    console.log("Full Profit Unlock Date = ", fullProfitUnlockDate);
+    console.log("Full Profit 3 Unlock Date = ", fullProfitUnlockDate);
 
     // Simulate a redeem
     console.log("Redeeming...");
@@ -315,8 +300,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
     vaultStrategyBalance = await strategy.balanceOf(vaultAddress);
     console.log("Vault Balance on Strategy in Tokens = ", ethers.formatUnits(vaultStrategyBalanceInTokens, 18));
-    recipientShares = await vault.balanceOf(recipientAddress);
-    console.log("Shares of Fee Recipient = ", ethers.formatUnits(recipientShares, 18));
     accountantShares = await vault.balanceOf(accountantAddress);
     console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
     fullProfitUnlockDate = (await vault.fullProfitUnlockDate()).toString();
@@ -324,21 +307,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
     console.log("Block Timestamp = ", blockTimestamp);
 
-    console.log("Setting deposit limit...");
-    const setDepositLimitTx2 = await vault.setDepositLimit(amount, { gasLimit: "0x1000000" });
-    await setDepositLimitTx2.wait(); // Wait for the transaction to be confirmed
 
-    // const withdrawTxAfter = await vault.withdraw(balanceInTokens, deployer, deployer, 0, [], { gasLimit: "0x1000000" });
-    // // const withdrawTx = await vault.withdraw(withdrawAmount, deployer, deployer, 0, [], { gasLimit: "0x1000000" });
-    // await withdrawTxAfter.wait();
-
-    // Additional initialization steps as needed...
-
-    // // Preview Redeem
-    // console.log("Previewing redeem...");
-    // const sharesAmount = ethers.parseUnits("1000", 18);
-    // let amountPreviewed = await vault.previewRedeem(sharesAmount);
-    // console.log("Amount of tokens previewed = ", ethers.formatUnits(amountPreviewed, 18));
 };
 
 module.exports.tags = ["Init"];

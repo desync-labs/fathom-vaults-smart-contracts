@@ -16,11 +16,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
 
-    const asset = "0x"; // Real asset address
-
-    console.log("WARN: Ensure You set real asset address!!!");
+    const asset = ""; // Real asset address
+    console.log("Asset address: ", asset);
+    
+    console.log("WARN: Ensure to set real asset address!!!");
     console.log("WARN: Ensure BaseStrategy has tokenizedStrategyAddress as constant!!!");
-    console.log("WARN: Ensure InvestorStrategy has Investor address as constant!!!");
     
     console.log("Sleeping for 60 seconds to give a thought...");
     await new Promise(r => setTimeout(r, 60000));

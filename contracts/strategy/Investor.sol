@@ -31,6 +31,12 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     error ZeroAmount();
     error WrongAmount();
     error WrongAsset();
+    error NotStrategy();
+
+    modifier onlyStrategy() {
+        if (msg.sender != address(strategy)) revert NotStrategy();
+        _;
+    }
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -85,7 +91,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
         if (strategyAsset.balanceOf(address(this)) != realDistributionAmount) revert WrongBalance();
     }
 
-    function processReport() external override nonReentrant returns (uint256) {
+    function processReport() external override nonReentrant onlyStrategy returns (uint256) {
         if (lastReport >= distributionEnd) revert DistributionEnded();
         if (block.timestamp < distributionStart) revert DistributionNotStarted();
 
