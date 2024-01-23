@@ -4,7 +4,7 @@ const {
   } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { createStrategy, userDeposit, addDebtToStrategy, addStrategyToVault } = require("./utils/helper");
+const { createStrategy, userDeposit, addDebtToStrategy, addStrategyToVault } = require("../../utils/helper");
 
 describe("Debt Management", function () {
 

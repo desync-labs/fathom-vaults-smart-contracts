@@ -4,7 +4,7 @@ const {
   } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { userDeposit, checkVaultEmpty, initialSetup, createProfit } = require("./utils/helper");
+const { userDeposit, checkVaultEmpty, initialSetup, createProfit } = require("../../utils/helper");
 const { hexlify } = require("ethers");
 
 describe("Vault Contract", function () {   
