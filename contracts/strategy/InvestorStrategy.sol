@@ -53,7 +53,7 @@ contract InvestorStrategy is TokenizedStrategy {
         maxDebt = _maxDebt;
     }
 
-    function _harvestAndReport() external returns (uint256 _totalAssets) {
+    function harvestAndReport() external returns (uint256 _totalAssets) {
         investor.processReport();
         _totalAssets = strategyStorage().asset.balanceOf(address(this));
     }
@@ -69,7 +69,9 @@ contract InvestorStrategy is TokenizedStrategy {
 
     function deployFunds(uint256 _amount) external virtual {}
 
-    function freeFunds(uint256 _amount) external virtual {}
+    function freeFunds(uint256 _amount) external virtual {
+        strategyStorage().asset.safeTransfer(strategyStorage().management, _amount);
+    }
 
     function strategyStorage() internal pure returns (StrategyData storage stor) {
         // Since STORAGE_SLOT is a constant, we have to put a variable
