@@ -68,6 +68,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @notice Set the new accountant address.
     /// @param newAccountant The new accountant address.
     function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newAccountant == address(0)) {
+            revert ZeroAddress();
+        }
+        if (newAccountant == accountant) {
+            revert SameValue();
+        }
         accountant = newAccountant;
         emit UpdatedAccountant(newAccountant);
     }
@@ -76,6 +82,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @dev Will check each strategy to make sure it is active.
     /// @param newDefaultQueue The new default queue array.
     function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
+        uint256 length = newDefaultQueue.length;
+        if (length > MAX_QUEUE) {
+            revert QueueTooLong();
+        }
         // Make sure every strategy in the new queue is active.
         for (uint256 i = 0; i < newDefaultQueue.length; i++) {
             address strategy = newDefaultQueue[i];
@@ -93,6 +103,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// used no matter whats passed in.
     /// @param _useDefaultQueue new value.
     function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
+        if (_useDefaultQueue == useDefaultQueue) {
+            revert SameValue();
+        }
         useDefaultQueue = _useDefaultQueue;
         emit UpdatedUseDefaultQueue(_useDefaultQueue);
     }
@@ -103,6 +116,15 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (shutdown == true) {
             revert InactiveVault();
         }
+        if (_depositLimit == depositLimit) {
+            revert SameValue();
+        }
+        if (_depositLimit < _totalAssets()) {
+            revert TooLow();
+        }
+        if (_depositLimit > type(uint256).max){
+            revert TooHigh();
+        }
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
     }
@@ -110,6 +132,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @notice Set the new minimum total idle.
     /// @param _minimumTotalIdle The new minimum total idle.
     function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minimumTotalIdle == minimumTotalIdle) {
+            revert SameValue();
+        }
+        if (_minimumTotalIdle > type(uint256).max){
+            revert TooHigh();
+        }
         minimumTotalIdle = _minimumTotalIdle;
         emit UpdatedMinimumTotalIdle(_minimumTotalIdle);
     }
@@ -126,6 +154,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Must be less than one year for report cycles
         if (_newProfitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
+        }
+        if (_newProfitMaxUnlockTime == profitMaxUnlockTime) {
+            revert SameValue();
         }
 
         // If setting to 0 we need to reset any locked values.
@@ -189,6 +220,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external override onlyRole(STRATEGY_MANAGER) {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
+        }
+        if (newMaxDebt == strategies[strategy].maxDebt) {
+            revert SameValue();
+        }
+        if (newMaxDebt > type(uint256).max){
+            revert TooHigh();
         }
         strategies[strategy].maxDebt = newMaxDebt;
         emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
