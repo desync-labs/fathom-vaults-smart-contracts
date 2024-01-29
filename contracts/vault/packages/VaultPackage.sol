@@ -11,8 +11,6 @@ import "../VaultStorage.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IVaultInit.sol";
 import "../interfaces/IVaultEvents.sol";
-import "../interfaces/IDepositLimitModule.sol";
-import "../interfaces/IWithdrawLimitModule.sol";
 import "../../accountant/interfaces/IAccountant.sol";
 import "../../factory/interfaces/IFactory.sol";
 import "../../strategy/interfaces/IStrategy.sol";
@@ -100,41 +98,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     }
 
     /// @notice Set the new deposit limit.
-    /// @dev Can not be changed if a depositLimitModule
-    /// is set or if shutdown.
     /// @param _depositLimit The new deposit limit.
     function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
-        if (depositLimitModule != address(0)) {
-            revert UsingModule();
-        }
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
-    }
-
-    /// @notice Set a contract to handle the deposit limit.
-    /// @dev The default `depositLimit` will need to be set to
-    /// max uint256 since the module will override it.
-    /// @param _depositLimitModule Address of the module.
-    function setDepositLimitModule(address _depositLimitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (shutdown == true) {
-            revert InactiveVault();
-        }
-        if (depositLimit != type(uint256).max) {
-            revert UsingDepositLimit();
-        }
-        depositLimitModule = _depositLimitModule;
-        emit UpdatedDepositLimitModule(_depositLimitModule);
-    }
-
-    /// @notice Set a contract to handle the withdraw limit.
-    /// @dev This will override the default `maxWithdraw`.
-    /// @param _withdrawLimitModule Address of the module.
-    function setWithdrawLimitModule(address _withdrawLimitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        withdrawLimitModule = _withdrawLimitModule;
-        emit UpdatedWithdrawLimitModule(_withdrawLimitModule);
     }
 
     /// @notice Set the new minimum total idle.
@@ -232,12 +202,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
         // Shutdown the vault.
         shutdown = true;
-
-        // Set deposit limit to 0.
-        if (depositLimitModule != address(0)) {
-            depositLimitModule = address(0);
-            emit UpdatedDepositLimitModule(address(0));
-        }
 
         depositLimit = 0;
         emit UpdatedDepositLimit(0);
@@ -1466,15 +1430,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Get the max amount for the owner if fully liquid.
         uint256 maxAssets = _convertToAssets(sharesBalanceOf[owner], Rounding.ROUND_DOWN);
 
-        // If there is a withdraw limit module use that.
-        if (withdrawLimitModule != address(0)) {
-            uint256 moduleLimit = IWithdrawLimitModule(withdrawLimitModule).availableWithdrawLimit(owner, _maxLoss, _strategies);
-            if (moduleLimit < maxAssets) {
-                maxAssets = moduleLimit;
-            }
-            return maxAssets;
-        }
-
         // See if we have enough idle to service the withdraw.
         uint256 currentIdle = totalIdle;
         if (maxAssets > currentIdle) {
@@ -1656,14 +1611,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             return 0;
         }
 
-        // If there is a deposit limit module set use that.
-        address currentDepositLimitModule = depositLimitModule;
-        if (currentDepositLimitModule != address(0)) {
-            // Use the deposit limit module logic
-            return IDepositLimitModule(currentDepositLimitModule).availableDepositLimit(receiver);
-        }
-
-        // Else use the standard flow.
         uint256 currentTotalAssets = _totalAssets();
         uint256 currentDepositLimit = depositLimit;
         if (currentTotalAssets >= currentDepositLimit) {
