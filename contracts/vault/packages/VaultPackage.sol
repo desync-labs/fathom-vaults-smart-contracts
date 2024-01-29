@@ -1159,11 +1159,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         address[] memory _strategies
     ) internal returns (uint256) {
         _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
-        if (withdrawLimitModule != address(0)) {
-            uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
-            if (assets > maxWithdrawAmount) {
-                revert ExceedWithdrawLimit(maxWithdrawAmount);
-            }
+        uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
+        if (assets > maxWithdrawAmount) {
+            revert ExceedWithdrawLimit(maxWithdrawAmount);
         }
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);
