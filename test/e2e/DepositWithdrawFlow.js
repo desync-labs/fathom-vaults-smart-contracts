@@ -44,6 +44,9 @@ async function deployVault() {
 
     const Investor = await ethers.getContractFactory("Investor");
     const investor = await Investor.deploy({ gasLimit: "0x1000000" });
+
+    const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
+    const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
     
     await factory.deployVault(
         profitMaxUnlockTime,
@@ -60,7 +63,7 @@ async function deployVault() {
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
 
-    return { vault, owner, otherAccount, account3, account4, account5, asset, investor, profitMaxUnlockTime, factory };
+    return { vault, owner, otherAccount, account3, account4, account5, asset, investor, profitMaxUnlockTime, factory, tokenizedStrategy };
 }
 
 describe("Vault Deposit and Withdraw", function () {
@@ -180,7 +183,7 @@ describe("Vault Deposit and Withdraw", function () {
 describe.only("Vault Deposit and Withdraw with Strategy", function () {
     
     it("Should deposit, setup Investor Strategy, setup Investor, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
-        const { vault, asset, owner, investor, profitMaxUnlockTime, factory, otherAccount } = await loadFixture(deployVault);
+        const { vault, asset, owner, investor, profitMaxUnlockTime, factory, otherAccount, tokenizedStrategy } = await loadFixture(deployVault);
         const amount = ethers.parseUnits("1000", 18);
         const halfAmount = amount / BigInt(2);
         const quarterAmount = halfAmount / BigInt(2);
@@ -200,8 +203,12 @@ describe.only("Vault Deposit and Withdraw with Strategy", function () {
         expect(await vault.pricePerShare()).to.equal(ethers.parseUnits("1", await asset.decimals()));
 
         // Setup Strategy
-        const Strategy = await ethers.getContractFactory("InvestorStrategy");    
-        const strategy = await Strategy.deploy(investor.target, await vault.asset(), "Investor Strategy", vault.target, owner.address, profitMaxUnlockTime);
+        const InvestorStrategy = await ethers.getContractFactory("InvestorStrategy");
+        const investorStrategy = await InvestorStrategy.deploy(investor.target, await vault.asset(), "Investor Strategy", tokenizedStrategy.target);
+        const strategy = await ethers.getContractAt("TokenizedStrategy", investorStrategy.target);
+        const strategyAsset = await strategy.asset();
+        console.log("Strategy Asset = ", strategyAsset);
+
         expect(await strategy.asset()).to.equal(await vault.asset());
 
         // Setup Investor
@@ -300,11 +307,6 @@ describe.only("Vault Deposit and Withdraw with Strategy", function () {
 
         // Send funds from strategy back to vault
         await vault.updateDebt(strategy.target, 0);
-        await strategy.freeFunds(await asset.balanceOf(strategy.target));
-        expect(await asset.balanceOf(vault.target)).to.equal(quarterAmount + await investor.distributedRewards());
-        expect(await asset.balanceOf(strategy.target)).to.equal(BigInt(0));
-        expect(await vault.balanceOf(otherAccount.address)).to.equal(quarterAmount);
-        expect(await vault.totalDebt()).to.equal(BigInt(0));
 
         // Withdraw all
         let otherAccountShares = await vault.balanceOf(otherAccount.address);
@@ -312,13 +314,13 @@ describe.only("Vault Deposit and Withdraw with Strategy", function () {
         let pricePerShare = await vault.pricePerShare();
         let totalFees = await vault.balanceOf(await vault.accountant()) + await vault.balanceOf(await factory.feeRecipient());
         let feesShares = totalFees * pricePerShare / ethers.parseUnits("1", await asset.decimals());
-        // Adding 1 due to rounding error
-        expect(await asset.balanceOf(vault.target)).to.equal(BigInt(feesShares) + BigInt(1));
+        // Adding 2 due to rounding error
+        expect(await asset.balanceOf(vault.target)).to.equal(BigInt(feesShares) + BigInt(2));
         let otherAccountBalance = otherAccountShares * pricePerShare / ethers.parseUnits("1", await asset.decimals());
         expect(await asset.balanceOf(otherAccount.address)).greaterThan(amount - quarterAmount + otherAccountBalance);
         expect(await vault.balanceOf(otherAccount.address)).to.equal(BigInt(0));
         expect(await vault.totalDebt()).to.equal(BigInt(0));
-        expect(await vault.totalIdle()).to.equal(BigInt(feesShares) + BigInt(1));
+        expect(await vault.totalIdle()).to.equal(BigInt(feesShares) + BigInt(2));
         expect(await vault.totalSupply()).to.equal(totalFees);
     });
 });

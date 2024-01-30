@@ -96,7 +96,7 @@ contract TokenizedStrategy is ReentrancyGuard {
     /// @notice Address of the previously deployed Vault factory that the
     /// @notice protocol fee config is retrieved from.
     /// @notice NOTE: This will be set to deployed factory. deterministic address for testing is used now
-    address public constant FACTORY = 0x9432F4b35fD37b8776CfF318633B81bcDa11E98C;
+    address public immutable FACTORY;
 
     /// @dev Custom storage slot that will be used to store the
     /// `StrategyData` struct that holds each strategies
@@ -184,8 +184,9 @@ contract TokenizedStrategy is ReentrancyGuard {
 
     /// @dev On contract creation we set `asset` for this contract to address(1).
     /// This prevents it from ever being initialized in the future.
-    constructor() {
+    constructor(address _factory) {
         _strategyStorage().asset = ERC20(address(1));
+        FACTORY = _factory;
     }
 
     /// @notice Used to initialize storage for a newly deployed strategy.

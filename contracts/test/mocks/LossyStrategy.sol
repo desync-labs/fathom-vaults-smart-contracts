@@ -38,8 +38,9 @@ contract LossyStrategy is MockTokenizedStrategy {
         address _management,
         address _keeper,
         address _vault,
-        uint32 _profitMaxUnlockTime
-    ) MockTokenizedStrategy(_asset, _name, _management, _keeper, _profitMaxUnlockTime) {
+        uint32 _profitMaxUnlockTime,
+        address _factory
+    ) MockTokenizedStrategy(_asset, _name, _management, _keeper, _profitMaxUnlockTime, _factory) {
         yieldSource = address(new YieldSource(_asset));
         ERC20(_asset).safeApprove(yieldSource, type(uint256).max);
         // So we can record losses when it happens.
