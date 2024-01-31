@@ -98,7 +98,7 @@ abstract contract BaseStrategy {
      * and always be checked before any integration with the Strategy.
      */
     // NOTE: This is a holder address based on expected deterministic location for testing
-    address public constant tokenizedStrategyAddress = 0x0000000000000000000000000000000000000000;
+    address public immutable tokenizedStrategyAddress;
 
     /*//////////////////////////////////////////////////////////////
                             IMMUTABLES
@@ -133,8 +133,9 @@ abstract contract BaseStrategy {
      * @param _asset Address of the underlying asset.
      * @param _name Name the strategy will use.
      */
-    constructor(address _asset, string memory _name) {
+    constructor(address _asset, string memory _name, address _tokenizedStrategyAddress) {
         asset = ERC20(_asset);
+        tokenizedStrategyAddress = _tokenizedStrategyAddress;
 
         // Set instance of the implementation for internal use.
         TokenizedStrategy = ITokenizedStrategy(address(this));
@@ -149,7 +150,7 @@ abstract contract BaseStrategy {
             sstore(
                 // keccak256('eip1967.proxy.implementation' - 1)
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                tokenizedStrategyAddress
+                _tokenizedStrategyAddress
             )
         }
     }
