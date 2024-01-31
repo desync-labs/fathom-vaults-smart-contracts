@@ -11,6 +11,7 @@ import "../VaultStorage.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IVaultInit.sol";
 import "../interfaces/IVaultEvents.sol";
+import "../interfaces/ILimitModule.sol";
 import "../../accountant/interfaces/IAccountant.sol";
 import "../../factory/interfaces/IFactory.sol";
 import "../../strategy/interfaces/IStrategy.sol";
@@ -71,9 +72,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (newAccountant == address(0)) {
             revert ZeroAddress();
         }
-        if (newAccountant == accountant) {
-            revert SameValue();
-        }
         accountant = newAccountant;
         emit UpdatedAccountant(newAccountant);
     }
@@ -103,41 +101,43 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// used no matter whats passed in.
     /// @param _useDefaultQueue new value.
     function setUseDefaultQueue(bool _useDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
-        if (_useDefaultQueue == useDefaultQueue) {
-            revert SameValue();
-        }
         useDefaultQueue = _useDefaultQueue;
         emit UpdatedUseDefaultQueue(_useDefaultQueue);
     }
 
     /// @notice Set the new deposit limit.
     /// @param _depositLimit The new deposit limit.
-    function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    // solhint-disable-next-line code-complexity
+    function setDepositLimitAndModule(uint256 _depositLimit, address _limitModule) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
-        if (_depositLimit == depositLimit) {
-            revert SameValue();
+        if (_depositLimit == 0) {
+            revert ZeroValue();
         }
-        if (_depositLimit < _totalAssets()) {
-            revert TooLow();
+        if (limitModule != address(0)) {
+            revert UsingModule();
         }
-        if (_depositLimit > type(uint256).max){
-            revert TooHigh();
-        }
+
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
+
+        if (_limitModule != address(0)) {
+            // Check if _limitModule implements ILimitModule.availableDepositLimit
+            try ILimitModule(_limitModule).availableDepositLimit(msg.sender) returns (uint256) {
+                // If this line is reached, the function exists
+            } catch {
+                revert InvalidModule();
+            }
+
+            limitModule = _limitModule;
+            emit UpdatedLimitModule(_limitModule);
+        }
     }
 
     /// @notice Set the new minimum total idle.
     /// @param _minimumTotalIdle The new minimum total idle.
     function setMinimumTotalIdle(uint256 _minimumTotalIdle) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_minimumTotalIdle == minimumTotalIdle) {
-            revert SameValue();
-        }
-        if (_minimumTotalIdle > type(uint256).max){
-            revert TooHigh();
-        }
         minimumTotalIdle = _minimumTotalIdle;
         emit UpdatedMinimumTotalIdle(_minimumTotalIdle);
     }
@@ -154,9 +154,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Must be less than one year for report cycles
         if (_newProfitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
-        }
-        if (_newProfitMaxUnlockTime == profitMaxUnlockTime) {
-            revert SameValue();
         }
 
         // If setting to 0 we need to reset any locked values.
@@ -221,12 +218,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
         }
-        if (newMaxDebt == strategies[strategy].maxDebt) {
-            revert SameValue();
-        }
-        if (newMaxDebt > type(uint256).max){
-            revert TooHigh();
-        }
         strategies[strategy].maxDebt = newMaxDebt;
         emit UpdatedMaxDebtForStrategy(msg.sender, strategy, newMaxDebt);
     }
@@ -239,6 +230,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
         // Shutdown the vault.
         shutdown = true;
+
+        // Set deposit limit to 0.
+        if (limitModule != address(0)) {
+            limitModule = address(0);
+            emit UpdatedLimitModule(address(0));
+        }
 
         depositLimit = 0;
         emit UpdatedDepositLimit(0);
@@ -1077,7 +1074,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert InactiveVault();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit(_maxDeposit(recipient));
+            revert ExceedLimit(_maxDeposit(recipient));
         }
         if (assets == 0) {
             revert ZeroValue();
@@ -1112,7 +1109,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert ZeroValue();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit(_maxDeposit(recipient));
+            revert ExceedLimit(_maxDeposit(recipient));
         }
 
         // Transfer the tokens to the vault first.
@@ -1162,7 +1159,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
         uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
         if (assets > maxWithdrawAmount) {
-            revert ExceedWithdrawLimit(maxWithdrawAmount);
+            revert ExceedLimit(maxWithdrawAmount);
         }
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);
@@ -1467,6 +1464,15 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Get the max amount for the owner if fully liquid.
         uint256 maxAssets = _convertToAssets(sharesBalanceOf[owner], Rounding.ROUND_DOWN);
 
+        // If there is a limit module use that.
+        if (limitModule != address(0)) {
+            uint256 moduleLimit = ILimitModule(limitModule).availableWithdrawLimit(owner, _maxLoss, _strategies);
+            if (moduleLimit < maxAssets) {
+                maxAssets = moduleLimit;
+            }
+            return maxAssets;
+        }
+
         // See if we have enough idle to service the withdraw.
         uint256 currentIdle = totalIdle;
         if (maxAssets > currentIdle) {
@@ -1646,6 +1652,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     function _maxDeposit(address receiver) internal view returns (uint256) {
         if (receiver == address(this) || receiver == address(0)) {
             return 0;
+        }
+
+        // If there is a limit module set use that.
+        address currentDepositLimitModule = limitModule;
+        if (currentDepositLimitModule != address(0)) {
+            // Use the deposit limit module logic
+            return ILimitModule(currentDepositLimitModule).availableDepositLimit(receiver);
         }
 
         uint256 currentTotalAssets = _totalAssets();

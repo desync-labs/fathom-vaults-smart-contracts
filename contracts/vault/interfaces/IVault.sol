@@ -13,7 +13,7 @@ interface IVault is IERC4626 {
 
     function setUseDefaultQueue(bool useDefaultQueue) external;
 
-    function setDepositLimit(uint256 depositLimit) external;
+    function setDepositLimitAndModule(uint256 depositLimit, address limitModule) external;
 
     function setMinimumTotalIdle(uint256 minimumTotalIdle) external;
 

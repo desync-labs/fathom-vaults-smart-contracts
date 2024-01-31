@@ -51,6 +51,8 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
 
     /// @notice Contract that charges fees and can give refunds.
     address public accountant;
+    /// @notice Contract to control the deposit and withdraw limits.
+    address public limitModule;
 
     /// @notice Factory address
     address public factory;

@@ -45,7 +45,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const factoryAddress = factoryFile.address;
     const factory = await ethers.getContractAt("FactoryPackage", factoryAddress);
 
-    const factoryInitTx = await factory.initialize(vaultPackageAddress, deployer, protocolFee, { gasLimit: "0x1000000" });
+    const factoryInitTx = await factory.initialize(vaultPackageAddress, deployer, protocolFee);
     await factoryInitTx.wait();
 
     const deployVaultTx = await factory.deployVault(
@@ -54,8 +54,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         vaultTokenName,
         vaultTokenSymbol,
         accountantAddress,
-        deployer, 
-        { gasLimit: "0x1000000" }
+        deployer
     );
     await deployVaultTx.wait();
     const vaults = await factory.getVaults();
@@ -66,14 +65,14 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("The Last Vault Address = ", vaultAddress);
 
     console.log("Setting deposit limit...");
-    const setDepositLimitTx = await vault.setDepositLimit(depositLimit, { gasLimit: "0x1000000" });
+    const setDepositLimitTx = await vault.setDepositLimitAndModule(depositLimit, ethers.ZeroAddress);
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
 
     console.log("Adding Strategy to the Vault...");
-    const addStrategyTx = await vault.addStrategy(strategy.target, { gasLimit: "0x1000000" });
+    const addStrategyTx = await vault.addStrategy(strategy.target);
     await addStrategyTx.wait();
     console.log("Setting Vault's Strategy maxDebt...");
-    const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt, { gasLimit: "0x1000000" });
+    const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt);
     await updateMaxDebtForStrategyTx.wait();
 };
 

@@ -27,4 +27,6 @@ interface IVaultEvents {
     event UpdatedProfitMaxUnlockTime(uint256 profitMaxUnlockTime);
     event DebtPurchased(address indexed strategy, uint256 amount);
     event Shutdown();
+
+    event UpdatedLimitModule(address limitModule);
 }

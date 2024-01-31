@@ -21,7 +21,7 @@ describe("Buy Debt", function () {
         const Asset = await ethers.getContractFactory("Token");
         const assetSymbol = 'FXD';
         const vaultDecimals = 18;
-        const asset = await Asset.deploy(assetSymbol, vaultDecimals, { gasLimit: "0x1000000" });
+        const asset = await Asset.deploy(assetSymbol, vaultDecimals);
 
         const assetAddress = asset.target;
 
@@ -29,16 +29,16 @@ describe("Buy Debt", function () {
         const protocolFee = 2000; // 20% of total fee
 
         const Accountant = await ethers.getContractFactory("GenericAccountant");
-        const accountant = await Accountant.deploy(performanceFee, owner.address, owner.address, { gasLimit: "0x1000000" });
+        const accountant = await Accountant.deploy(performanceFee, owner.address, owner.address);
 
         const VaultPackage = await ethers.getContractFactory("VaultPackage");
-        const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
+        const vaultPackage = await VaultPackage.deploy();
 
         const FactoryPackage = await ethers.getContractFactory("FactoryPackage");
-        const factoryPackage = await FactoryPackage.deploy({ gasLimit: "0x1000000" });
+        const factoryPackage = await FactoryPackage.deploy();
 
         const Factory = await ethers.getContractFactory("Factory");
-        const factoryProxy = await Factory.deploy(factoryPackage.target, owner.address, "0x", { gasLimit: "0x1000000" });
+        const factoryProxy = await Factory.deploy(factoryPackage.target, owner.address, "0x");
 
         const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
         await factory.initialize(vaultPackage.target, owner.address, protocolFee);
@@ -58,14 +58,14 @@ describe("Buy Debt", function () {
         const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
         console.log("The Last Vault Address = ", vaultAddress);
 
-        return { vault, owner, otherAccount, asset };
+        return { vault, owner, otherAccount, asset, factory };
     }
 
     it("should revert buy debt if strategy not active", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         await userDeposit(owner, vault, asset, amount);
 
         // Approve vault to pull funds.
@@ -77,10 +77,10 @@ describe("Buy Debt", function () {
     });
 
     it("should revert buy debt with no debt", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         await vault.connect(owner).addStrategy(strategy.target);
         await userDeposit(owner, vault, asset, amount);
     
@@ -92,12 +92,12 @@ describe("Buy Debt", function () {
     });
 
     it("should revert buy debt with zero amount", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const maxDebt = 10000;
         const debt = 100;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         const strategyParams = await addStrategyToVault(owner, strategy, vault);
         await userDeposit(owner, vault, asset, amount);
         await addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategyParams, vault);
@@ -110,12 +110,12 @@ describe("Buy Debt", function () {
     });
     
     it("should withdraw current debt when buying more than available", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const maxDebt = 10000;
         const debt = 100;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         const strategyParams = await addStrategyToVault(owner, strategy, vault);
         await userDeposit(owner, vault, asset, amount);
         await addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategyParams, vault);
@@ -145,12 +145,12 @@ describe("Buy Debt", function () {
     });
 
     it("should buy full debt", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const maxDebt = 10000;
         const debt = 100;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         const strategyParams = await addStrategyToVault(owner, strategy, vault);
         await userDeposit(owner, vault, asset, amount);
         await addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategyParams, vault);
@@ -183,12 +183,12 @@ describe("Buy Debt", function () {
     });    
     
     it("should buy half the debt", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault);
+        const { vault, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const maxDebt = 10000;
         const debt = 100;
-        await vault.setDepositLimit(amount);
-        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         const strategyParams = await addStrategyToVault(owner, strategy, vault);
         await userDeposit(owner, vault, asset, amount);
         await addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategyParams, vault);
