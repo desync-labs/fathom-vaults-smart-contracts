@@ -18,6 +18,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const asset = "0x0000000000000000000000000000000000000000"; // Real asset address
 
+    if (asset === "0x0000000000000000000000000000000000000000") {
+        console.log("3_investor_strategy - Error: Please provide a real asset address");
+        return;
+    }
+
     const investorFile = getTheAbi("Investor");
     const investorAddress = investorFile.address;
     const investor = await ethers.getContractAt("Investor", investorAddress);
