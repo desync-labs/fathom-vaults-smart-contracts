@@ -65,7 +65,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("The Last Vault Address = ", vaultAddress);
 
     console.log("Setting deposit limit...");
-    const setDepositLimitTx = await vault.setDepositLimitAndModule(depositLimit, ethers.ZeroAddress);
+    const setDepositLimitTx = await vault.setDepositLimit(depositLimit);
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
 
     console.log("Adding Strategy to the Vault...");

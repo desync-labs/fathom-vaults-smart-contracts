@@ -15,7 +15,7 @@ error ERC20PermitInvalidSignature(address recoveredAddress);
 error InsufficientShares(uint256 balanceOfOwner);
 error InactiveStrategy(address strategy);
 error InactiveVault();
-error ExceedLimit(uint256 recipientMaxDeposit);
+error ExceedLimit(uint256 recipientMaxLimit);
 error ZeroValue();
 error StrategyDebtIsLessThanAssetsNeeded(uint256 strageyCurrentDebt);
 error MaxLoss();

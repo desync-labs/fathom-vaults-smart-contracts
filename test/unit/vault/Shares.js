@@ -82,7 +82,7 @@ describe("Vault Contract", function () {
         await asset.mint(owner.address, amount);
         await asset.approve(vault.target, amount);
     
-        await vault.connect(owner).setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.connect(owner).setDepositLimit(amount);
     
         await expect(vault.connect(owner).deposit(amount, owner.address))
             .to.emit(vault, 'Deposit')
@@ -102,7 +102,7 @@ describe("Vault Contract", function () {
         await asset.mint(owner.address, amount);
         await asset.approve(vault.target, amount);
 
-        await vault.setDepositLimitAndModule(amount - 1, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount - 1);
     
         await expect(vault.connect(owner).deposit(amount, owner.address))
             .to.be.revertedWithCustomError(vault, "ExceedLimit");
@@ -113,7 +113,7 @@ describe("Vault Contract", function () {
         const amount = 1000;
         const depositLimit = amount / 2;
     
-        await vault.setDepositLimitAndModule(depositLimit, ethers.ZeroAddress);
+        await vault.setDepositLimit(depositLimit);
         await asset.approve(vault.target, amount);
     
         await expect(vault.connect(owner).deposit(ethers.MaxUint256, owner.address))
@@ -126,7 +126,7 @@ describe("Vault Contract", function () {
         await asset.mint(owner.address, amount);
         await asset.approve(vault.target, amount);
 
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await expect(vault.connect(owner).deposit(amount, otherAccount))
             .to.emit(vault, 'Deposit')
@@ -163,7 +163,7 @@ describe("Vault Contract", function () {
         const amount = 1000;
         await asset.mint(owner.address, amount);    
         await asset.approve(vault.target, amount);
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await expect(vault.connect(owner).mint(amount, owner.address))
             .to.emit(vault, 'Deposit')
@@ -179,7 +179,7 @@ describe("Vault Contract", function () {
         const { vault, owner } = await loadFixture(deployVault);
         const amount = 1000;
 
-        await vault.setDepositLimitAndModule(amount - 1, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount - 1);
     
         await expect(vault.connect(owner).mint(amount, owner.address))
             .to.be.revertedWithCustomError(vault, "ExceedLimit");
@@ -190,7 +190,7 @@ describe("Vault Contract", function () {
         const amount = 1000;
         await asset.mint(owner.address, amount);    
         await asset.approve(vault.target, amount);
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await expect(vault.connect(owner).mint(amount, otherAccount.address))
             .to.emit(vault, 'Deposit')
@@ -207,7 +207,7 @@ describe("Vault Contract", function () {
     it("should withdraw successfully", async function () {
         const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
 
         await userDeposit(owner, vault, asset, amount);
     
@@ -225,7 +225,7 @@ describe("Vault Contract", function () {
         const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
         const shares = amount + 1;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -244,7 +244,7 @@ describe("Vault Contract", function () {
     it("should withdraw to delegate", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -263,7 +263,7 @@ describe("Vault Contract", function () {
     it("should withdraw with delegation and sufficient allowance", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount,);
     
@@ -282,7 +282,7 @@ describe("Vault Contract", function () {
     it("should revert on withdraw with delegation and insufficient allowance", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -293,7 +293,7 @@ describe("Vault Contract", function () {
     it("should redeem successfully", async function () {
         const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -309,7 +309,7 @@ describe("Vault Contract", function () {
     it("should revert on redeem with insufficient shares", async function () {
         const { vault, owner, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
         const redemptionAmount = amount + 1;
     
         await userDeposit(owner, vault, asset, amount);
@@ -329,7 +329,7 @@ describe("Vault Contract", function () {
     it("should redeem to delegate", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -348,7 +348,7 @@ describe("Vault Contract", function () {
     it("should redeem with delegation and sufficient allowance", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
         await vault.connect(owner).approve(otherAccount.address, amount);
@@ -368,7 +368,7 @@ describe("Vault Contract", function () {
     it("should revert on redeem with delegation and insufficient allowance", async function () {
         const { vault, owner, otherAccount, asset } = await loadFixture(deployVault);
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
     
         await userDeposit(owner, vault, asset, amount);
     
@@ -382,7 +382,7 @@ describe("Vault Contract", function () {
     
         const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
         await vault.connect(owner).grantRole(DEFAULT_ADMIN_ROLE, otherAccount.address);
-        await expect(vault.connect(otherAccount).setDepositLimitAndModule(depositLimit, ethers.ZeroAddress))
+        await expect(vault.connect(otherAccount).setDepositLimit(depositLimit))
             .to.emit(vault, 'UpdatedDepositLimit')
             .withArgs(depositLimit);
     
@@ -394,7 +394,7 @@ describe("Vault Contract", function () {
     it("should mint shares with zero total supply and positive assets", async function () {
         const { vault, owner, asset, factory } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
         const amount = 1000;
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
         const maxDebt = amount;
         const debt = amount / 10;
         const firstProfit = amount / 10;

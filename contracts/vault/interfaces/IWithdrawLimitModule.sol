@@ -3,7 +3,6 @@
 
 pragma solidity 0.8.19;
 
-interface ILimitModule {
-    function availableDepositLimit(address receiver) external view returns (uint256);
+interface IWithdrawLimitModule {
     function availableWithdrawLimit(address owner, uint256 maxLoss, address[] calldata strategies) external view returns (uint256);
 }

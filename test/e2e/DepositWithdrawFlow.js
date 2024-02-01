@@ -192,7 +192,7 @@ describe.only("Vault Deposit and Withdraw with Strategy", function () {
         await asset.mint(otherAccount.address, amount);
         await asset.approve(vault.target, amount);
         await asset.connect(otherAccount).approve(vault.target, amount);
-        await vault.setDepositLimitAndModule(amount, ethers.ZeroAddress);
+        await vault.setDepositLimit(amount);
         await vault.connect(otherAccount).deposit(quarterAmount, otherAccount.address);
 
         expect(await vault.totalSupply()).to.equal(quarterAmount);
