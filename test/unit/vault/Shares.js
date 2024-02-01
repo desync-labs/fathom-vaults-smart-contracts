@@ -65,8 +65,8 @@ describe("Vault Contract", function () {
         const { vault, otherAccount } = await loadFixture(deployVault);
         const amount = 1000;
 
-        await expect(vault.connect(otherAccount).deposit(amount, vault.target)).to.be.revertedWithCustomError(vault, "ExceedLimit");
-        await expect(vault.connect(otherAccount).deposit(amount, ethers.ZeroAddress)).to.be.revertedWithCustomError(vault, "ExceedLimit");
+        await expect(vault.connect(otherAccount).deposit(amount, vault.target)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
+        await expect(vault.connect(otherAccount).deposit(amount, ethers.ZeroAddress)).to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
 
     it("should revert deposit with zero funds", async function () {
@@ -105,7 +105,7 @@ describe("Vault Contract", function () {
         await vault.setDepositLimit(amount - 1);
     
         await expect(vault.connect(owner).deposit(amount, owner.address))
-            .to.be.revertedWithCustomError(vault, "ExceedLimit");
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
 
     it("should revert when deposit all exceeds deposit limit", async function () {
@@ -117,7 +117,7 @@ describe("Vault Contract", function () {
         await asset.approve(vault.target, amount);
     
         await expect(vault.connect(owner).deposit(ethers.MaxUint256, owner.address))
-            .to.be.revertedWithCustomError(vault, "ExceedLimit");
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should deposit to delegate", async function () {
@@ -145,9 +145,9 @@ describe("Vault Contract", function () {
         const shares = 100;
     
         await expect(vault.connect(owner).mint(shares, vault.target))
-            .to.be.revertedWithCustomError(vault, "ExceedLimit");
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
         await expect(vault.connect(owner).mint(shares, ethers.ZeroAddress))
-            .to.be.revertedWithCustomError(vault, "ExceedLimit");
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should revert mint with zero funds", async function () {
@@ -182,7 +182,7 @@ describe("Vault Contract", function () {
         await vault.setDepositLimit(amount - 1);
     
         await expect(vault.connect(owner).mint(amount, owner.address))
-            .to.be.revertedWithCustomError(vault, "ExceedLimit");
+            .to.be.revertedWithCustomError(vault, "ExceedDepositLimit");
     });
     
     it("should mint to delegate", async function () {

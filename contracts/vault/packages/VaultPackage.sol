@@ -1086,7 +1086,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert InactiveVault();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedLimit(_maxDeposit(recipient));
+            revert ExceedDepositLimit(_maxDeposit(recipient));
         }
         if (assets == 0) {
             revert ZeroValue();
@@ -1121,7 +1121,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert ZeroValue();
         }
         if (assets > _maxDeposit(recipient)) {
-            revert ExceedLimit(_maxDeposit(recipient));
+            revert ExceedDepositLimit(_maxDeposit(recipient));
         }
 
         // Transfer the tokens to the vault first.
@@ -1171,7 +1171,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
         uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
         if (assets > maxWithdrawAmount) {
-            revert ExceedLimit(maxWithdrawAmount);
+            revert ExceedWithdrawLimit(maxWithdrawAmount);
         }
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);
