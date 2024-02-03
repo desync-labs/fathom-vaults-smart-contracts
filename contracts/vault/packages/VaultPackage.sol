@@ -70,8 +70,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @notice Set the new accountant address.
     /// @param newAccountant The new accountant address.
     function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (newAccountant == address(0)) {
-            revert ZeroAddress();
+        if (newAccountant == accountant) {
+            revert SameAccountant();
         }
         accountant = newAccountant;
         emit UpdatedAccountant(newAccountant);
