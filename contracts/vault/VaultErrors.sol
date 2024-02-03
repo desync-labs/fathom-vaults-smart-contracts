@@ -37,4 +37,4 @@ error UsingDepositLimit();
 error ProfitUnlockTimeTooLong();
 error QueueTooLong();
 error UsingModule();
-error InvalidModule();
+error SameAccountant();
