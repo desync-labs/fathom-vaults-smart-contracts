@@ -81,7 +81,7 @@ contract LossyStrategy is MockTokenizedStrategy {
         }
     }
 
-    function harvestAndReport() external override returns (uint256) {
+    function harvestAndReport() external view override returns (uint256) {
         return
             strategyStorage().asset.balanceOf(address(this)) +
             strategyStorage().asset.balanceOf(yieldSource);
