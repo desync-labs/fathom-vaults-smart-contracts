@@ -16,8 +16,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
     // The pool to deposit and withdraw through.
-    IPool public constant lendingPool =
-        IPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+    IPool public immutable lendingPool;
 
     // To get the Supply cap of an asset.
     uint256 internal constant SUPPLY_CAP_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFF000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // prettier-ignore
@@ -42,8 +41,12 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper {
     constructor(
         address _asset,
         string memory _name,
-        address _tokenizedStrategyAddress
+        address _tokenizedStrategyAddress,
+        address _lendingPool
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+        // Set the lending pool.
+        lendingPool = IPool(_lendingPool);
+        
         // Set the aToken based on the asset we are using.
         aToken = IAToken(lendingPool.getReserveData(_asset).aTokenAddress);
 
@@ -63,6 +66,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper {
         // We will use the minAmountToSell mapping instead.
         base = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
         router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+
     }
 
     /**
