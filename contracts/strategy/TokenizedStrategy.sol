@@ -226,7 +226,7 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Set the initial domain separator for permit functions
         stor.initialDomainSeparator = _computeDomainSeparator();
 
-        // Default to a 7 day profit unlock period
+        // Default to a 7 days profit unlock period
         stor.profitMaxUnlockTime = 7 days;
         // Set address to receive performance fees.
         // Can't be address(0) or we will be burning fees.
@@ -234,8 +234,8 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Can't mint shares to its self because of profit locking.
         require(_performanceFeeRecipient != address(this), "self");
         stor.performanceFeeRecipient = _performanceFeeRecipient;
-        // Default to a 10% performance fee.
-        stor.performanceFee = 1_000;
+        // Default to a 0% performance fee.
+        stor.performanceFee = 0;
         // Set last report to this block.
         stor.lastReport = uint128(block.timestamp);
 
