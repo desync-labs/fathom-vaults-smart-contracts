@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import {ERC4626BaseStrategy, IERC20} from "./ERC4626BaseStrategy.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ERC4626BaseStrategy, IERC20 } from "./ERC4626BaseStrategy.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract ERC4626BaseStrategyMock is ERC4626BaseStrategy {
     using Math for uint256;
@@ -15,10 +15,7 @@ abstract contract ERC4626BaseStrategyMock is ERC4626BaseStrategy {
 
     event Tend();
 
-    constructor(
-        address _vault,
-        address _asset
-    ) ERC4626BaseStrategy(_vault, _asset) ERC20("a", "a") {}
+    constructor(address _vault, address _asset) ERC4626BaseStrategy(_vault, _asset) ERC20("a", "a") {}
 
     function tend() external {
         emit Tend();
@@ -32,11 +29,7 @@ abstract contract ERC4626BaseStrategyMock is ERC4626BaseStrategy {
         maxDebt = _maxDebt;
     }
 
-    function delegatedAssets()
-        external
-        view
-        returns (uint256 _delegatedAssets)
-    {}
+    function delegatedAssets() external view returns (uint256 _delegatedAssets) {}
 
     function maxDeposit(address) public view override returns (uint256) {
         uint256 _totalAssets = totalAssets();
