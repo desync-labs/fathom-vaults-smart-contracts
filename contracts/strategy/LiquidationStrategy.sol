@@ -85,13 +85,14 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     constructor(
         address _asset,
         string memory _name,
+        address _tokenizedStrategyAddress,
         address _strategyManager,
         address _fixedSpreadLiquidationStrategy,
         address _wrappedXDC,
         address _bookKeeper,
         address _usdToken,
         address _stablecoinAdapter
-    ) BaseStrategy(_asset, _name) {
+    ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         require(_strategyManager != address(0), "LiquidationStrategy: zero address");
         require(_fixedSpreadLiquidationStrategy != address(0), "LiquidationStrategy: zero address");
         require(_wrappedXDC != address(0), "LiquidationStrategy: zero address");
