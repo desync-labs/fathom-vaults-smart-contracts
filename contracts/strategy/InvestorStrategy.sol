@@ -13,7 +13,7 @@ contract InvestorStrategy is BaseStrategy {
 
     IInvestor public immutable investor;
 
-    constructor(address _investor, address _asset, string memory _name) BaseStrategy(_asset, _name) {
+    constructor(address _investor, address _asset, string memory _name, address _tokenizedStrategyAddress) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         require(_investor != address(0), "InvestorStrategy: zero address");
         investor = IInvestor(_investor);
     }

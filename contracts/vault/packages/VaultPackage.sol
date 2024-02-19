@@ -70,6 +70,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @notice Set the new accountant address.
     /// @param newAccountant The new accountant address.
     function setAccountant(address newAccountant) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (newAccountant == accountant) {
+            revert SameAccountant();
+        }
         accountant = newAccountant;
         emit UpdatedAccountant(newAccountant);
     }
@@ -78,6 +81,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @dev Will check each strategy to make sure it is active.
     /// @param newDefaultQueue The new default queue array.
     function setDefaultQueue(address[] calldata newDefaultQueue) external override onlyRole(STRATEGY_MANAGER) {
+        uint256 length = newDefaultQueue.length;
+        if (length > MAX_QUEUE) {
+            revert QueueTooLong();
+        }
         // Make sure every strategy in the new queue is active.
         for (uint256 i = 0; i < newDefaultQueue.length; i++) {
             address strategy = newDefaultQueue[i];
@@ -100,16 +107,19 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     }
 
     /// @notice Set the new deposit limit.
-    /// @dev Can not be changed if a depositLimitModule
-    /// is set or if shutdown.
     /// @param _depositLimit The new deposit limit.
+    // solhint-disable-next-line code-complexity
     function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
         }
+        if (_depositLimit == 0) {
+            revert ZeroValue();
+        }
         if (depositLimitModule != address(0)) {
             revert UsingModule();
         }
+
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
     }
@@ -1159,11 +1169,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         address[] memory _strategies
     ) internal returns (uint256) {
         _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
-        if (withdrawLimitModule != address(0)) {
-            uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
-            if (assets > maxWithdrawAmount) {
-                revert ExceedWithdrawLimit(maxWithdrawAmount);
-            }
+        uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
+        if (assets > maxWithdrawAmount) {
+            revert ExceedWithdrawLimit(maxWithdrawAmount);
         }
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);

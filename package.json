@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Fathom Vaults",
   "scripts": {
-    "test": "npx hardhat test",
     "deploy-apothem": "npx hardhat deploy --network apothem",
     "deploy-xdc": "npx hardhat deploy --network xdc",
     "compile": "npx hardhat compile",

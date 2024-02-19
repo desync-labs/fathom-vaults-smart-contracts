@@ -52,9 +52,9 @@ async function createProfit(asset, vault, strategy, owner, profit, loss, protoco
 }
 
 
-async function createStrategy(owner, vault, profitMaxUnlockTime) {
+async function createStrategy(owner, vault, profitMaxUnlockTime, factory) {
     const Strategy = await ethers.getContractFactory("MockTokenizedStrategy");
-    const strategy = await Strategy.deploy(await vault.asset(), "Mock Tokenized Strategy", owner.address, owner.address, profitMaxUnlockTime, { gasLimit: "0x1000000" });
+    const strategy = await Strategy.deploy(await vault.asset(), "Mock Tokenized Strategy", owner.address, owner.address, profitMaxUnlockTime, factory);
 
     return strategy;
 }
@@ -86,9 +86,9 @@ async function addDebtToStrategy(owner, strategy, vault, maxDebt, debt, strategy
         .withArgs(strategy.target, strategyParams.currentDebt, debt);
 }
 
-async function initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime) {
+async function initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime, factory) {
     await asset.connect(owner).mint(owner.address, amount);
-    const strategy = await createStrategy(owner, vault, profitMaxUnlockTime);
+    const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory);
     
     // Deposit assets to vault and get strategy ready
     await userDeposit(owner, vault, asset, amount, vault);
