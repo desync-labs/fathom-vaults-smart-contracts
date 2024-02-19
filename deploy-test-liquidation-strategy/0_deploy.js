@@ -1,7 +1,3 @@
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
-const fs = require('fs');
-const path = require('path');
 
 module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
     const { deploy } = deployments;
@@ -32,16 +28,6 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
         args: [factoryPackage.address, deployer, "0x"],
         log: true,
     });
-
-    // Compile the contracts
-    try {
-        const { stdout, stderr } = await exec('npx hardhat compile');
-        console.log(stdout);
-        console.error(stderr);
-        console.log('Compilation completed successfully');
-    } catch (error) {
-        console.error(`Compilation failed: ${error}`);
-    }
 
     const strategy = await deploy("TokenizedStrategy", {
         from: deployer,
