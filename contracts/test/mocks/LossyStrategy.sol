@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import {MockTokenizedStrategy, ERC20} from "./MockTokenizedStrategy.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { MockTokenizedStrategy, ERC20 } from "./MockTokenizedStrategy.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // solhint-disable comprehensive-interface
 contract YieldSource {
@@ -74,25 +74,15 @@ contract LossyStrategy is MockTokenizedStrategy {
 
         if (withdrawingLoss < 0) {
             // Over withdraw to the vault
-            strategyStorage().asset.safeTransfer(
-                vault,
-                uint256(-withdrawingLoss)
-            );
+            strategyStorage().asset.safeTransfer(vault, uint256(-withdrawingLoss));
         }
     }
 
     function harvestAndReport() external view override returns (uint256) {
-        return
-            strategyStorage().asset.balanceOf(address(this)) +
-            strategyStorage().asset.balanceOf(yieldSource);
+        return strategyStorage().asset.balanceOf(address(this)) + strategyStorage().asset.balanceOf(yieldSource);
     }
 
-    function availableWithdrawLimit(
-        address
-    ) public view override returns (uint256) {
-        return
-            strategyStorage().asset.balanceOf(address(this)) +
-            strategyStorage().asset.balanceOf(yieldSource) -
-            lockedFunds;
+    function availableWithdrawLimit(address) public view override returns (uint256) {
+        return strategyStorage().asset.balanceOf(address(this)) + strategyStorage().asset.balanceOf(yieldSource) - lockedFunds;
     }
 }
