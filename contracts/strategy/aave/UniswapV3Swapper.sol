@@ -23,13 +23,11 @@ import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
  */
  // solhint-disable
 contract UniswapV3Swapper {
-    // Optional Variable to be set to not sell dust.
-    uint256 public minAmountToSell;
-    // Defaults to WETH on mainnet.
-    address public base = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    // Address of base Token.
+    address public base;
 
-    // Defaults to Uniswap V3 router on mainnet.
-    address public router = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    // Address of Uniswap V3 router.
+    address public router;
 
     // Fees for the Uni V3 pools. Each fee should get set each way in
     // the mapping so no matter the direction the correct fee will get
@@ -74,41 +72,39 @@ contract UniswapV3Swapper {
         uint256 _amountIn,
         uint256 _minAmountOut
     ) internal returns (uint256 _amountOut) {
-        if (_amountIn > minAmountToSell) {
-            _checkAllowance(router, _from, _amountIn);
-            if (_from == base || _to == base) {
-                ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
-                    .ExactInputSingleParams(
-                        _from, // tokenIn
-                        _to, // tokenOut
-                        uniFees[_from][_to], // from-to fee
-                        address(this), // recipient
-                        block.timestamp, // deadline
-                        _amountIn, // amountIn
-                        _minAmountOut, // amountOut
-                        0 // sqrtPriceLimitX96
-                    );
-
-                _amountOut = ISwapRouter(router).exactInputSingle(params);
-            } else {
-                bytes memory path = abi.encodePacked(
+        _checkAllowance(router, _from, _amountIn);
+        if (_from == base || _to == base) {
+            ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+                .ExactInputSingleParams(
                     _from, // tokenIn
-                    uniFees[_from][base], // from-base fee
-                    base, // base token
-                    uniFees[base][_to], // base-to fee
-                    _to // tokenOut
+                    _to, // tokenOut
+                    uniFees[_from][_to], // from-to fee
+                    address(this), // recipient
+                    block.timestamp, // deadline
+                    _amountIn, // amountIn
+                    _minAmountOut, // amountOut
+                    0 // sqrtPriceLimitX96
                 );
 
-                _amountOut = ISwapRouter(router).exactInput(
-                    ISwapRouter.ExactInputParams(
-                        path,
-                        address(this),
-                        block.timestamp,
-                        _amountIn,
-                        _minAmountOut
-                    )
-                );
-            }
+            _amountOut = ISwapRouter(router).exactInputSingle(params);
+        } else {
+            bytes memory path = abi.encodePacked(
+                _from, // tokenIn
+                uniFees[_from][base], // from-base fee
+                base, // base token
+                uniFees[base][_to], // base-to fee
+                _to // tokenOut
+            );
+
+            _amountOut = ISwapRouter(router).exactInput(
+                ISwapRouter.ExactInputParams(
+                    path,
+                    address(this),
+                    block.timestamp,
+                    _amountIn,
+                    _minAmountOut
+                )
+            );
         }
     }
 
@@ -116,8 +112,6 @@ contract UniswapV3Swapper {
      * @dev Used to swap a specific amount of `_to` from `_from` unless
      * it takes more than `_maxAmountFrom`.
      *
-     * This will check and handle all allowances as well as not swapping
-     * unless `_maxAmountFrom` is greater than the set `minAmountToSell`
      *
      * If one of the tokens matches with the `base` token it will do only
      * one jump, otherwise will do two jumps.
@@ -137,41 +131,39 @@ contract UniswapV3Swapper {
         uint256 _amountTo,
         uint256 _maxAmountFrom
     ) internal returns (uint256 _amountIn) {
-        if (_maxAmountFrom > minAmountToSell) {
-            _checkAllowance(router, _from, _maxAmountFrom);
-            if (_from == base || _to == base) {
-                ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
-                    .ExactOutputSingleParams(
-                        _from, // tokenIn
-                        _to, // tokenOut
-                        uniFees[_from][_to], // from-to fee
-                        address(this), // recipient
-                        block.timestamp, // deadline
-                        _amountTo, // amountOut
-                        _maxAmountFrom, // maxAmountIn
-                        0 // sqrtPriceLimitX96
-                    );
-
-                _amountIn = ISwapRouter(router).exactOutputSingle(params);
-            } else {
-                bytes memory path = abi.encodePacked(
-                    _to,
-                    uniFees[base][_to], // base-to fee
-                    base,
-                    uniFees[_from][base], // from-base fee
-                    _from
+        _checkAllowance(router, _from, _maxAmountFrom);
+        if (_from == base || _to == base) {
+            ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
+                .ExactOutputSingleParams(
+                    _from, // tokenIn
+                    _to, // tokenOut
+                    uniFees[_from][_to], // from-to fee
+                    address(this), // recipient
+                    block.timestamp, // deadline
+                    _amountTo, // amountOut
+                    _maxAmountFrom, // maxAmountIn
+                    0 // sqrtPriceLimitX96
                 );
 
-                _amountIn = ISwapRouter(router).exactOutput(
-                    ISwapRouter.ExactOutputParams(
-                        path,
-                        address(this),
-                        block.timestamp,
-                        _amountTo, // How much we want out
-                        _maxAmountFrom
-                    )
-                );
-            }
+            _amountIn = ISwapRouter(router).exactOutputSingle(params);
+        } else {
+            bytes memory path = abi.encodePacked(
+                _to,
+                uniFees[base][_to], // base-to fee
+                base,
+                uniFees[_from][base], // from-base fee
+                _from
+            );
+
+            _amountIn = ISwapRouter(router).exactOutput(
+                ISwapRouter.ExactOutputParams(
+                    path,
+                    address(this),
+                    block.timestamp,
+                    _amountTo, // How much we want out
+                    _maxAmountFrom
+                )
+            );
         }
     }
 
