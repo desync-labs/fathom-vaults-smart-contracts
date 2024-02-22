@@ -109,65 +109,6 @@ contract UniswapV3Swapper {
     }
 
     /**
-     * @dev Used to swap a specific amount of `_to` from `_from` unless
-     * it takes more than `_maxAmountFrom`.
-     *
-     *
-     * If one of the tokens matches with the `base` token it will do only
-     * one jump, otherwise will do two jumps.
-     *
-     * The corresponding uniFees for each token pair will need to be set
-     * other wise this function will revert.
-     *
-     * @param _from The token we are swapping from.
-     * @param _to The token we are swapping to.
-     * @param _amountTo The amount of `_to` we need out.
-     * @param _maxAmountFrom The max of `_from` we will swap.
-     * @return _amountIn The actual amount of `_from` swapped.
-     */
-    function _swapTo(
-        address _from,
-        address _to,
-        uint256 _amountTo,
-        uint256 _maxAmountFrom
-    ) internal returns (uint256 _amountIn) {
-        _checkAllowance(router, _from, _maxAmountFrom);
-        if (_from == base || _to == base) {
-            ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
-                .ExactOutputSingleParams(
-                    _from, // tokenIn
-                    _to, // tokenOut
-                    uniFees[_from][_to], // from-to fee
-                    address(this), // recipient
-                    block.timestamp, // deadline
-                    _amountTo, // amountOut
-                    _maxAmountFrom, // maxAmountIn
-                    0 // sqrtPriceLimitX96
-                );
-
-            _amountIn = ISwapRouter(router).exactOutputSingle(params);
-        } else {
-            bytes memory path = abi.encodePacked(
-                _to,
-                uniFees[base][_to], // base-to fee
-                base,
-                uniFees[_from][base], // from-base fee
-                _from
-            );
-
-            _amountIn = ISwapRouter(router).exactOutput(
-                ISwapRouter.ExactOutputParams(
-                    path,
-                    address(this),
-                    block.timestamp,
-                    _amountTo, // How much we want out
-                    _maxAmountFrom
-                )
-            );
-        }
-    }
-
-    /**
      * @dev Internal safe function to make sure the contract you want to
      * interact with has enough allowance to pull the desired tokens.
      *
