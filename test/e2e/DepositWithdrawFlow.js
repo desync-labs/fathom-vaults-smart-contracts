@@ -66,6 +66,85 @@ async function deployVault() {
     return { vault, owner, otherAccount, account3, account4, account5, asset, investor, profitMaxUnlockTime, factory, tokenizedStrategy };
 }
 
+async function deployVaultApothem() {
+    const profitMaxUnlockTime = 30; // 1 year in seconds
+
+    const vaultName = 'Vault Shares FXD';
+    const vaultSymbol = 'vFXD';
+    const [owner, account3, account4, account5] = await ethers.getSigners();
+    const pKey = ethers.HDNodeWallet.createRandom();
+    const otherAccount = new ethers.Wallet(pKey.privateKey, ethers.provider);
+
+    // Ether amount to send
+    let amountInEther = '0.1'
+    // Create a transaction object
+    let tx = {
+        to: otherAccount.address,
+        // Convert currency unit from ether to wei
+        value: ethers.parseEther(amountInEther)
+    }
+    // Send a transaction
+    const sendEthTx = await owner.sendTransaction(tx);
+    await sendEthTx.wait(1);
+
+    await ethers.provider.getBalance(otherAccount.address).then((balance) => {
+        // convert a currency unit from wei to ether
+        const balanceInEth = ethers.formatEther(balance)
+        console.log(`balance: ${balanceInEth} ETH`)
+    })
+
+    const wxdcApothem = "0x7F9b806eb971Cf2464E64AB80c2C1C85a8502c2a";
+    const Asset = await ethers.getContractFactory("Token");
+    const asset = await ethers.getContractAt("Token", wxdcApothem);
+    const assetAddress = asset.target;
+
+    const performanceFee = 100; // 1% of gain
+    const protocolFee = 2000; // 20% of total fee
+
+    const Accountant = await ethers.getContractFactory("GenericAccountant");
+    const accountant = await Accountant.deploy(performanceFee, owner.address, owner.address);
+    await accountant.deploymentTransaction().wait(1);
+
+    const VaultPackage = await ethers.getContractFactory("VaultPackage");
+    const vaultPackage = await VaultPackage.deploy();
+    await vaultPackage.deploymentTransaction().wait(1);
+
+    const FactoryPackage = await ethers.getContractFactory("FactoryPackage");
+    const factoryPackage = await FactoryPackage.deploy();
+    await factoryPackage.deploymentTransaction().wait(1);
+
+    const Factory = await ethers.getContractFactory("Factory");
+    const factoryProxy = await Factory.deploy(factoryPackage.target, owner.address, "0x");
+    await factoryProxy.deploymentTransaction().wait(1);
+
+    const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
+    const factoryInitTx = await factory.initialize(vaultPackage.target, owner.address, protocolFee, { gasLimit: "0x1000000" });
+    await factoryInitTx.wait();
+
+    const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
+    const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
+    await tokenizedStrategy.deploymentTransaction().wait(1);
+    
+    const deployVaultTx = await factory.deployVault(
+        profitMaxUnlockTime,
+        assetAddress,
+        vaultName,
+        vaultSymbol,
+        accountant.target,
+        owner.address
+    );
+    await deployVaultTx.wait();
+    
+    const vaults = await factory.getVaults();
+    console.log("Existing Vaults = ", vaults);
+    const vaultsCopy = [...vaults];
+    const vaultAddress = vaultsCopy.pop();
+    const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
+    console.log("The Last Vault Address = ", vaultAddress);
+
+    return { vault, owner, otherAccount, account3, account4, account5, asset, profitMaxUnlockTime, factory, tokenizedStrategy };
+}
+
 describe("Vault Deposit and Withdraw", function () {
 
     it("Should deposit and withdraw", async function () {
@@ -180,7 +259,7 @@ describe("Vault Deposit and Withdraw", function () {
     });
 });
 
-describe.only("Vault Deposit and Withdraw with Strategy", function () {
+describe("Vault Deposit and Withdraw with Strategy", function () {
     
     it("Should deposit, setup Investor Strategy, setup Investor, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
         const { vault, asset, owner, investor, profitMaxUnlockTime, factory, otherAccount, tokenizedStrategy } = await loadFixture(deployVault);
@@ -323,4 +402,116 @@ describe.only("Vault Deposit and Withdraw with Strategy", function () {
         expect(await vault.totalIdle()).to.equal(BigInt(feesShares) + BigInt(2));
         expect(await vault.totalSupply()).to.equal(totalFees);
     });
+});
+describe.only("Aave Strategy", function () {
+    
+    it("Should deposit, setup Aave Strategy, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
+        const { vault, asset, owner, tokenizedStrategy, factory, otherAccount } = await deployVaultApothem();
+        const lendingPoolAddress = "0x0ba52c1df3dB6FE520Ba137F84a82d0657ca4422";
+        console.log("Other Account Address = ", otherAccount.address);
+        
+        const amount = ethers.parseUnits("1000", 18);
+        const halfAmount = amount / BigInt(2);
+        const quarterAmount = halfAmount / BigInt(2);
+
+        const mintTx = await asset.mint(owner.address, amount);
+        await mintTx.wait();
+        const approveTx = await asset.approve(vault.target, amount);
+        await approveTx.wait();
+        const mintTx2 = await asset.mint(otherAccount.address, amount);
+        await mintTx2.wait();
+        const approveTx2 = await asset.connect(otherAccount).approve(vault.target, amount);
+        await approveTx2.wait();
+        const depositLimitTx = await vault.setDepositLimit(amount);
+        await depositLimitTx.wait();
+        const depositTx = await vault.connect(otherAccount).deposit(amount, otherAccount.address);
+        await depositTx.wait();
+
+        expect(await vault.totalSupply()).to.equal(amount);
+        expect(await asset.balanceOf(vault.target)).to.equal(amount);
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(amount);
+        expect(await vault.totalIdle()).to.equal(amount);
+        expect(await vault.totalDebt()).to.equal(BigInt(0));
+        expect(await vault.pricePerShare()).to.equal(ethers.parseUnits("1", await asset.decimals()));          
+
+        const lendingPool = await ethers.getContractAt("IPool", lendingPoolAddress);
+        const aTokenAddress = (await lendingPool.getReserveData(asset.target)).aTokenAddress;
+        console.log("AToken Address = ", aTokenAddress);
+        const aToken = await ethers.getContractAt("IAToken", aTokenAddress);
+
+        // Setup Aave Strategy
+        const AaveStrategy = await ethers.getContractFactory("AaveV3Lender");
+        const aaveStrategy = await AaveStrategy.deploy(await vault.asset(), "Aave Strategy", tokenizedStrategy.target, lendingPoolAddress);
+        await aaveStrategy.deploymentTransaction().wait(1);
+        const strategy = await ethers.getContractAt("TokenizedStrategy", aaveStrategy.target);
+        const strategyAsset = await strategy.asset();
+        console.log("Strategy Asset = ", strategyAsset);
+
+        expect(await strategy.asset()).to.equal(await vault.asset());
+
+        // Add Strategy to Vault
+        const addStrategyTx = await vault.addStrategy(strategy.target);
+        await addStrategyTx.wait();
+        await expect(addStrategyTx)
+            .to.emit(vault, 'StrategyChanged')
+            .withArgs(strategy.target, 0);
+        const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, amount);
+        await updateMaxDebtForStrategyTx.wait();
+        await expect(updateMaxDebtForStrategyTx)
+            .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+            .withArgs(owner.address, strategy.target, amount);
+
+        // Send funds from vault to strategy
+        const updateDebtTx = await vault.updateDebt(strategy.target, await vault.totalIdle());
+        await updateDebtTx.wait();
+
+        expect(await vault.totalSupply()).to.equal(amount);
+        expect(await asset.balanceOf(vault.target)).to.equal(BigInt(0));
+        expect(await aToken.balanceOf(strategy.target)).greaterThan(BigInt(0));
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(amount);
+        expect(await vault.totalIdle()).to.equal(BigInt(0));
+        expect(await vault.totalDebt()).to.equal(amount);
+        expect(await vault.pricePerShare()).to.equal(ethers.parseUnits("1", await asset.decimals()));
+
+        // Create first Profit Report for Aave Strategy
+        let gain = 100;
+        console.log("Creating profit for Aave Strategy...");
+        const transferTx = await asset.transfer(strategy.target, gain);
+        await transferTx.wait();
+        console.log("Creating first report for Aave Strategy...");
+        const reportTx = await strategy.report();
+        await reportTx.wait();
+        console.log("Processing first report for Aave Strategy on Vault...");
+        const processReportTx = await vault.processReport(strategy.target, { gasLimit: "0x1000000" });
+        await processReportTx.wait();
+
+        // Simulate time passing
+        await new Promise(r => setTimeout(r, 15000));
+
+        // Create second Profit Report for Aave Strategy
+        console.log("Creating second report for Aave Strategy...");
+        const reportTx2 = await strategy.report();
+        await reportTx2.wait();
+        console.log("Processing second report for Aave Strategy on Vault...");
+        const processReportTx2 = await vault.processReport(strategy.target, { gasLimit: "0x1000000" });
+        await processReportTx2.wait();
+
+        expect(await aToken.balanceOf(strategy.target)).to.equal(BigInt(amount) + BigInt(gain));
+        expect(await asset.balanceOf(vault.target)).to.equal(BigInt(0));
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(amount);
+        expect(await vault.totalIdle()).to.equal(BigInt(0));
+
+        // Withdraw all
+        let accountShares = await vault.balanceOf(otherAccount.address);  
+        const redeemTx = await vault.connect(otherAccount).redeem(accountShares, otherAccount.address, otherAccount.address, 0, []);
+        await redeemTx.wait();
+        let pricePerShare = await vault.pricePerShare();
+        let totalFees = await vault.balanceOf(await vault.accountant()) + await vault.balanceOf(await factory.feeRecipient());
+        let fees = totalFees * pricePerShare / ethers.parseUnits("1", await asset.decimals());
+        expect(await aToken.balanceOf(strategy.target)).greaterThan(BigInt(fees));
+        expect(await asset.balanceOf(otherAccount.address)).to.be.at.most(amount + (BigInt(gain) - (BigInt(fees))));
+        expect(await vault.balanceOf(otherAccount.address)).to.equal(BigInt(0));
+        expect(await vault.totalDebt()).to.be.at.least(fees);
+        expect(await vault.totalIdle()).to.equal(BigInt(0));
+    }).timeout(1000000);
 });
