@@ -234,7 +234,7 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Can't mint shares to its self because of profit locking.
         require(_performanceFeeRecipient != address(this), "self");
         stor.performanceFeeRecipient = _performanceFeeRecipient;
-        // Default to a 0% performance fee.
+        // Default to a 10% performance fee.
         stor.performanceFee = 0;
         // Set last report to this block.
         stor.lastReport = uint128(block.timestamp);
