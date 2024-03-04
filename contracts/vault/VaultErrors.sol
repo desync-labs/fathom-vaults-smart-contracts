@@ -14,6 +14,7 @@ error ERC20PermitExpired();
 error ERC20PermitInvalidSignature(address recoveredAddress);
 error InsufficientShares(uint256 balanceOfOwner);
 error InactiveStrategy(address strategy);
+error DuplicateStrategy(address strategy);
 error InactiveVault();
 error ExceedDepositLimit(uint256 recipientMaxDeposit);
 error ExceedWithdrawLimit(uint256 recipientMaxWithdraw);

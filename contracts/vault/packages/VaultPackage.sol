@@ -39,7 +39,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
 
         if (_admin == address(0x00)) revert ZeroAddress();
-        if (_admin == address(0x00)) revert ZeroAddress();
+        if (_asset == address(0x00)) revert ZeroAddress();
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -85,13 +85,25 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (length > MAX_QUEUE) {
             revert QueueTooLong();
         }
-        // Make sure every strategy in the new queue is active.
-        for (uint256 i = 0; i < newDefaultQueue.length; i++) {
+
+        // Make sure every strategy in the new queue is active and not duplicated.
+        for (uint256 i = 0; i < length; i++) {
             address strategy = newDefaultQueue[i];
+            
+            // Check for active strategy.
             if (strategies[strategy].activation == 0) {
                 revert InactiveStrategy(strategy);
             }
+            
+            // Check for duplicates by comparing with the rest of the queue.
+            // Introduces a O(n^2) complexity but the queue is expected to be small.
+            for (uint256 j = i + 1; j < length; j++) {
+                if (strategy == newDefaultQueue[j]) {
+                    revert DuplicateStrategy(strategy);
+                }
+            }
         }
+
         // Save the new queue.
         defaultQueue = newDefaultQueue;
         emit UpdatedDefaultQueue(newDefaultQueue);
@@ -645,7 +657,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] calldata _strategies) external view override returns (uint256) {
         uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
-        uint256 sharesEquivalent = _convertToShares(maxWithdrawAmount, Rounding.ROUND_UP);
+        uint256 sharesEquivalent = _convertToShares(maxWithdrawAmount, Rounding.ROUND_DOWN);
         return Math.min(sharesEquivalent, sharesBalanceOf[owner]);
     }
 
@@ -1108,7 +1120,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
 
         // Transfer the tokens to the vault first.
-        _erc20SafeTransferFrom(address(assetContract), msg.sender, address(this), assets);
+        _erc20SafeTransferFrom(address(assetContract), sender, address(this), assets);
         // Record the change in total assets.
         totalIdle += assets;
 
@@ -1703,11 +1715,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // NOTE: If there are unrealised losses, the user will take his share.
         uint256 numerator = assetsNeeded * strategyAssets;
         uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
-
-        // Always round up.
-        if (numerator % strategyCurrentDebt != 0) {
-            lossesUserShare += 1;
-        }
 
         return lossesUserShare;
     }
