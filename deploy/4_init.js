@@ -17,6 +17,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const maxDebt = ethers.parseUnits("1000000", 18);
     const profitMaxUnlockTime = 604800; // 1 week in seconds
     const protocolFee = 2000; // 20% of total fee
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
     const vaultTokenName = "FXD-fVault-1";
     const vaultTokenSymbol = "fvFXD1";
@@ -50,6 +51,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultTokenName,
         vaultTokenSymbol,

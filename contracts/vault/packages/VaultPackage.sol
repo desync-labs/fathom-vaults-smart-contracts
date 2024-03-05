@@ -28,12 +28,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     // solhint-disable-next-line function-max-lines
     function initialize(
         uint256 _profitMaxUnlockTime,
+        uint256 _assetType,
         address _asset,
         string calldata _name,
         string calldata _symbol,
         address _accountant, // can be zero
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+
         if (initialized == true) {
             revert AlreadyInitialized();
         }
@@ -45,18 +47,21 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (_profitMaxUnlockTime > ONE_YEAR) {
             revert ProfitUnlockTimeTooLong();
         }
+
         profitMaxUnlockTime = _profitMaxUnlockTime;
 
         assetContract = ERC20(_asset);
         decimalsValue = assetContract.decimals();
+
         if (decimalsValue >= 256) {
             revert InvalidAssetDecimals();
         }
+
         sharesName = _name;
         sharesSymbol = _symbol;
-
         factory = msg.sender;
         accountant = _accountant;
+        assetType = _assetType;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(STRATEGY_MANAGER, _admin);
@@ -1119,19 +1124,24 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert ZeroValue();
         }
 
-        // Transfer the tokens to the vault first.
-        _erc20SafeTransferFrom(address(assetContract), sender, address(this), assets);
-        // Record the change in total assets.
-        totalIdle += assets;
+        // Case Normal Tokens
+        if (assetType == 1) {
+            // Transfer the tokens to the vault first.
+            _erc20SafeTransferFrom(address(assetContract), sender, address(this), assets);
+            // Record the change in total assets.
+            totalIdle += assets;
 
-        // Issue the corresponding shares for assets.
-        uint256 shares = _issueSharesForAmount(assets, recipient);
-        if (shares == 0) {
-            revert ZeroValue();
+            // Issue the corresponding shares for assets.
+            uint256 shares = _issueSharesForAmount(assets, recipient);
+            if (shares == 0) {
+                revert ZeroValue();
+            }
+
+            emit Deposit(sender, recipient, assets, shares);
+            return shares;
+        } else {
+            revert NonCompliantDeposit();
         }
-
-        emit Deposit(sender, recipient, assets, shares);
-        return shares;
     }
 
     /// @notice Used for `mint` calls to issue the corresponding shares to the `recipient`,

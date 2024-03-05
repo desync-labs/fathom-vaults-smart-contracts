@@ -10,6 +10,7 @@ interface IFactory {
 
     function deployVault(
         uint32 _profitMaxUnlockTime,
+        uint256 _assetType,
         address _asset,
         string calldata _name,
         string calldata _symbol,

@@ -39,3 +39,4 @@ error ProfitUnlockTimeTooLong();
 error QueueTooLong();
 error UsingModule();
 error SameAccountant();
+error NonCompliantDeposit();

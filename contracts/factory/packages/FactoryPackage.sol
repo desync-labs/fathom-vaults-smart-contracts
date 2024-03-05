@@ -53,6 +53,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
 
     function deployVault(
         uint32 _profitMaxUnlockTime,
+        uint256 _assetType,
         address _asset,
         string calldata _name,
         string calldata _symbol,
@@ -60,7 +61,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
         FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
-        IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
+        IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _assetType, _asset, _name, _symbol, _accountant, _admin);
 
         vaults.push(address(vault));
         vaultCreators[address(vault)] = msg.sender;
