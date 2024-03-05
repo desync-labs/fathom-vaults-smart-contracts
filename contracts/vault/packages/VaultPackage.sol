@@ -1726,6 +1726,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         uint256 numerator = assetsNeeded * strategyAssets;
         uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
 
+        // Always round up.
+        if (numerator % strategyCurrentDebt != 0) {
+            lossesUserShare += 1;
+        }
+
         return lossesUserShare;
     }
 
