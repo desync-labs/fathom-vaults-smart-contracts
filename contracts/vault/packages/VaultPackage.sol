@@ -1399,27 +1399,16 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Remove strategy if it is in the default queue.
         uint256 defaultQueueLength = defaultQueue.length;
         if (defaultQueueLength > 0) {
-            uint256 newDefaultQueueLength = defaultQueueLength;
-            // Find if there is a need to reduce the queue length
             for (uint256 i = 0; i < defaultQueueLength; i++) {
                 if (defaultQueue[i] == strategy) {
-                    newDefaultQueueLength--;
-                    break;
-                }
-            }
-            // If the queue length needs to be reduced, create a new queue with the new length
-            if (newDefaultQueueLength != defaultQueueLength) {
-                address[] memory newQueue = new address[](newDefaultQueueLength);
-                uint256 k;
-                for (uint256 i = 0; i < defaultQueueLength; i++) {
-                    address _strategy = defaultQueue[i];
-                    // Add all strategies to the new queue besides the one revoked.
-                    if (_strategy != strategy) {
-                        newQueue[k++] = _strategy;
+                    // Shift all elements down one position from the point of removal
+                    for (uint256 j = i; j < defaultQueueLength - 1; j++) {
+                        defaultQueue[j] = defaultQueue[j + 1];
                     }
+                    // Remove the last element by reducing the array length
+                    defaultQueue.pop();
+                    break; // Exit the loop as we've found and removed the strategy
                 }
-                // Set the default queue to our updated queue.
-                defaultQueue = newQueue;
             }
         }
 
@@ -1667,12 +1656,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
         // Else use the standard flow.
         uint256 currentTotalAssets = _totalAssets();
-        uint256 currentDepositLimit = depositLimit;
-        if (currentTotalAssets >= currentDepositLimit) {
+        if (currentTotalAssets >= depositLimit) {
             return 0;
         }
 
-        return currentDepositLimit - currentTotalAssets;
+        return depositLimit - currentTotalAssets;
     }
 
     /// @notice Returns the share of losses that a user would take if withdrawing from this strategy
