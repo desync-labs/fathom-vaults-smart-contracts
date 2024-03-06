@@ -40,8 +40,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert AlreadyInitialized();
         }
 
-        if (_admin == address(0x00)) revert ZeroAddress();
-        if (_asset == address(0x00)) revert ZeroAddress();
+        if (_admin == address(0x00) || _asset == address(0x00)) revert ZeroAddress();
 
         // Must be less than one year for report cycles
         if (_profitMaxUnlockTime > ONE_YEAR) {
@@ -60,9 +59,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         assetType = _assetType;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(STRATEGY_MANAGER, _admin);
-        _grantRole(REPORTING_MANAGER, _admin);
-        _grantRole(DEBT_PURCHASER, _admin);
         _revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         initialized = true;
@@ -218,19 +214,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
     /// @notice Revoke a strategy.
     /// @param strategy The strategy to revoke.
-    function revokeStrategy(address strategy) external override onlyRole(STRATEGY_MANAGER) {
-        _revokeStrategy(strategy, false);
-    }
-
-    /// @notice Force revoke a strategy.
-    /// @dev The vault will remove the strategy and write off any debt left
-    /// in it as a loss. This function is a dangerous function as it can force a
-    /// strategy to take a loss. All possible assets should be removed from the
-    /// strategy first via update_debt. If a strategy is removed erroneously it
-    /// can be re-added and the loss will be credited as profit. Fees will apply.
-    /// @param strategy The strategy to force revoke.
-    function forceRevokeStrategy(address strategy) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        _revokeStrategy(strategy, true);
+    function revokeStrategy(address strategy, bool force) external override onlyRole(STRATEGY_MANAGER) {
+        _revokeStrategy(strategy, force);
     }
 
     /// @notice Update the max debt for a strategy.
@@ -261,8 +246,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
         depositLimit = 0;
         emit UpdatedDepositLimit(0);
-
-        _grantRole(STRATEGY_MANAGER, msg.sender);
         emit Shutdown();
     }
 
@@ -318,12 +301,10 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
     /// @notice Update the debt for a strategy.
     /// @param strategy The strategy to update the debt for.
-    /// @param targetDebt The target debt for the strategy.
+    /// @param newDebt The target debt for the strategy.
     /// @return The amount of debt added or removed.
     // solhint-disable-next-line function-max-lines,code-complexity
-    function updateDebt(address strategy, uint256 targetDebt) external override onlyRole(STRATEGY_MANAGER) nonReentrant returns (uint256) {
-        // How much we want the strategy to have.
-        uint256 newDebt = targetDebt;
+    function updateDebt(address strategy, uint256 newDebt) external override onlyRole(STRATEGY_MANAGER) nonReentrant returns (uint256) {
         // How much the strategy currently has.
         uint256 currentDebt = strategies[strategy].currentDebt;
 
@@ -539,9 +520,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         uint256 maxLoss,
         address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
-        uint256 assets = _convertToAssets(shares, Rounding.ROUND_DOWN);
         // Always return the actual amount of assets withdrawn.
-        return _redeem(msg.sender, receiver, owner, assets, shares, maxLoss, _strategies);
+        return _redeem(msg.sender, receiver, owner, _convertToAssets(shares, Rounding.ROUND_DOWN), shares, maxLoss, _strategies);
     }
 
     /// @notice Deposit assets into the vault.
@@ -654,8 +634,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param _strategies Custom strategies queue if any.
     /// @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] calldata _strategies) external view override returns (uint256) {
-        uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
-        uint256 sharesEquivalent = _convertToShares(maxWithdrawAmount, Rounding.ROUND_DOWN);
+        uint256 sharesEquivalent = _convertToShares(_maxWithdraw(owner, maxLoss, _strategies), Rounding.ROUND_DOWN);
         return Math.min(sharesEquivalent, sharesBalanceOf[owner]);
     }
 
@@ -754,8 +733,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param receiver The address that will receive the shares.
     /// @return The maximum amount of shares that can be minted.
     function maxMint(address receiver) external view override returns (uint256) {
-        uint256 maxDepositAmount = _maxDeposit(receiver);
-        return _convertToShares(maxDepositAmount, Rounding.ROUND_DOWN);
+        return _convertToShares(_maxDeposit(receiver), Rounding.ROUND_DOWN);
     }
 
     /// @notice Assess the share of unrealised losses for a strategy.
@@ -1605,12 +1583,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// minted to the vault which are unlocked gradually over time. Shares
     /// that have been locked are gradually unlocked over profitMaxUnlockTime.
     function _unlockedShares() internal view returns (uint256) {
-        uint256 _fullProfitUnlockDate = fullProfitUnlockDate;
         uint256 currUnlockedShares;
-        if (_fullProfitUnlockDate > block.timestamp) {
+        if (fullProfitUnlockDate > block.timestamp) {
             // If we have not fully unlocked, we need to calculate how much has been.
             currUnlockedShares = (profitUnlockingRate * (block.timestamp - lastProfitUpdate)) / MAX_BPS_EXTENDED;
-        } else if (_fullProfitUnlockDate != 0) {
+        } else if (fullProfitUnlockDate != 0) {
             // All shares have been unlocked
             currUnlockedShares = sharesBalanceOf[address(this)];
         }

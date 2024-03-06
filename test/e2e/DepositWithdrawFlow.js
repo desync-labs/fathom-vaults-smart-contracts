@@ -19,6 +19,7 @@ async function deployVault() {
 
     const Asset = await ethers.getContractFactory("Token");
     const assetSymbol = 'FXD';
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
     const vaultDecimals = 18;
     const asset = await Asset.deploy(assetSymbol, vaultDecimals, { gasLimit: "0x1000000" });
 
@@ -50,6 +51,7 @@ async function deployVault() {
     
     await factory.deployVault(
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultName,
         vaultSymbol,
@@ -62,6 +64,14 @@ async function deployVault() {
     const vaultAddress = vaultsCopy.pop();
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
+
+    const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+    const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+
+    await vault.grantRole(STRATEGY_MANAGER, owner.address);
+    await vault.grantRole(REPORTING_MANAGER, owner.address);
+    await vault.grantRole(DEBT_PURCHASER, owner.address);
 
     return { vault, owner, otherAccount, account3, account4, account5, asset, investor, profitMaxUnlockTime, factory, tokenizedStrategy };
 }
@@ -97,6 +107,7 @@ async function deployVaultApothem() {
     const Asset = await ethers.getContractFactory("Token");
     const asset = await ethers.getContractAt("Token", wxdcApothem);
     const assetAddress = asset.target;
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
     const performanceFee = 100; // 1% of gain
     const protocolFee = 2000; // 20% of total fee
@@ -127,6 +138,7 @@ async function deployVaultApothem() {
     
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultName,
         vaultSymbol,
@@ -145,7 +157,7 @@ async function deployVaultApothem() {
     return { vault, owner, otherAccount, account3, account4, account5, asset, profitMaxUnlockTime, factory, tokenizedStrategy };
 }
 
-describe("Vault Deposit and Withdraw", function () {
+describe.only("Vault Deposit and Withdraw", function () {
 
     it("Should deposit and withdraw", async function () {
         const { vault, asset, owner } = await loadFixture(deployVault);
@@ -244,7 +256,7 @@ describe("Vault Deposit and Withdraw", function () {
         expect(await asset.balanceOf(account3.address)).to.equal(BigInt(0));
         // account3 does not have any vault shares
         expect(await vault.balanceOf(account3.address)).to.equal(BigInt(0));
-        // panda has been issued the vault shares
+        // account4 has been issued the vault shares
         expect(await vault.balanceOf(account4.address)).to.equal(balance);
 
         // 4. Withdraw from account4 to account5
@@ -403,7 +415,7 @@ describe("Vault Deposit and Withdraw with Strategy", function () {
         expect(await vault.totalSupply()).to.equal(totalFees);
     });
 });
-describe.only("Aave Strategy", function () {
+describe("Aave Strategy", function () {
     
     it("Should deposit, setup Aave Strategy, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
         const { vault, asset, owner, tokenizedStrategy, factory, otherAccount } = await deployVaultApothem();
