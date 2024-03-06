@@ -18,6 +18,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     uint256 public distributionStart;
     uint256 public distributionEnd;
     uint256 public lastReport;
+    uint256 public maxDistributionPeriod = 365 days;
 
     uint256 internal rewardInSecond;
 
@@ -25,6 +26,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     error DistributionEnded();
     error DistributionNotEnded();
     error DistributionNotStarted();
+    error DistributionPeriodTooLong();
     error PeriodStartInPast();
     error WrongPeriod();
     error WrongBalance();
@@ -68,6 +70,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
         if (periodStart <= block.timestamp) revert PeriodStartInPast();
         if (periodEnd <= periodStart) revert WrongPeriod();
         if (approxAmount == 0) revert ZeroAmount();
+        if (periodEnd > periodStart + maxDistributionPeriod) revert DistributionPeriodTooLong();
 
         uint256 accrualInSecond = approxAmount / (periodEnd - periodStart);
         if (accrualInSecond == 0) revert WrongAmount();

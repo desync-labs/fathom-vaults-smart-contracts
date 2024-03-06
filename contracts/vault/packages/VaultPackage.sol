@@ -53,10 +53,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         assetContract = ERC20(_asset);
         decimalsValue = assetContract.decimals();
 
-        if (decimalsValue >= 256) {
-            revert InvalidAssetDecimals();
-        }
-
         sharesName = _name;
         sharesSymbol = _symbol;
         factory = msg.sender;
@@ -129,9 +125,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     function setDepositLimit(uint256 _depositLimit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (shutdown == true) {
             revert InactiveVault();
-        }
-        if (_depositLimit == 0) {
-            revert ZeroValue();
         }
         if (depositLimitModule != address(0)) {
             revert UsingModule();
@@ -961,7 +954,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Update unlocking rate and time to fully unlocked.
         uint256 totalLockedShares = previouslyLockedShares + newlyLockedShares;
         if (totalLockedShares > 0) {
-            uint256 previouslyLockedTime = 0;
+            uint256 previouslyLockedTime;
             // Check if we need to account for shares still unlocking.
             if (fullProfitUnlockDate > block.timestamp) {
                 // There will only be previously locked shares if time remains.
@@ -998,8 +991,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
     /// @notice Transfers shares from a sender to a receiver.
     function _transfer(address sender, address receiver, uint256 amount) internal {
-        uint256 currentBalance = sharesBalanceOf[sender];
-        if (currentBalance < amount) {
+        if (sharesBalanceOf[sender] < amount) {
             revert InsufficientFunds();
         }
         if (sender == address(0) || receiver == address(0)) {
@@ -1009,9 +1001,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert SelfTransfer();
         }
 
-        sharesBalanceOf[sender] = currentBalance - amount;
-        uint256 receiverBalance = sharesBalanceOf[receiver];
-        sharesBalanceOf[receiver] = receiverBalance + amount;
+        sharesBalanceOf[sender] -= amount;
+        sharesBalanceOf[receiver] += amount;
         emit Transfer(sender, receiver, amount);
     }
 
@@ -1086,7 +1077,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
         uint256 currentTotalSupply = _totalSupply();
         uint256 currentTotalAssets = _totalAssets();
-        uint256 newShares = 0;
+        uint256 newShares;
 
         // If no supply PPS = 1.
         if (currentTotalSupply == 0) {
@@ -1114,14 +1105,15 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// issue the corresponding shares to the `recipient` and update all needed
     /// vault accounting.
     function _deposit(address sender, address recipient, uint256 assets) internal returns (uint256) {
+        uint256 _maxDepositAmount = _maxDeposit(recipient);
         if (shutdown == true) {
             revert InactiveVault();
         }
-        if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit(_maxDeposit(recipient));
-        }
         if (assets == 0) {
             revert ZeroValue();
+        }
+        if (assets > _maxDepositAmount) {
+            revert ExceedDepositLimit(_maxDepositAmount);
         }
 
         // Case Normal Tokens
@@ -1148,6 +1140,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// transfer the amount of `asset` to the vault, and update all needed vault
     /// accounting.
     function _mint(address sender, address recipient, uint256 shares) internal returns (uint256) {
+        uint256 _maxDepositAmount = _maxDeposit(recipient);
         if (shutdown == true) {
             revert InactiveVault();
         }
@@ -1157,8 +1150,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (assets == 0) {
             revert ZeroValue();
         }
-        if (assets > _maxDeposit(recipient)) {
-            revert ExceedDepositLimit(_maxDeposit(recipient));
+        if (assets > _maxDepositAmount) {
+            revert ExceedDepositLimit(_maxDepositAmount);
         }
 
         // Transfer the tokens to the vault first.
@@ -1323,7 +1316,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
                 // Always check withdrawn against the real amounts.
                 uint256 withdrawn = postBalance - state.previousBalance;
-                uint256 loss = 0;
+                uint256 loss;
 
                 // Check if we redeemed too much.
                 if (withdrawn > assetsToWithdraw) {
@@ -1412,7 +1405,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
 
         // If force revoking a strategy, it will cause a loss.
-        uint256 loss = 0;
+        uint256 loss;
         if (strategies[strategy].currentDebt != 0) {
             if (!force) revert StrategyHasDebt(strategies[strategy].currentDebt);
             // Vault realizes the full loss of outstanding debt.
@@ -1468,7 +1461,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Only need to burn shares if there is a loss or fees.
         if (loss + totalFees > 0) {
             // The amount of shares we will want to burn to offset losses and fees.
-            shares.sharesToBurn += _convertToShares(loss + totalFees, Rounding.ROUND_UP);
+            shares.sharesToBurn = _convertToShares(loss + totalFees, Rounding.ROUND_UP);
 
             // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
             if (totalFees > 0) {
@@ -1512,7 +1505,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (maxAssets > currentIdle) {
             // Track how much we can pull.
             uint256 have = currentIdle;
-            uint256 loss = 0;
+            uint256 loss;
 
             // Cache the default queue.
             // If a custom queue was passed, and we don't force the default queue.
@@ -1591,8 +1584,8 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // How much the vault had deposited to the strategy.
         uint256 currentDebt = strategies[strategy].currentDebt;
 
-        uint256 _gain = 0;
-        uint256 _loss = 0;
+        uint256 _gain;
+        uint256 _loss;
 
         // Compare reported assets vs. the current debt.
         if (currentTotalAssets > currentDebt) {
@@ -1613,7 +1606,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// that have been locked are gradually unlocked over profitMaxUnlockTime.
     function _unlockedShares() internal view returns (uint256) {
         uint256 _fullProfitUnlockDate = fullProfitUnlockDate;
-        uint256 currUnlockedShares = 0;
+        uint256 currUnlockedShares;
         if (_fullProfitUnlockDate > block.timestamp) {
             // If we have not fully unlocked, we need to calculate how much has been.
             currUnlockedShares = (profitUnlockingRate * (block.timestamp - lastProfitUpdate)) / MAX_BPS_EXTENDED;
@@ -1748,14 +1741,5 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (sharesBalanceOf[owner] < sharesToBurn) {
             revert InsufficientShares(sharesBalanceOf[owner]);
         }
-    }
-
-    /// @notice Checks if the address is a contract.
-    function _isContract(address addr) internal view returns (bool) {
-        uint256 size;
-        assembly {
-            size := extcodesize(addr)
-        }
-        return size > 0;
     }
 }

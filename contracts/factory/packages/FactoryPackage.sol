@@ -26,6 +26,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         feeRecipient = _feeRecipient;
         feeBPS = _feeBPS;
 
+        emit VaultPackageUpdated(_vaultPackage);
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
 
         initialized = true;
@@ -34,6 +35,9 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
     function updateVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
+        }
+        if (vaultPackage == _vaultPackage) {
+            revert SameVaultPackage();
         }
         vaultPackage = _vaultPackage;
         emit VaultPackageUpdated(_vaultPackage);
