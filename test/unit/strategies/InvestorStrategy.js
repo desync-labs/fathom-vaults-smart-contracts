@@ -111,14 +111,14 @@ async function deployInvestorStrategyFixture() {
 
 describe("InvestorStrategy tests", function () {
 
-    describe.only("InvestorStrategy init tests", function () {
+    describe("InvestorStrategy init tests", function () {
         it("Initializes with correct parameters", async function () {
             const { asset, strategy } = await loadFixture(deployInvestorStrategyFixture);
             expect(await strategy.asset()).to.equal(asset.target);
         });
     });
 
-    describe.only("_harvestAndReport()", function () {
+    describe("_harvestAndReport()", function () {
         it("Correctly reports total assets", async function () {
             const { strategy, asset, investor } = await loadFixture(deployInvestorStrategyFixture);
 
@@ -141,7 +141,7 @@ describe("InvestorStrategy tests", function () {
         });
     });
 
-    describe.only("availableDepositLimit()", function () {
+    describe("availableDepositLimit()", function () {
         it("Returns max uint256 when the contract holds no asset tokens", async function () {
             const { strategy, deployer } = await loadFixture(deployInvestorStrategyFixture);
             
@@ -163,7 +163,7 @@ describe("InvestorStrategy tests", function () {
         });
     });
 
-    describe.only("availableWithdrawLimit()", function () {
+    describe("availableWithdrawLimit()", function () {
         async function setupScenario() {
             const { strategy, investor, deployer } = await loadFixture(deployInvestorStrategyFixture);
             
@@ -185,7 +185,7 @@ describe("InvestorStrategy tests", function () {
         });
     });
     
-    describe.only("_deployFunds()", function () {
+    describe("_deployFunds()", function () {
         it("Succesfully updates totalAssets on Strategy", async function () {
             const { vault, strategy, investor, asset, deployer } = await loadFixture(deployInvestorStrategyFixture);
 
@@ -211,7 +211,7 @@ describe("InvestorStrategy tests", function () {
         });
     });
 
-    describe.only("_freeFunds()", function () {
+    describe("_freeFunds()", function () {
         it("Successfully withdraws funds from Strategy", async function () {
             const { vault, strategy, investor, asset, deployer, otherAccount } = await loadFixture(deployInvestorStrategyFixture);
 
