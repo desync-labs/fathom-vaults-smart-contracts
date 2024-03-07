@@ -125,6 +125,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (depositLimitModule != address(0)) {
             revert UsingModule();
         }
+        if (_depositLimit == 0) {
+            revert ZeroValue();
+        }
 
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
