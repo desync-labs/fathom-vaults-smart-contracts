@@ -106,7 +106,7 @@ async function deployVaultThroughFactory() {
         .to.emit(vault, 'UpdatedMaxDebtForStrategy')
         .withArgs(deployer.address, strategy.target, amount);
 
-    return { vault, strategy, investor, asset, deployer, manager, otherAccount, profitMaxUnlockTime, assetType, vaultName, vaultSymbol, accountant };
+    return { vault, strategy, investor, asset, deployer, manager, otherAccount, profitMaxUnlockTime, assetType, vaultName, vaultSymbol, accountant, tokenizedStrategy };
 }
 
 async function deployVault() {
@@ -158,7 +158,7 @@ async function deployVault() {
 
 describe("VaultPackage tests", function () {
 
-    describe.only("VaultPackage init tests", function () {
+    describe("VaultPackage init tests", function () {
         it("Successfully initializes with correct parameters", async function () {
             const { asset, vault, profitMaxUnlockTime } = await loadFixture(deployVaultThroughFactory);
         
@@ -211,7 +211,7 @@ describe("VaultPackage tests", function () {
         it("Ensures only DEFAULT_ADMIN_ROLE can call initialize", async function () {
             const { deployer, asset, vault, assetType, vaultName, vaultSymbol, accountant, otherAccount, profitMaxUnlockTime } = await loadFixture(deployVault);
 
-            const role = "0x0000000000000000000000000000000000000000000000000000000000000000"; // Example role, replace as needed
+            const role = "0x0000000000000000000000000000000000000000000000000000000000000000";
             const errorMsg = new RegExp(`AccessControl: account ${otherAccount.address.toLowerCase()} is missing role ${role}`);
 
             // Attempting to initialize from another account without the role
@@ -227,7 +227,99 @@ describe("VaultPackage tests", function () {
         });
     });
 
-    describe("setDefaultQueue()", function () {
-        
+    describe.only("setDefaultQueue()", function () {
+        async function setupScenario() {
+            const { deployer, otherAccount, strategy, asset, tokenizedStrategy, vault } = await loadFixture(deployVaultThroughFactory);
+            const amount = 1000;
+
+            const Investor = await ethers.getContractFactory("Investor");
+            const investor2 = await Investor.deploy();
+            const investor3 = await Investor.deploy();
+
+            // Set up strategies
+            const InvestorStrategy = await ethers.getContractFactory("InvestorStrategy");
+
+            const investorStrategy2 = await InvestorStrategy.deploy(
+                investor2.target,
+                asset.target,
+                "Investor Strategy 2",
+                tokenizedStrategy.target
+            );
+
+            const investorStrategy3 = await InvestorStrategy.deploy(
+                investor3.target,
+                asset.target,
+                "Investor Strategy 3",
+                tokenizedStrategy.target
+            );
+
+            const strategy2 = await ethers.getContractAt("TokenizedStrategy", investorStrategy2.target);
+            const inactiveStrategy = await ethers.getContractAt("TokenizedStrategy", investorStrategy3.target);
+
+            // Setup Investor
+            await asset.approve(investor2.target, amount);
+            await expect(investor2.setStrategy(strategy2.target))
+                .to.emit(investor2, 'StrategyUpdate')
+                .withArgs(strategy2.target, strategy2.target, await vault.asset());
+            let blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const startDistribution = blockTimestamp + 10;
+            const endDistribution = blockTimestamp + 60;
+            await expect(investor2.setupDistribution(amount, startDistribution, endDistribution))
+                .to.emit(investor2, 'DistributionSetup')
+                .withArgs(amount, startDistribution, endDistribution);
+            expect(await investor2.rewardsLeft()).to.equal(amount);
+            expect(await investor2.rewardRate()).to.equal(amount / (endDistribution - startDistribution));
+
+            // Add Strategy to Vault
+            await expect(vault.addStrategy(strategy2.target))
+                .to.emit(vault, 'StrategyChanged')
+                .withArgs(strategy2.target, 0);
+            await expect(vault.updateMaxDebtForStrategy(strategy2.target, amount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy2.target, amount);
+
+            return { vault, strategy, strategy2, inactiveStrategy, otherAccount };
+        }
+
+        it("Reverts when called by non-strategy manager", async function () {
+            const { vault, otherAccount, strategy, strategy2 } = await setupScenario();
+
+            const role = "0x1893e1a169e79f2fe8aa327b1bceb2fede7a1b76a54824f95ea0e737720954ae";
+            const errorMsg = new RegExp(`AccessControl: account ${otherAccount.address.toLowerCase()} is missing role ${role}`);
+
+            await expect(vault.connect(otherAccount).setDefaultQueue([strategy.target, strategy2.target]))
+              .to.be.revertedWith(errorMsg);
+        });
+
+        it("Reverts when queue length exceeds MAX_QUEUE", async function () {
+            const { vault, strategy } = await setupScenario();
+
+            const MAX_QUEUE = 10;
+            const oversizedQueue = new Array(MAX_QUEUE + 1).fill(strategy.target);
+            await expect(vault.setDefaultQueue(oversizedQueue))
+              .to.be.revertedWithCustomError(vault, "QueueTooLong");
+        });
+
+        it("Reverts when including inactive strategies", async function () {
+            const { vault, strategy, inactiveStrategy } = await setupScenario();
+
+            await expect(vault.setDefaultQueue([strategy.target, inactiveStrategy.target]))
+              .to.be.revertedWithCustomError(vault, "InactiveStrategy");
+        });
+
+        it("Reverts when queue contains duplicates", async function () {
+            const { vault, strategy } = await setupScenario();
+
+            await expect(vault.setDefaultQueue([strategy.target, strategy.target]))
+              .to.be.revertedWithCustomError(vault, "DuplicateStrategy");
+        });
+
+        it("Successfully updates default queue with active, non-duplicate strategies", async function () {
+            const { vault, strategy, strategy2 } = await setupScenario();
+
+            await expect(vault.setDefaultQueue([strategy.target, strategy2.target]))
+              .to.emit(vault, "UpdatedDefaultQueue")
+              .withArgs([strategy.target, strategy2.target]);
+        });
     });
 });
