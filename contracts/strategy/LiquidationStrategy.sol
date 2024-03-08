@@ -281,6 +281,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         if (allowLoss == false) {
             // Condition #1 if there lower chance of no loss, sell on DEX
             if (dexAmountOut >= amountNeededToPayDebt) {
+
                 uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
                 if (_vars.v2Ratio > 0) {
                     fathomStablecoinReceivedV2 = handleCollateralSellingV2(
@@ -327,7 +328,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         } else {
             // Condition #3 loss is allowed, so if there is loss, make this address pay for the loss.
             uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
-
             if (_vars.v2Ratio > 0) {
                 fathomStablecoinReceivedV2 = handleCollateralSellingV2(
                     _vars,
