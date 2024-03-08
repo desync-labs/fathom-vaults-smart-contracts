@@ -19,13 +19,7 @@ interface IScaledBalanceToken {
      * @param balanceIncrease The increase in balance since the last action of the user
      * @param index The next liquidity index of the reserve
      **/
-    event Mint(
-        address indexed caller,
-        address indexed onBehalfOf,
-        uint256 value,
-        uint256 balanceIncrease,
-        uint256 index
-    );
+    event Mint(address indexed caller, address indexed onBehalfOf, uint256 value, uint256 balanceIncrease, uint256 index);
 
     /**
      * @dev Emitted after scaled balance tokens are burned
@@ -35,13 +29,7 @@ interface IScaledBalanceToken {
      * @param balanceIncrease The increase in balance since the last action of the user
      * @param index The next liquidity index of the reserve
      **/
-    event Burn(
-        address indexed from,
-        address indexed target,
-        uint256 value,
-        uint256 balanceIncrease,
-        uint256 index
-    );
+    event Burn(address indexed from, address indexed target, uint256 value, uint256 balanceIncrease, uint256 index);
 
     /**
      * @notice Returns the scaled balance of the user.
@@ -58,9 +46,7 @@ interface IScaledBalanceToken {
      * @return The scaled balance of the user
      * @return The scaled total supply
      **/
-    function getScaledUserBalanceAndSupply(
-        address user
-    ) external view returns (uint256, uint256);
+    function getScaledUserBalanceAndSupply(address user) external view returns (uint256, uint256);
 
     /**
      * @notice Returns the scaled total supply of the scaled balance token. Represents sum(debt/index)
