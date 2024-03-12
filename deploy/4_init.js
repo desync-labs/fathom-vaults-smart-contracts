@@ -66,6 +66,17 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
 
+    const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+    const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+
+    let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(DEBT_PURCHASER, deployer);
+    await grantRoleTx.wait();
+
     console.log("Setting deposit limit...");
     const setDepositLimitTx = await vault.setDepositLimit(depositLimit);
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
