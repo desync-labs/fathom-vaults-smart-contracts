@@ -80,7 +80,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 indexed debtValueToRepay,
         uint256 indexed collateralAmountToLiquidate,
         uint256 fathomStablecoinReceivedV2,
-        uint256 fathomStablecoinReceivedV3
+        uint256 fathomStablecoinReceivedV3,
+        uint256 V2RatioBPS
     );
     event LogSetBookKeeper(address _bookKeeper);
 
@@ -267,9 +268,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             data,
             (address, IGenericTokenAdapter, address, address, uint256)
         );
-        // Retrieve collateral token
+        // Retrieve collateral token from CollateralTokenAdapter
         uint256 retrievedCollateralAmount = _retrieveCollateral(_vars.tokenAdapter, _collateralAmountToLiquidate);
-
+        // +1 to compensate for precision loss with division
         uint256 amountNeededToPayDebt = _debtValueToRepay.div(RAY) + 1;
 
         //dexAmountOut for rough calculation
@@ -277,6 +278,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         uint256 fathomStablecoinReceivedV2;
         uint256 fathomStablecoinReceivedV3;
+
+        // Adjust v2Ratio if routerV3 is not set in uniswapV3Info
+        if (uniswapV3Info[_vars.routerV3].universalRouter == address(0)) {
+            _vars.v2Ratio = 10000; // Adjust to use V2 fully
+        }
 
         if (allowLoss == false) {
             // Condition #1 if there lower chance of no loss, sell on DEX
@@ -308,7 +314,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                     amountNeededToPayDebt,
                     _collateralAmountToLiquidate,
                     fathomStablecoinReceivedV2,
-                    fathomStablecoinReceivedV3
+                    fathomStablecoinReceivedV3,
+                    _vars.v2Ratio
                 );
             } else {
                 // Condition #2 if there is high chance of loss, don't sell on DEX
@@ -322,7 +329,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                     amountNeededToPayDebt,
                     _collateralAmountToLiquidate,
                     fathomStablecoinReceivedV2,
-                    fathomStablecoinReceivedV3
+                    fathomStablecoinReceivedV3,
+                    _vars.v2Ratio
                 );
             }
         } else {
@@ -354,7 +362,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                 amountNeededToPayDebt,
                 _collateralAmountToLiquidate,
                 fathomStablecoinReceivedV2,
-                fathomStablecoinReceivedV3
+                fathomStablecoinReceivedV3,
+                _vars.v2Ratio
             );
         }
     }
