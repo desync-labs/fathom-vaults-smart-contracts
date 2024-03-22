@@ -124,10 +124,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         usdToken = ERC20(_usdToken);
     }
 
-    function _harvestAndReport() internal view override returns (uint256 _totalAssets) {
-        _totalAssets = asset.balanceOf(address(this));
-    }
-
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
         // Return the remaining room.
         return type(uint256).max - asset.balanceOf(address(this));
@@ -323,7 +319,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             if (dexAmountOut >= amountNeededToPayDebt) {
                 uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
                 if (_vars.v2Ratio > 0) {
-                    fathomStablecoinReceivedV2 = handleCollateralSellingV2(
+                    fathomStablecoinReceivedV2 = _handleCollateralSellingV2(
                         _vars,
                         _collateralAmountToLiquidateV2,
                         amountNeededToPayDebt.mul(_vars.v2Ratio).div(10000)
@@ -370,7 +366,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             // Condition #3 loss is allowed, so if there is loss, make this address pay for the loss.
             uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
             if (_vars.v2Ratio > 0) {
-                fathomStablecoinReceivedV2 = handleCollateralSellingV2(
+                fathomStablecoinReceivedV2 = _handleCollateralSellingV2(
                     _vars,
                     _collateralAmountToLiquidateV2,
                     amountNeededToPayDebt.mul(_vars.v2Ratio).div(10000)
@@ -401,14 +397,14 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         }
     }
 
+    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
+        return type(IFlashLendingCallee).interfaceId == _interfaceId;
+    }
+
     function _emergencyWithdraw(uint256 _amount) internal override {
         require(_amount > 0, "LiquidationStrategy: zero amount");
         require(_amount <= asset.balanceOf(address(this)), "LiquidationStrategy: wrong amount");
         asset.safeTransfer(strategyManager, _amount);
-    }
-
-    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
-        return type(IFlashLendingCallee).interfaceId == _interfaceId;
     }
 
     function _depositStablecoin(uint256 _amount, address _liquidatorAddress) internal {
@@ -425,46 +421,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         return balanceAfter.sub(balanceBefore);
     }
 
-    // @dev _computeMostProfitablePath should be upgraded/updated once curvePool launches and DEX pool of USDT/FXD will be drained.
-    // an alternative solution can be to involvement of Xswap(UniswapV3)
-    function _computeMostProfitablePath(
-        IUniswapV2Router02 _router,
-        address _collateralToken,
-        uint256 _collateralAmountToLiquidate
-    ) internal view returns (address[] memory, uint256) {
-        // DEX (Collateral -> FXD)
-        address[] memory path1 = new address[](2);
-        path1[0] = _collateralToken;
-        path1[1] = address(fathomStablecoin);
-        uint256 scenarioOneAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path1, _router);
-
-        // DEX (Collateral -> USDT) -> DEX (USDT -> FXD)
-        address[] memory path2 = new address[](3);
-        path2[0] = _collateralToken;
-        path2[1] = address(usdToken);
-        path2[2] = address(fathomStablecoin);
-        uint256 scenarioTwoAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path2, _router);
-
-        if (scenarioOneAmountOut >= scenarioTwoAmountOut) {
-            // DEX (Collateral -> FXD)
-            return (path1, scenarioOneAmountOut);
-        } else {
-            // DEX (Collateral -> USDT) -> DEX (USDT -> FXD)
-            return (path2, scenarioTwoAmountOut);
-        }
-    }
-
-    function _getDexAmountOut(
-        uint256 _collateralAmountToLiquidate,
-        address[] memory _path,
-        IUniswapV2Router02 _router
-    ) internal view returns (uint256) {
-        uint256[] memory amounts = _router.getAmountsOut(_collateralAmountToLiquidate, _path);
-        uint256 amountToReceive = amounts[amounts.length - 1];
-        return amountToReceive;
-    }
-
-    function handleCollateralSellingV2(
+    function _handleCollateralSellingV2(
         LocalVars memory _vars,
         uint256 _collateralAmountToLiquidateV2,
         uint256 amountNeededToPayDebtV2
@@ -571,6 +528,49 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         receivedAmount = _tokencoinBalanceAfter.sub(_tokencoinBalanceBefore);
 
         return receivedAmount;
+    }
+
+    // @dev _computeMostProfitablePath should be upgraded/updated once curvePool launches and DEX pool of USDT/FXD will be drained.
+    // an alternative solution can be to involvement of Xswap(UniswapV3)
+    function _computeMostProfitablePath(
+        IUniswapV2Router02 _router,
+        address _collateralToken,
+        uint256 _collateralAmountToLiquidate
+    ) internal view returns (address[] memory, uint256) {
+        // DEX (Collateral -> FXD)
+        address[] memory path1 = new address[](2);
+        path1[0] = _collateralToken;
+        path1[1] = address(fathomStablecoin);
+        uint256 scenarioOneAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path1, _router);
+
+        // DEX (Collateral -> USDT) -> DEX (USDT -> FXD)
+        address[] memory path2 = new address[](3);
+        path2[0] = _collateralToken;
+        path2[1] = address(usdToken);
+        path2[2] = address(fathomStablecoin);
+        uint256 scenarioTwoAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path2, _router);
+
+        if (scenarioOneAmountOut >= scenarioTwoAmountOut) {
+            // DEX (Collateral -> FXD)
+            return (path1, scenarioOneAmountOut);
+        } else {
+            // DEX (Collateral -> USDT) -> DEX (USDT -> FXD)
+            return (path2, scenarioTwoAmountOut);
+        }
+    }
+
+    function _getDexAmountOut(
+        uint256 _collateralAmountToLiquidate,
+        address[] memory _path,
+        IUniswapV2Router02 _router
+    ) internal view returns (uint256) {
+        uint256[] memory amounts = _router.getAmountsOut(_collateralAmountToLiquidate, _path);
+        uint256 amountToReceive = amounts[amounts.length - 1];
+        return amountToReceive;
+    }
+
+    function _harvestAndReport() internal view override returns (uint256 _totalAssets) {
+        _totalAssets = asset.balanceOf(address(this));
     }
 
     function _encodeSwapExactInputSingle(
