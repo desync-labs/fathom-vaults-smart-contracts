@@ -3,39 +3,6 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
 
-    // const performanceFee = 1000; // 10% of gain
-
-    // const genericAccountant = await deploy("GenericAccountant", {
-    //     from: deployer,
-    //     args: [performanceFee, deployer, deployer],
-    //     log: true,
-    // });
-
-    // const vaultPackage = await deploy("VaultPackage", {
-    //     from: deployer,
-    //     args: [],
-    //     log: true,
-    // });
-
-    // const factoryPackage = await deploy("FactoryPackage", {
-    //     from: deployer,
-    //     args: [],
-    //     log: true,
-    // });
-
-    // const factory = await deploy("Factory", {
-    //     from: deployer,
-    //     args: [factoryPackage.address, deployer, "0x"],
-    //     log: true,
-    // });
-
-    // const strategy = await deploy("TokenizedStrategy", {
-    //     from: deployer,
-    //     args: [factory.address],
-    //     log: true,
-    // });
-
-
     // Set these variables to the appropriate addresses for your deployment
     // below addresses are that of XDC mainnet except for fixedSpreadLiquidationStrategyAddress, which gets deployed newly whenever test set up in XDCForked hardhat node is done.
     const strategyManagerAddress = "0x0Eb7DEE6e18Cce8fE839E986502d95d47dC0ADa3"; //2024.03.21 devDeployerAddress
