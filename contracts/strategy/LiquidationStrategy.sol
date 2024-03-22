@@ -133,14 +133,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         return TokenizedStrategy.totalIdle();
     }
 
-    /// @notice Withdraws a specified amount of the strategy's asset (FXD) in the case of an emergency.
-    /// @dev Only the current strategy manager can call this function.
-    /// This is part of the emergency shutdown mechanism.
-    /// @param _amount The amount of FXD to withdraw.
-    function shutdownWithdraw(uint256 _amount) external override onlyStrategyManager {
-        _emergencyWithdraw(_amount);
-    }
-
     /// @notice Sets the strategy manager address.
     /// @dev Only the current strategy manager can call this function.
     /// @param _strategyManager The address of the new strategy manager.
@@ -162,6 +154,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         emit LogSetFixedSpreadLiquidationStrategy(_fixedSpreadLiquidationStrategy);
     }
 
+    /// @notice Sets the BookKeeper contract address.
+    /// @dev Only the current strategy manager can call this function.
+    /// @param _bookKeeper The address of the new BookKeeper contract.
     function setBookKeeper(address _bookKeeper) external onlyStrategyManager {
         require(_bookKeeper != address(0), "LiquidationStrategy: zero address");
         require(_bookKeeper != address(bookKeeper), "LiquidationStrategy: same book keeper");
@@ -169,6 +164,10 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         emit LogSetBookKeeper(_bookKeeper);
     }
 
+    /// @notice Sets the UniswapV3 permit2 and UniversalRouter contract addresses.
+    /// @dev Only the current strategy manager can call this function.
+    /// @param _permit2 The address of the UniswapV3 permit2 contract.
+    /// @param _universalRouter The address of the UniswapV3 UniversalRouter contract.
     function setV3Info(address _permit2, address _universalRouter) external onlyStrategyManager {
         require(_permit2 != address(0), "Invalid address");
         require(_universalRouter != address(0), "Invalid address");
@@ -186,30 +185,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         require(_allowLoss != allowLoss, "LiquidationStrategy: same allowLoss");
         allowLoss = _allowLoss;
         emit LogAllowLoss(_allowLoss);
-    }
-
-    /// @notice Withdraws a specified amount of WXDC from the contract.
-    /// @dev Only the current strategy manager can call this function.
-    /// Useful for managing the reserves after liquidation events.
-    /// @param _amount The amount of WXDC to withdraw.
-    function shutdownWithdrawWXDC(uint256 _amount) external onlyStrategyManager {
-        require(_amount > 0, "LiquidationStrategy: zero amount");
-        require(_amount <= idleWXDC.WXDCAmount, "LiquidationStrategy: wrong amount");
-        idleWXDC.WXDCAmount = idleWXDC.WXDCAmount - _amount;
-        if (idleWXDC.WXDCAmount == 0) {
-            idleWXDC.amountNeededToPayDebt = 0;
-            idleWXDC.averagePriceOfWXDC = 0;
-        }
-
-        uint256 deductAmountNeededToPayDebt = _amount.mul(idleWXDC.averagePriceOfWXDC).div(WAD);
-        if (idleWXDC.amountNeededToPayDebt >= deductAmountNeededToPayDebt) {
-            idleWXDC.amountNeededToPayDebt -= deductAmountNeededToPayDebt;
-        } else {
-            idleWXDC.amountNeededToPayDebt = 0;
-        }
-
-        WXDC.safeTransfer(strategyManager, _amount);
-        emit LogShutdownWithdrawWXDC(strategyManager, _amount);
     }
 
     /// @notice Allows the strategy manager to sell WXDC, held by the contract, to UniV2.
@@ -275,6 +250,38 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         uint256 receivedAmount = _sellCollateralV3(address(WXDC), address(fathomStablecoin), _amount, 3000, _universalRouter);
         emit LogSellWXDCV3(_universalRouter, _amount, receivedAmount);
+    }
+
+    /// @notice Withdraws a specified amount of WXDC from the contract.
+    /// @dev Only the current strategy manager can call this function.
+    /// Useful for managing the reserves after liquidation events.
+    /// @param _amount The amount of WXDC to withdraw.
+    function shutdownWithdrawWXDC(uint256 _amount) external onlyStrategyManager {
+        require(_amount > 0, "LiquidationStrategy: zero amount");
+        require(_amount <= idleWXDC.WXDCAmount, "LiquidationStrategy: wrong amount");
+        idleWXDC.WXDCAmount = idleWXDC.WXDCAmount - _amount;
+        if (idleWXDC.WXDCAmount == 0) {
+            idleWXDC.amountNeededToPayDebt = 0;
+            idleWXDC.averagePriceOfWXDC = 0;
+        }
+
+        uint256 deductAmountNeededToPayDebt = _amount.mul(idleWXDC.averagePriceOfWXDC).div(WAD);
+        if (idleWXDC.amountNeededToPayDebt >= deductAmountNeededToPayDebt) {
+            idleWXDC.amountNeededToPayDebt -= deductAmountNeededToPayDebt;
+        } else {
+            idleWXDC.amountNeededToPayDebt = 0;
+        }
+
+        WXDC.safeTransfer(strategyManager, _amount);
+        emit LogShutdownWithdrawWXDC(strategyManager, _amount);
+    }
+
+    /// @notice Withdraws a specified amount of the strategy's asset (FXD) in the case of an emergency.
+    /// @dev Only the current strategy manager can call this function.
+    /// This is part of the emergency shutdown mechanism.
+    /// @param _amount The amount of FXD to withdraw.
+    function shutdownWithdraw(uint256 _amount) external override onlyStrategyManager {
+        _emergencyWithdraw(_amount);
     }
 
     /// @notice Handles the liquidation process, swapping WXDC for FXD, and repaying debt.
