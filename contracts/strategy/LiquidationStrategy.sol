@@ -2,20 +2,20 @@
 // Copyright Fathom 2023
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./BaseStrategy.sol";
-import "./interfaces/liquidationStrategy/IUniversalRouter.sol";
-import "./interfaces/liquidationStrategy/IPermit2.sol";
-import "./interfaces/liquidationStrategy/IFlashLendingCallee.sol";
-import "./interfaces/liquidationStrategy/IERC165.sol";
-import "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
-import {IUniswapV2Router02} from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
-import "./interfaces/liquidationStrategy/IStablecoinAdapter.sol";
+import { BaseStrategy } from "./BaseStrategy.sol";
+import { IUniversalRouter } from "./interfaces/liquidationStrategy/IUniversalRouter.sol";
+import { IPermit2 } from "./interfaces/liquidationStrategy/IPermit2.sol";
+import { IFlashLendingCallee } from "./interfaces/liquidationStrategy/IFlashLendingCallee.sol";
+import { IERC165 } from "./interfaces/liquidationStrategy/IERC165.sol";
+import { IGenericTokenAdapter } from "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
+import { IUniswapV2Router02 } from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
+import { IStablecoinAdapter } from "./interfaces/liquidationStrategy/IStablecoinAdapter.sol";
 import { IBookKeeper } from "./interfaces/liquidationStrategy/IBookKeeper.sol";
-import "./libraries/BytesHelper.sol";
+import { BytesHelper } from "./libraries/BytesHelper.sol";
 
 /// @title LiquidationStrategy for FathomVault
 /// @notice Enables participation in generating profits from liquidations and contributes to the liquidation of FXD positions.
@@ -67,14 +67,15 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     event LogSetFixedSpreadLiquidationStrategy(address indexed _fixedSpreadLiquidationStrategy);
     event LogShutdownWithdrawWXDC(address indexed _strategyManager, uint256 _amount);
     event LogAllowLoss(bool _allowLoss);
-    event LogSellWXDC(
+    event LogSellWXDCV2(
         address[] _path,
         IUniswapV2Router02 _router,
-        uint256 _amount,
+        uint256 _wxdcAmount,
         uint256 _minAmountOut,
         uint256 _dexAmountOut,
         uint256 _receivedAmount
     );
+    event LogSellWXDCV3(address _universalRouter, uint256 _wxdcAmount, uint256 _receivedAmount);
     event LogFlashLiquidationSuccess(
         address indexed liquidatorAddress,
         uint256 indexed debtValueToRepay,
@@ -85,7 +86,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     );
     event LogSetBookKeeper(address _bookKeeper);
 
-    event LogSetV3Info(address _factory, address _routerV3, address _WXDC, address _poolAddress, address _permit2);
+    event LogSetV3Info(address _permit2, address _routerV3);
 
     modifier onlyStrategyManager() {
         require(msg.sender == strategyManager, "LiquidationStrategy: only strategy manager");
@@ -172,16 +173,13 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         emit LogSetBookKeeper(_bookKeeper);
     }
 
-    function setV3Info(address _factory, address _routerV3, address _WXDC, address _poolAddress, address _permit2) external onlyStrategyManager {
-        require(_factory != address(0), "Invalid address");
-        require(_routerV3 != address(0), "Invalid address");
-        require(_WXDC != address(0), "Invalid address");
-        require(_poolAddress != address(0), "Invalid address");
+    function setV3Info(address _permit2, address _universalRouter) external onlyStrategyManager {
         require(_permit2 != address(0), "Invalid address");
+        require(_universalRouter != address(0), "Invalid address");
 
-        uniswapV3Info[_routerV3] = UniswapV3Info({ permit2: _permit2, universalRouter: _routerV3, poolFee: 3000 });
+        uniswapV3Info[_universalRouter] = UniswapV3Info({ permit2: _permit2, universalRouter: _universalRouter, poolFee: 3000 });
 
-        emit LogSetV3Info(_factory, _routerV3, _WXDC, _poolAddress, _permit2);
+        emit LogSetV3Info(_permit2, _universalRouter);
     }
 
     /// @notice Allows the strategy manager to toggle the allowance of losses during liquidation.
@@ -218,13 +216,13 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         emit LogShutdownWithdrawWXDC(strategyManager, _amount);
     }
 
-    /// @notice Allows the strategy manager to sell WXDC held by the contract.
+    /// @notice Allows the strategy manager to sell WXDC, held by the contract, to UniV2.
     /// @dev Only the current strategy manager can call this function.
     /// This allows for managing the WXDC obtained through liquidations.
     /// @param _router The UniswapV2Router02 (or a fork) used for the sale.
     /// @param _amount The amount of WXDC to sell.
     /// @param _minAmountOut The minimum amount of FXD to accept for the sale.
-    function sellWXDC(IUniswapV2Router02 _router, uint256 _amount, uint256 _minAmountOut) external onlyStrategyManager {
+    function sellWXDCV2(IUniswapV2Router02 _router, uint256 _amount, uint256 _minAmountOut) external onlyStrategyManager {
         require(address(_router) != address(0), "LiquidationStrategy: zero address");
         require(_amount > 0, "LiquidationStrategy: zero amount");
         require(_amount <= idleWXDC.WXDCAmount, "LiquidationStrategy: wrong amount");
@@ -247,8 +245,40 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         require(_minAmountOut <= dexAmountOut, "LiquidationStrategy: DEX can't give enough amount");
 
-        uint256 receivedAmount = _sellCollateral(address(WXDC), path, _router, _amount, _minAmountOut);
-        emit LogSellWXDC(path, _router, _amount, _minAmountOut, dexAmountOut, receivedAmount);
+        uint256 receivedAmount = _sellCollateralV2(address(WXDC), path, _router, _amount, _minAmountOut);
+        emit LogSellWXDCV2(path, _router, _amount, _minAmountOut, dexAmountOut, receivedAmount);
+    }
+
+    /// @notice Allows the strategy manager to sell WXDC, held by the contract, to UniV3.
+    /// @dev Only the current strategy manager can call this function.
+    /// This function will work only when the UniversalRouter and Permit2 contracts addresses are already set in uniswapV3Info.
+    /// This allows for managing the WXDC obtained through liquidations.
+    /// @param _universalRouter The UniswapV3(or a fork)'s UniversalRouter  used for the sale.
+    /// @param _amount The amount of WXDC to sell.
+
+    function sellWXDCV3(address _universalRouter, uint256 _amount) external onlyStrategyManager {
+        require(address(_universalRouter) != address(0), "LiquidationStrategy: zero address");
+        require(_amount > 0, "LiquidationStrategy: zero amount");
+        require(_amount <= idleWXDC.WXDCAmount, "LiquidationStrategy: wrong amount");
+
+        require(uniswapV3Info[_universalRouter].permit2 != address(0), "LiquidationStrategy: V3 Info not set");
+
+        idleWXDC.WXDCAmount -= _amount;
+
+        if (idleWXDC.WXDCAmount == 0) {
+            idleWXDC.amountNeededToPayDebt = 0;
+            idleWXDC.averagePriceOfWXDC = 0;
+        }
+
+        uint256 deductAmountNeededToPayDebt = _amount.mul(idleWXDC.averagePriceOfWXDC).div(WAD);
+        if (idleWXDC.amountNeededToPayDebt >= deductAmountNeededToPayDebt) {
+            idleWXDC.amountNeededToPayDebt -= deductAmountNeededToPayDebt;
+        } else {
+            idleWXDC.amountNeededToPayDebt = 0;
+        }
+
+        uint256 receivedAmount = _sellCollateralV3(address(WXDC), address(fathomStablecoin), _amount, 3000, _universalRouter);
+        emit LogSellWXDCV3(_universalRouter, _amount, receivedAmount);
     }
 
     /// @notice Handles the liquidation process, swapping WXDC for FXD, and repaying debt.
@@ -274,7 +304,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 amountNeededToPayDebt = _debtValueToRepay.div(RAY) + 1;
 
         //dexAmountOut for rough calculation
-        (, uint256 dexAmountOut) = _computeMostProfitablePath(IUniswapV2Router02(_vars.routerV2), _vars.tokenAdapter.collateralToken(), _collateralAmountToLiquidate);
+        (, uint256 dexAmountOut) = _computeMostProfitablePath(
+            IUniswapV2Router02(_vars.routerV2),
+            _vars.tokenAdapter.collateralToken(),
+            _collateralAmountToLiquidate
+        );
 
         uint256 fathomStablecoinReceivedV2;
         uint256 fathomStablecoinReceivedV3;
@@ -287,7 +321,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         if (allowLoss == false) {
             // Condition #1 if there lower chance of no loss, sell on DEX
             if (dexAmountOut >= amountNeededToPayDebt) {
-
                 uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
                 if (_vars.v2Ratio > 0) {
                     fathomStablecoinReceivedV2 = handleCollateralSellingV2(
@@ -540,58 +573,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         return receivedAmount;
     }
 
-    function _sellCollateral(
-        address _token,
-        address[] memory _path,
-        IUniswapV2Router02 _router,
-        uint256 _amount,
-        uint256 _minAmountOut
-    ) internal returns (uint256 receivedAmount) {
-        if (_path.length != 0) {
-            ERC20 _tokencoinAddress = ERC20(_path[_path.length - 1]);
-            uint256 _tokencoinBalanceBefore = _tokencoinAddress.balanceOf(address(this));
-
-            // Check if enough FXD will be returned from the DEX
-            uint256[] memory amounts = _router.getAmountsOut(_amount, _path);
-
-            uint256 amountToReceive = amounts[amounts.length - 1];
-
-            if (amountToReceive < _minAmountOut) {
-                revert(
-                    string(
-                        abi.encodePacked(
-                            " collateralReceived : ",
-                            string(ERC20(_token).balanceOf(address(this))._uintToASCIIBytes()),
-                            " collaterallToSell : ",
-                            string(_amount._uintToASCIIBytes()),
-                            " amountNeeded : ",
-                            string((_minAmountOut)._uintToASCIIBytes()),
-                            " actualAmountReceived : ",
-                            string(amountToReceive._uintToASCIIBytes()),
-                            " output token : ",
-                            string(_path[_path.length - 1]._addressToASCIIBytes())
-                        )
-                    )
-                );
-            }
-
-            ERC20(_token).safeApprove(address(_router), type(uint).max);
-            _router.swapExactTokensForTokens(
-                _amount, // xdc
-                _minAmountOut, // fxd
-                _path,
-                address(this),
-                block.timestamp + 1000
-            );
-            ERC20(_token).safeApprove(address(_router), 0);
-
-            uint256 _tokencoinBalanceAfter = ERC20(_tokencoinAddress).balanceOf(address(this));
-
-            receivedAmount = _tokencoinBalanceAfter.sub(_tokencoinBalanceBefore);
-        }
-    }
-
-        function _encodeSwapExactInputSingle(
+    function _encodeSwapExactInputSingle(
         address recipient,
         uint256 amountIn,
         uint256 amountOutMinimum,
