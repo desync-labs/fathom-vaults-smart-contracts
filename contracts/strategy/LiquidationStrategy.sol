@@ -10,6 +10,7 @@ import { BaseStrategy } from "./BaseStrategy.sol";
 import { IUniversalRouter } from "./interfaces/liquidationStrategy/IUniversalRouter.sol";
 import { IPermit2 } from "./interfaces/liquidationStrategy/IPermit2.sol";
 import { IFlashLendingCallee } from "./interfaces/liquidationStrategy/IFlashLendingCallee.sol";
+import { ILiquidationStrategy } from "./interfaces/liquidationStrategy/ILiquidationStrategy.sol";
 import { IERC165 } from "./interfaces/liquidationStrategy/IERC165.sol";
 import { IGenericTokenAdapter } from "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
 import { IUniswapV2Router02 } from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
@@ -22,7 +23,7 @@ import { BytesHelper } from "./libraries/BytesHelper.sol";
 /// @dev Inherits from BaseStrategy, ReentrancyGuard, implements IFlashLendingCallee, and IERC165.
 
 // solhint-disable
-contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCallee, IERC165 {
+contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCallee, ILiquidationStrategy, IERC165 {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using BytesHelper for *;
