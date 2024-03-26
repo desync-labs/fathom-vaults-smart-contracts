@@ -12,11 +12,8 @@ contract RWAStrategy is BaseStrategy {
     using SafeERC20 for ERC20;
     using Math for uint256;
 
-    // Mapping to be set by management for any reward tokens.
-    // This can be used to set different mins for different tokens
-    // or to set to uint256.max if selling a reward token is reverting
-    // to allow for reports to still work properly.
-    uint256 public minAmountToSell;
+    // The minimum amount to send to the manager
+    uint256 public minAmount;
 
     // The address that we send funds to
     // and that will buy RWAs with the funds
@@ -24,16 +21,16 @@ contract RWAStrategy is BaseStrategy {
 
     uint256 public totalInvestedInRWA;
 
-    constructor(address _asset, string memory _name, address _tokenizedStrategyAddress, address _managerAddress, uint256 _minAmountToSell) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+    constructor(address _asset, string memory _name, address _tokenizedStrategyAddress, address _managerAddress, uint256 _minAmount) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         managerAddress = _managerAddress;
-        minAmountToSell = _minAmountToSell;
+        minAmount = _minAmount;
     }
 
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         if (!TokenizedStrategy.isShutdown()) {
             // deposit any loose funds
             uint256 looseAsset = asset.balanceOf(address(this));
-            if (looseAsset > minAmountToSell) {
+            if (looseAsset > minAmount) {
                 uint256 _amount = Math.min(looseAsset, availableDepositLimit(address(this)));
                 asset.transfer(managerAddress, _amount);
                 totalInvestedInRWA += _amount;
@@ -52,7 +49,7 @@ contract RWAStrategy is BaseStrategy {
     }
 
     function _deployFunds(uint256 _amount) internal override {
-        if (_amount > minAmountToSell) {
+        if (_amount > minAmount) {
             asset.transfer(managerAddress, _amount);
             totalInvestedInRWA += _amount;
         }
@@ -93,7 +90,7 @@ contract RWAStrategy is BaseStrategy {
         totalInvestedInRWA -= amountToWithdraw;
     }
 
-    function setMinAmountToSell(uint256 _minAmountToSell) external onlyManagement {
-        minAmountToSell = _minAmountToSell;
+    function setMinAmount(uint256 _minAmount) external onlyManagement {
+        minAmount = _minAmount;
     }
 }
