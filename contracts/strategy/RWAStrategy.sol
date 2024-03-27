@@ -20,6 +20,8 @@ contract RWAStrategy is BaseStrategy {
     address public immutable managerAddress;
 
     uint256 public totalInvestedInRWA;
+    uint256 public totalGains;
+    uint256 public totalLosses;
 
     constructor(address _asset, string memory _name, address _tokenizedStrategyAddress, address _managerAddress, uint256 _minAmount) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         managerAddress = _managerAddress;
@@ -92,5 +94,27 @@ contract RWAStrategy is BaseStrategy {
 
     function setMinAmount(uint256 _minAmount) external onlyManagement {
         minAmount = _minAmount;
+    }
+
+
+    /// @notice Allows the manager to report gains or losses.
+    /// @dev Should be called before calling report() to report the amount of the gain or loss.
+    /// @dev The manager can only report gains or losses.
+    /// @param _gain The amount of the gain.
+    /// @param _loss The amount of the loss.
+    function reportGainOrLoss(uint256 _gain, uint256 _loss) external {
+        require(msg.sender == managerAddress, "Only the manager can report gains or losses");
+
+        if (_gain > 0) {
+            require(_loss == 0, "Cannot report both gain and loss");
+            // Transfer the gain from the manager to the strategy contract
+            ERC20(asset).safeTransferFrom(managerAddress, address(this), _gain);
+            totalGains += _gain;
+        } else if (_loss > 0) {
+            require(_gain == 0, "Cannot report both gain and loss");
+            require(_loss <= totalInvestedInRWA, "Cannot report loss more than total invested");
+            totalLosses += _loss;
+            totalInvestedInRWA -= _loss;
+        }
     }
 }
