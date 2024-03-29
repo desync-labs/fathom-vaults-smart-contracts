@@ -1162,10 +1162,10 @@ contract TokenizedStrategy is ReentrancyGuard {
     }
 
     /// @notice Returns the symbol of the strategies token.
-    /// @dev Will be 'ys + asset symbol'.
+    /// @dev Will be 'fs + asset symbol'.
     /// @return The symbol the strategy is using for its tokens.
     function symbol() public view returns (string memory) {
-        return string(abi.encodePacked("ys", _strategyStorage().asset.symbol()));
+        return string(abi.encodePacked("fs", _strategyStorage().asset.symbol()));
     }
 
     /// @notice Returns the number of decimals used to get its user representation.

@@ -40,4 +40,8 @@ contract InvestorStrategy is BaseStrategy {
     function _deployFunds(uint256 _amount) internal pure override {}
 
     function _freeFunds(uint256 _amount) internal pure override {}
+
+    function _emergencyWithdraw(uint256 _amount) internal override {
+        asset.transfer(TokenizedStrategy.management(), _amount);
+    }
 }

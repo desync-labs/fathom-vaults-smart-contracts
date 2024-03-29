@@ -26,6 +26,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         feeRecipient = _feeRecipient;
         feeBPS = _feeBPS;
 
+        emit VaultPackageUpdated(_vaultPackage);
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
 
         initialized = true;
@@ -34,6 +35,9 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
     function updateVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
+        }
+        if (vaultPackage == _vaultPackage) {
+            revert SameVaultPackage();
         }
         vaultPackage = _vaultPackage;
         emit VaultPackageUpdated(_vaultPackage);
@@ -53,6 +57,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
 
     function deployVault(
         uint32 _profitMaxUnlockTime,
+        uint256 _assetType,
         address _asset,
         string calldata _name,
         string calldata _symbol,
@@ -60,7 +65,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
         FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
-        IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
+        IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _assetType, _asset, _name, _symbol, _accountant, _admin);
 
         vaults.push(address(vault));
         vaultCreators[address(vault)] = msg.sender;

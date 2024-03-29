@@ -48,6 +48,8 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     uint256 public profitUnlockingRate;
     /// @notice Last timestamp of the most recent profitable report.
     uint256 public lastProfitUpdate;
+/// @notice The type of asset the vault accepts.
+    uint256 public assetType;
 
     /// @notice Contract that charges fees and can give refunds.
     address public accountant;

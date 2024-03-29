@@ -25,9 +25,7 @@ interface IVault is IERC4626 {
 
     function addStrategy(address newStrategy) external;
 
-    function revokeStrategy(address strategy) external;
-
-    function forceRevokeStrategy(address strategy) external;
+    function revokeStrategy(address strategy, bool force) external;
 
     function updateMaxDebtForStrategy(address strategy, uint256 newMaxDebt) external;
 
