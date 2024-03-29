@@ -89,6 +89,7 @@ contract RWAStrategy is BaseStrategy {
     function _emergencyWithdraw(uint256 _amount) internal override {
         uint256 amountToWithdraw = Math.min(_amount, totalInvestedInRWA);
         asset.safeTransferFrom(managerAddress, address(this), amountToWithdraw);
+        asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
         totalInvestedInRWA -= amountToWithdraw;
     }
 

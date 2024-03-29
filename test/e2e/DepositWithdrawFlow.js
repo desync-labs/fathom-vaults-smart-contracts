@@ -272,7 +272,6 @@ describe.only("Vault Deposit and Withdraw", function () {
 });
 
 describe("Vault Deposit and Withdraw with Strategy", function () {
-describe("Vault Deposit and Withdraw with Strategy", function () {
     
     it("Should deposit, setup Investor Strategy, setup Investor, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
         const { vault, asset, owner, investor, profitMaxUnlockTime, factory, otherAccount, tokenizedStrategy } = await loadFixture(deployVault);
@@ -416,16 +415,6 @@ describe("Vault Deposit and Withdraw with Strategy", function () {
         expect(await vault.totalSupply()).to.equal(totalFees);
     });
 });
-describe("Aave Strategy", function () {
-    
-    it("Should deposit, setup Aave Strategy, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
-        const { vault, asset, owner, tokenizedStrategy, factory, otherAccount } = await deployVaultApothem();
-        const lendingPoolAddress = "0x0ba52c1df3dB6FE520Ba137F84a82d0657ca4422";
-        console.log("Other Account Address = ", otherAccount.address);
-        
-        const amount = ethers.parseUnits("1000", 18);
-        const halfAmount = amount / BigInt(2);
-        const quarterAmount = halfAmount / BigInt(2);
 
 describe.only("Vault Deposit and Withdraw with RWA Strategy", function () {
     
@@ -539,4 +528,4 @@ describe.only("Vault Deposit and Withdraw with RWA Strategy", function () {
         expect(await vault.totalIdle()).to.equal(BigInt(0));
         expect(await vault.totalSupply()).to.equal(totalFees);
     });
-});
+})
