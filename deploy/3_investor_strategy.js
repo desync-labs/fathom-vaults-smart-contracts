@@ -16,23 +16,25 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
     const { deployer } = await getNamedAccounts();
 
-    const asset = "0x"; // Real asset address
+    const asset = "0x0000000000000000000000000000000000000000"; // Real asset address
 
-    console.log("WARN: Ensure You set real asset address!!!");
-    console.log("WARN: Ensure BaseStrategy has tokenizedStrategyAddress as constant!!!");
-    console.log("WARN: Ensure InvestorStrategy has Investor address as constant!!!");
-    
-    console.log("Sleeping for 60 seconds to give a thought...");
-    await new Promise(r => setTimeout(r, 60000));
+    if (asset === "0x0000000000000000000000000000000000000000") {
+        console.log("3_investor_strategy - Error: Please provide a real asset address");
+        return;
+    }
 
     const investorFile = getTheAbi("Investor");
     const investorAddress = investorFile.address;
     const investor = await ethers.getContractAt("Investor", investorAddress);
 
+    const tokenizedStrategyFile = getTheAbi("TokenizedStrategy");
+    const tokenizedStrategyAddress = tokenizedStrategyFile.address;
+
     const strategy = await deploy("InvestorStrategy", {
         from: deployer,
-        args: [investorAddress, asset, "Fathom Investor Strategy 1"],
+        args: [investorAddress, asset, "Fathom Investor Strategy 1", tokenizedStrategyAddress],
         log: true,
+        gasLimit: "0x1000000",
     });
 
     const setInvestorStrategyTx = await investor.setStrategy(strategy.address);

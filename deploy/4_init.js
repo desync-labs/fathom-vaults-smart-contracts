@@ -13,10 +13,11 @@ const getTheAbi = (contract) => {
 };
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
-    const depositLimit = ethers.parseUnits("1000000", 18);
+    let depositLimit = ethers.parseUnits("1000000", 18);
     const maxDebt = ethers.parseUnits("1000000", 18);
     const profitMaxUnlockTime = 604800; // 1 week in seconds
     const protocolFee = 2000; // 20% of total fee
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
     const vaultTokenName = "FXD-fVault-1";
     const vaultTokenSymbol = "fvFXD1";
@@ -27,16 +28,16 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const accountantFile = getTheAbi("GenericAccountant");
     const strategyFile = getTheAbi("InvestorStrategy");
     const vaultPackageFile = getTheAbi("VaultPackage");
-    const investorFile = getTheAbi("Investor");
 
-    const assetAddress = "0x"; // Real asset address
-    const asset = await ethers.getContractAt("ERC20", assetAddress);
+    const assetAddress = "0x0000000000000000000000000000000000000000"; // Real asset address
+
+    if (assetAddress === "0x0000000000000000000000000000000000000000") {
+        console.log("4_init - Error: Please provide a real asset address");
+        return;
+    }
 
     const strategyAddress = strategyFile.address;
     const strategy = await ethers.getContractAt("TokenizedStrategy", strategyAddress);
-
-    const investorAddress = investorFile.address;
-    const investor = await ethers.getContractAt("Investor", investorAddress);
 
     const accountantAddress = accountantFile.address;
 
@@ -50,6 +51,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultTokenName,
         vaultTokenSymbol,
@@ -64,34 +66,27 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
 
+    const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+    const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+
+    let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(DEBT_PURCHASER, deployer);
+    await grantRoleTx.wait();
+
     console.log("Setting deposit limit...");
-    const setDepositLimitTx = await vault.setDepositLimit(depositLimit, { gasLimit: "0x1000000" });
+    const setDepositLimitTx = await vault.setDepositLimit(depositLimit);
     await setDepositLimitTx.wait(); // Wait for the transaction to be confirmed
 
-    console.log("Updating balances...");
-    let balanceInShares = await vault.balanceOf(deployer);
-    console.log("Balance of Owner in Shares = ", ethers.formatUnits(balanceInShares, 18));
-    let balanceInTokens = await vault.convertToAssets(balanceInShares);
-    console.log("Balance of Owner in Tokens = ", ethers.formatUnits(balanceInTokens, 18));
-    let balanceVaultInShares = await vault.balanceOf(vaultAddress);
-    console.log("Balance of Vault in Shares = ", ethers.formatUnits(balanceVaultInShares, 18));
-    let balanceVaultInTokens = await asset.balanceOf(vaultAddress);
-    console.log("Balance of Vault in Tokens = ", ethers.formatUnits(balanceVaultInTokens, 18));
-    let balanceStrategy = await asset.balanceOf(strategy.target);
-    console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
-    let accountantShares = await vault.balanceOf(accountantAddress);
-    console.log("Shares of Accountant = ", ethers.formatUnits(accountantShares, 18));
-
-    // Setup Strategy
     console.log("Adding Strategy to the Vault...");
-    const addStrategyTx = await vault.addStrategy(strategy.target, { gasLimit: "0x1000000" });
+    const addStrategyTx = await vault.addStrategy(strategy.target);
     await addStrategyTx.wait();
     console.log("Setting Vault's Strategy maxDebt...");
-    const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt, { gasLimit: "0x1000000" });
+    const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt);
     await updateMaxDebtForStrategyTx.wait();
-    console.log("Update Vault's Strategy debt...");
-    const updateDebtTx = await vault.updateDebt(strategy.target, balanceVaultInTokens, { gasLimit: "0x1000000" });
-    await updateDebtTx.wait();
 };
 
 module.exports.tags = ["Init"];

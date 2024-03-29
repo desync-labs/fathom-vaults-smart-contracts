@@ -4,7 +4,7 @@ const {
   } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { userDeposit, checkVaultEmpty, initialSetup, createProfit } = require("./utils/helper");
+const { userDeposit, checkVaultEmpty, initialSetup, createProfit } = require("../../utils/helper");
 const { hexlify } = require("ethers");
 
 describe("Vault Contract", function () {   
@@ -58,7 +58,7 @@ describe("Vault Contract", function () {
         const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
         console.log("The Last Vault Address = ", vaultAddress);
 
-        return { vault, owner, otherAccount, asset };
+        return { vault, owner, otherAccount, asset, factory };
     }
 
     it("should revert deposit with invalid recipient", async function () {
@@ -392,7 +392,7 @@ describe("Vault Contract", function () {
     // Not working due to delegate call issues with hardhat
     // Needs attention
     it("should mint shares with zero total supply and positive assets", async function () {
-        const { vault, owner, asset } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
+        const { vault, owner, asset, factory } = await loadFixture(deployVault); // Replace initialSetUp with your setup function
         const amount = 1000;
         await vault.setDepositLimit(amount);
         const maxDebt = amount;
@@ -405,7 +405,7 @@ describe("Vault Contract", function () {
         await time.increase(elapsedTime);
     
         // Simulate a Strategy creation, deposit and debt update
-        const strategy = await initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime);
+        const strategy = await initialSetup(asset, vault, owner, maxDebt, debt, amount, profitMaxUnlockTime, factory.target);
         await createProfit(asset, vault, strategy, owner, firstProfit, 0, 0, 0, 0, 0);
         await vault.connect(owner).updateDebt(strategy.target, 0);    
         expect(await vault.totalSupply()).to.be.eq(amount);

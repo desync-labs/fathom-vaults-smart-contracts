@@ -13,7 +13,12 @@ contract InvestorStrategy is BaseStrategy {
 
     IInvestor public immutable investor;
 
-    constructor(address _investor, address _asset, string memory _name) BaseStrategy(_asset, _name) {
+    constructor(
+        address _investor,
+        address _asset,
+        string memory _name,
+        address _tokenizedStrategyAddress
+    ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         require(_investor != address(0), "InvestorStrategy: zero address");
         investor = IInvestor(_investor);
     }
@@ -35,4 +40,8 @@ contract InvestorStrategy is BaseStrategy {
     function _deployFunds(uint256 _amount) internal pure override {}
 
     function _freeFunds(uint256 _amount) internal pure override {}
+
+    function _emergencyWithdraw(uint256 _amount) internal override {
+        asset.transfer(TokenizedStrategy.management(), _amount);
+    }
 }

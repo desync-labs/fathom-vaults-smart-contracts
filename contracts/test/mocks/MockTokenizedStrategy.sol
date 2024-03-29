@@ -14,7 +14,14 @@ contract MockTokenizedStrategy is TokenizedStrategy {
     /// @notice Private variables and functions used in this mock.
     bytes32 public constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("fathom.base.strategy.storage")) - 1);
 
-    constructor(address _asset, string memory _name, address _management, address _keeper, uint32 _profitMaxUnlockTime) {
+    constructor(
+        address _asset,
+        string memory _name,
+        address _management,
+        address _keeper,
+        uint32 _profitMaxUnlockTime,
+        address _factory
+    ) TokenizedStrategy(_factory) {
         // Cache storage pointer
         StrategyData storage stor = strategyStorage();
 

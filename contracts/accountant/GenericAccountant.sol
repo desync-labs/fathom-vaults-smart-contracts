@@ -38,6 +38,9 @@ contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
         _performanceFee = performanceFee_;
         _feeRecipient = feeRecipient_;
 
+        emit PerformanceFeeSet(performanceFee_);
+        emit FeeRecipientSet(feeRecipient_);
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 

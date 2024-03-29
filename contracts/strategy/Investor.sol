@@ -18,6 +18,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     uint256 public distributionStart;
     uint256 public distributionEnd;
     uint256 public lastReport;
+    uint256 public maxDistributionPeriod = 365 days;
 
     uint256 internal rewardInSecond;
 
@@ -25,12 +26,19 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     error DistributionEnded();
     error DistributionNotEnded();
     error DistributionNotStarted();
+    error DistributionPeriodTooLong();
     error PeriodStartInPast();
     error WrongPeriod();
     error WrongBalance();
     error ZeroAmount();
     error WrongAmount();
     error WrongAsset();
+    error NotStrategy();
+
+    modifier onlyStrategy() {
+        if (msg.sender != address(strategy)) revert NotStrategy();
+        _;
+    }
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -62,6 +70,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
         if (periodStart <= block.timestamp) revert PeriodStartInPast();
         if (periodEnd <= periodStart) revert WrongPeriod();
         if (approxAmount == 0) revert ZeroAmount();
+        if (periodEnd > periodStart + maxDistributionPeriod) revert DistributionPeriodTooLong();
 
         uint256 accrualInSecond = approxAmount / (periodEnd - periodStart);
         if (accrualInSecond == 0) revert WrongAmount();
@@ -85,7 +94,7 @@ contract Investor is AccessControl, ReentrancyGuard, IInvestor {
         if (strategyAsset.balanceOf(address(this)) != realDistributionAmount) revert WrongBalance();
     }
 
-    function processReport() external override nonReentrant returns (uint256) {
+    function processReport() external override nonReentrant onlyStrategy returns (uint256) {
         if (lastReport >= distributionEnd) revert DistributionEnded();
         if (block.timestamp < distributionStart) revert DistributionNotStarted();
 

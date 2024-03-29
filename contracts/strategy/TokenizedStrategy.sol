@@ -96,7 +96,7 @@ contract TokenizedStrategy is ReentrancyGuard {
     /// @notice Address of the previously deployed Vault factory that the
     /// @notice protocol fee config is retrieved from.
     /// @notice NOTE: This will be set to deployed factory. deterministic address for testing is used now
-    address public constant FACTORY = 0x0000000000000000000000000000000000000000;
+    address public immutable FACTORY;
 
     /// @dev Custom storage slot that will be used to store the
     /// `StrategyData` struct that holds each strategies
@@ -184,8 +184,9 @@ contract TokenizedStrategy is ReentrancyGuard {
 
     /// @dev On contract creation we set `asset` for this contract to address(1).
     /// This prevents it from ever being initialized in the future.
-    constructor() {
+    constructor(address _factory) {
         _strategyStorage().asset = ERC20(address(1));
+        FACTORY = _factory;
     }
 
     /// @notice Used to initialize storage for a newly deployed strategy.
@@ -225,7 +226,7 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Set the initial domain separator for permit functions
         stor.initialDomainSeparator = _computeDomainSeparator();
 
-        // Default to a 7 day profit unlock period
+        // Default to a 7 days profit unlock period
         stor.profitMaxUnlockTime = 7 days;
         // Set address to receive performance fees.
         // Can't be address(0) or we will be burning fees.
@@ -233,8 +234,8 @@ contract TokenizedStrategy is ReentrancyGuard {
         // Can't mint shares to its self because of profit locking.
         require(_performanceFeeRecipient != address(this), "self");
         stor.performanceFeeRecipient = _performanceFeeRecipient;
-        // Default to a 10% performance fee.
-        stor.performanceFee = 1_000;
+        // Default to a 0% performance fee.
+        stor.performanceFee = 0;
         // Set last report to this block.
         stor.lastReport = uint128(block.timestamp);
 
@@ -1161,10 +1162,10 @@ contract TokenizedStrategy is ReentrancyGuard {
     }
 
     /// @notice Returns the symbol of the strategies token.
-    /// @dev Will be 'ys + asset symbol'.
+    /// @dev Will be 'fs + asset symbol'.
     /// @return The symbol the strategy is using for its tokens.
     function symbol() public view returns (string memory) {
-        return string(abi.encodePacked("ys", _strategyStorage().asset.symbol()));
+        return string(abi.encodePacked("fs", _strategyStorage().asset.symbol()));
     }
 
     /// @notice Returns the number of decimals used to get its user representation.
