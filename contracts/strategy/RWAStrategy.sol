@@ -112,7 +112,6 @@ contract RWAStrategy is BaseStrategy {
             ERC20(asset).safeTransferFrom(managerAddress, address(this), _gain);
             totalGains += _gain;
         } else if (_loss > 0) {
-            require(_gain == 0, "Cannot report both gain and loss");
             require(_loss <= totalInvestedInRWA, "Cannot report loss more than total invested");
             totalLosses += _loss;
             totalInvestedInRWA -= _loss;
