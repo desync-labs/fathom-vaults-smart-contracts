@@ -110,7 +110,7 @@ describe("RWAStrategy tests", function () {
             const { strategy, asset, manager, otherAccount } = await loadFixture(deployRWAStrategyFixture);
     
             await expect(strategy.connect(otherAccount).report())
-                .to.be.revertedWith("!keeper"); // Adjust the revert message based on your implementation
+                .to.be.revertedWith("!keeper");
         });
 
         it("Does not transfer funds if minAmountToSell is not reached", async function () {
@@ -118,7 +118,7 @@ describe("RWAStrategy tests", function () {
             const initialManagerBalance = await asset.balanceOf(manager.address);
     
             // Ensure the strategy has some balance but below minAmountToSell
-            const belowMinAmount = 1; // Assuming minAmountToSell is 1
+            const belowMinAmount = 1;
             await asset.transfer(strategy.target, belowMinAmount);
     
             // Attempt to call report(), which should not transfer any funds
@@ -238,7 +238,7 @@ describe("RWAStrategy tests", function () {
             // Verify totalInvestedInRWA was not updated
             const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
             const totalInvestedInRWA = await rwaStrategy.totalInvestedInRWA();
-            expect(totalInvestedInRWA).to.equal(0); // Assuming this starts at 0
+            expect(totalInvestedInRWA).to.equal(0);
         });
     });
 
