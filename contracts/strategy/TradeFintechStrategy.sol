@@ -24,6 +24,10 @@ contract TradeFintechStrategy is BaseStrategy {
     uint256 public depositPeriodEnds;
     uint256 public lockPeriodEnds;
 
+    event FundsReturned(uint256 amount);
+    event GainReported(uint256 gain);
+    event LossReported(uint256 loss);
+
     constructor(address _asset, string memory _name, address _tokenizedStrategyAddress, address _managerAddress, uint256 _depositPeriod, uint256 _lockPeriod) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         managerAddress = _managerAddress;
         depositPeriodEnds = block.timestamp + _depositPeriod;
@@ -107,10 +111,12 @@ contract TradeFintechStrategy is BaseStrategy {
         if (_gain > 0) {
             require(_loss == 0, "Cannot report both gain and loss");
             totalGains += _gain;
+            emit GainReported(_gain);
         } else if (_loss > 0) {
             require(_loss <= totalInvestedInRWA, "Cannot report loss more than total invested");
             totalLosses += _loss;
             totalInvestedInRWA -= _loss;
+            emit LossReported(_loss);
         }
     }
 
@@ -122,5 +128,7 @@ contract TradeFintechStrategy is BaseStrategy {
 
         // Transfer the amount from the manager to the strategy contract
         asset.safeTransferFrom(managerAddress, address(this), _amount);
+
+        emit FundsReturned(_amount);
     }
 }

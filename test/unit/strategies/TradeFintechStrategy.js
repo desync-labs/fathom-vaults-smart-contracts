@@ -239,159 +239,314 @@ describe("TradeFintechStrategy tests", function () {
         });
     });
 
-    // describe("_freeFunds()", function () {
-    //     it("Successfully transfers funds and updates totalInvestedInRWA on withdrawal", async function () {
-    //         const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployRWAStrategyFixture);
+    describe("_freeFunds()", function () {
+        it("Successfully transfers funds and updates totalInvestedInRWA on withdrawal", async function () {
+            const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
             
-    //         // Simulate the strategy investing funds
-    //         const deployAmount = 2000;
-    //         await asset.approve(vault.target, deployAmount);
-    //         await vault.setDepositLimit(deployAmount);
-    //         await vault.deposit(deployAmount, deployer.address);
+            // Simulate the strategy investing funds
+            const deployAmount = ethers.parseEther("100");
+            await asset.approve(vault.target, deployAmount);
+            await vault.setDepositLimit(deployAmount);
+            await vault.deposit(deployAmount, deployer.address);
 
-    //         await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
-    //             .to.emit(vault, 'UpdatedMaxDebtForStrategy')
-    //             .withArgs(deployer.address, strategy.target, deployAmount);
+            await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy.target, deployAmount);
             
-    //         await vault.updateDebt(strategy.target, deployAmount);
+            await vault.updateDebt(strategy.target, deployAmount);
 
-    //         // Approve the strategy to spend the asset on behalf of the manager
-    //         await asset.connect(manager).approve(strategy.target, deployAmount);
-    
-    //         // Perform withdrawal through the vault, triggering _freeFunds
-    //         const withdrawalAmount = 50;
-    //         await vault.withdraw(
-    //             withdrawalAmount,
-    //             otherAccount.address, // receiver
-    //             deployer.address, // owner
-    //             0,
-    //             []
-    //         );
-    
-    //         // Verify funds are transferred back to the user from the manager through the strategy
-    //         const strategyBalanceAfter = await asset.balanceOf(otherAccount.address);
-    //         expect(strategyBalanceAfter).to.equal(withdrawalAmount);
-    
-    //         // Verify totalInvestedInRWA is updated correctly
-    //         const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
-    //         const totalInvestedAfter = await rwaStrategy.totalInvestedInRWA();
-    //         const expectedInvestedAfter = deployAmount - withdrawalAmount;
-    //         expect(totalInvestedAfter).to.equal(expectedInvestedAfter);
-    //     });
-    
-    //     it("Reverts withdrawal if attempting to free more funds than available", async function () {
-    //         const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployRWAStrategyFixture);
-    
-    //         // Simulate the strategy investing funds
-    //         const deployAmount = 2000;
-    //         await asset.approve(vault.target, deployAmount);
-    //         await vault.setDepositLimit(deployAmount);
-    //         await vault.deposit(deployAmount, deployer.address);
+            // Approve the strategy to spend the asset on behalf of the manager
+            await asset.connect(manager).approve(strategy.target, deployAmount);
 
-    //         await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
-    //             .to.emit(vault, 'UpdatedMaxDebtForStrategy')
-    //             .withArgs(deployer.address, strategy.target, deployAmount);
+            // Increase time to simulate the lock period ending and withdrawing period starting
+            const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+            const depositPeriodEnds = await TFStrategy.lockPeriodEnds();
+            await time.increaseTo(depositPeriodEnds + BigInt(1));
+    
+            // Perform withdrawal through the vault, triggering _freeFunds
+            const withdrawalAmount = ethers.parseEther("50");
+            await vault.withdraw(
+                withdrawalAmount,
+                otherAccount.address, // receiver
+                deployer.address, // owner
+                0,
+                []
+            );
+    
+            // Verify funds are transferred back to the user from the manager through the strategy
+            const strategyBalanceAfter = await asset.balanceOf(otherAccount.address);
+            expect(strategyBalanceAfter).to.equal(withdrawalAmount);
+    
+            // Verify totalInvestedInRWA is updated correctly
+            const totalInvestedAfter = await TFStrategy.totalInvestedInRWA();
+            const expectedInvestedAfter = deployAmount - withdrawalAmount;
+            expect(totalInvestedAfter).to.equal(expectedInvestedAfter);
+        });
+    
+        it("Reverts withdrawal if attempting to free more funds than available", async function () {
+            const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+    
+            // Simulate the strategy investing funds
+            const deployAmount = ethers.parseEther("100");
+            await asset.approve(vault.target, deployAmount);
+            await vault.setDepositLimit(deployAmount);
+            await vault.deposit(deployAmount, deployer.address);
+
+            await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy.target, deployAmount);
             
-    //         await vault.updateDebt(strategy.target, deployAmount);
+            await vault.updateDebt(strategy.target, deployAmount);
 
-    //         // Approve the strategy to spend the asset on behalf of the manager
-    //         await asset.connect(manager).approve(strategy.target, deployAmount);
+            // Approve the strategy to spend the asset on behalf of the manager
+            await asset.connect(manager).approve(strategy.target, deployAmount);
 
-    //         // Fake manager buying some RWA
-    //         await asset.connect(manager).transfer(otherAccount.address, deployAmount);
-    
-    //         // Attempt to withdraw more than the manager's balance, expecting a revert
-    //         const withdrawalAmount = 2000; // More than manager's balance
-    //         await expect(vault.withdraw(
-    //             withdrawalAmount,
-    //             otherAccount.address, // receiver
-    //             deployer.address, // owner
-    //             0,
-    //             [] // Adjust based on actual parameters
-    //         )).to.be.revertedWith("ERC20: transfer amount exceeds balance");
-    //     });
-    // });
+            // Increase time to simulate the lock period ending and withdrawing period starting
+            const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+            const depositPeriodEnds = await TFStrategy.lockPeriodEnds();
+            await time.increaseTo(depositPeriodEnds + BigInt(1));
 
-    // describe("_emergencyWithdraw()", function () {
-    //     async function deployAndSetupScenario() {
-    //         const { vault, strategy, asset, deployer, manager, otherAccount } = await loadFixture(deployRWAStrategyFixture);
+            // Fake manager buying some RWA
+            await asset.connect(manager).transfer(otherAccount.address, deployAmount);
     
-    //         // Simulate the strategy investing funds
-    //         const deployAmount = 2000;
-    //         const emergencyWithdrawAmount = 500;
-    //         await asset.approve(vault.target, deployAmount);
-    //         await vault.setDepositLimit(deployAmount);
-    //         await vault.deposit(deployAmount, deployer.address);
+            // Attempt to withdraw more than the manager's balance, expecting a revert
+            const withdrawalAmount = ethers.parseEther("100");
+            await expect(vault.withdraw(
+                withdrawalAmount,
+                otherAccount.address, // receiver
+                deployer.address, // owner
+                0,
+                [] // Adjust based on actual parameters
+            )).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+        });
 
-    //         await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
-    //             .to.emit(vault, 'UpdatedMaxDebtForStrategy')
-    //             .withArgs(deployer.address, strategy.target, deployAmount);
+        it("Reverts withdrawal if attempting to free funds before locksPeriod ends", async function () {
+            const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+    
+            // Simulate the strategy investing funds
+            const deployAmount = ethers.parseEther("100");
+            await asset.approve(vault.target, deployAmount);
+            await vault.setDepositLimit(deployAmount);
+            await vault.deposit(deployAmount, deployer.address);
 
-    //         await vault.updateDebt(strategy.target, deployAmount);
-    //         await asset.connect(manager).approve(strategy.target, deployAmount);
-    
-    //         return { strategy, asset, manager, deployAmount, emergencyWithdrawAmount, otherAccount };
-    //     }
-    
-    //     it("Successfully performs emergency withdrawal after shutdown", async function () {
-    //         const { strategy, asset, manager, deployAmount, emergencyWithdrawAmount } = await deployAndSetupScenario();
-    
-    //         // Authorize and shutdown the strategy
-    //         await strategy.shutdownStrategy();
-    
-    //         // Attempt emergency withdrawal            
-    //         await strategy.emergencyWithdraw(emergencyWithdrawAmount);
-    
-    //         // Verify funds were transferred from manager to strategy
-    //         const finalStrategyBalance = await asset.balanceOf(strategy.target);
-    //         expect(finalStrategyBalance).to.equal(emergencyWithdrawAmount);
-    
-    //         // Verify internal accounting
-    //         const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
-    //         const totalInvestedAfterWithdraw = await rwaStrategy.totalInvestedInRWA();
-    //         expect(totalInvestedAfterWithdraw).to.equal(deployAmount - emergencyWithdrawAmount);
-    //     });
-    
-    //     it("Reverts emergency withdrawal if strategy is not shutdown", async function () {
-    //         const { strategy, emergencyWithdrawAmount } = await deployAndSetupScenario();
-    
-    //         // Attempt emergency withdrawal without shutting down the strategy
-    //         await expect(
-    //             strategy.emergencyWithdraw(emergencyWithdrawAmount)
-    //         ).to.be.revertedWith("not shutdown");
-    //     });
+            await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy.target, deployAmount);
+            
+            await vault.updateDebt(strategy.target, deployAmount);
 
-    //     it("Reverts emergency withdrawal if caller is not manager", async function () {
-    //         const { strategy, emergencyWithdrawAmount, otherAccount } = await deployAndSetupScenario();
+            // Approve the strategy to spend the asset on behalf of the manager
+            await asset.connect(manager).approve(strategy.target, deployAmount);
     
-    //         // Attempt emergency withdrawal without shutting down the strategy
-    //         await expect(
-    //             strategy.connect(otherAccount).emergencyWithdraw(emergencyWithdrawAmount)
-    //         ).to.be.revertedWith("!emergency authorized");
-    //     });
-    // });
+            // Attempt to withdraw more than the manager's balance, expecting a revert
+            const withdrawalAmount = ethers.parseEther("100");
+            await expect(vault.withdraw(
+                withdrawalAmount,
+                otherAccount.address, // receiver
+                deployer.address, // owner
+                0,
+                [] // Adjust based on actual parameters
+            )).to.be.revertedWith("Lock period has not ended");
+        });
+    });
 
-    // describe("setMinAmountToSell()", function () {    
-    //     it("Allows management to update minAmountToSell", async function () {
-    //         const { strategy, manager } = await loadFixture(deployRWAStrategyFixture);
-    //         const newMinAmount = 500;
+    describe("_emergencyWithdraw()", function () {
+        async function deployAndSetupScenario() {
+            const { vault, strategy, asset, deployer, manager, otherAccount } = await loadFixture(deployTFStrategyFixture);
     
-    //         const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
+            // Simulate the strategy investing funds
+            const deployAmount = ethers.parseEther("100");
+            const emergencyWithdrawAmount = ethers.parseEther("50");
+            await asset.approve(vault.target, deployAmount);
+            await vault.setDepositLimit(deployAmount);
+            await vault.deposit(deployAmount, deployer.address);
 
-    //         await rwaStrategy.setMinAmountToSell(newMinAmount);
-    
-    //         const updatedMinAmount = await rwaStrategy.minAmountToSell();
-    //         expect(updatedMinAmount).to.equal(newMinAmount);
-    //     });
-    
-    //     it("Reverts when a non-management user tries to update minAmountToSell", async function () {
-    //         const { strategy, otherAccount } = await loadFixture(deployRWAStrategyFixture);
-    //         const newMinAmount = 500;
+            await expect(vault.updateMaxDebtForStrategy(strategy.target, deployAmount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy.target, deployAmount);
 
-    //         const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
+            await vault.updateDebt(strategy.target, deployAmount);
+            await asset.connect(manager).approve(strategy.target, deployAmount);
     
-    //         await expect(rwaStrategy.connect(otherAccount).setMinAmountToSell(newMinAmount))
-    //             .to.be.revertedWith("!management");
-    //     });
-    // });
+            return { strategy, asset, manager, deployAmount, emergencyWithdrawAmount, otherAccount };
+        }
+    
+        it("Successfully performs emergency withdrawal after shutdown", async function () {
+            const { strategy, asset, manager, deployAmount, emergencyWithdrawAmount } = await deployAndSetupScenario();
+    
+            // Authorize and shutdown the strategy
+            await strategy.shutdownStrategy();
+    
+            // Attempt emergency withdrawal            
+            await strategy.emergencyWithdraw(emergencyWithdrawAmount);
+    
+            // Verify funds were transferred from strategy to manager
+            const finalStrategyBalance = await asset.balanceOf(manager.address);
+            expect(finalStrategyBalance).to.equal(emergencyWithdrawAmount);
+    
+            // Verify internal accounting
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+            const totalInvestedAfterWithdraw = await tfStrategy.totalInvestedInRWA();
+            expect(totalInvestedAfterWithdraw).to.equal(deployAmount - emergencyWithdrawAmount);
+        });
+    
+        it("Reverts emergency withdrawal if strategy is not shutdown", async function () {
+            const { strategy, emergencyWithdrawAmount } = await deployAndSetupScenario();
+    
+            // Attempt emergency withdrawal without shutting down the strategy
+            await expect(
+                strategy.emergencyWithdraw(emergencyWithdrawAmount)
+            ).to.be.revertedWith("not shutdown");
+        });
+
+        it("Reverts emergency withdrawal if caller is not manager", async function () {
+            const { strategy, emergencyWithdrawAmount, otherAccount } = await deployAndSetupScenario();
+    
+            // Attempt emergency withdrawal without shutting down the strategy
+            await expect(
+                strategy.connect(otherAccount).emergencyWithdraw(emergencyWithdrawAmount)
+            ).to.be.revertedWith("!emergency authorized");
+        });
+    });
+
+    describe("reportGainOrLoss()", function () {
+        async function deployAndSetupScenarioForReporting() {
+            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+    
+            // Simulate the strategy investing funds
+            const investmentAmount = ethers.parseEther("100");
+            await asset.transfer(strategy.target, investmentAmount);
+            await strategy.report();
+            return { strategy, asset, manager, deployer, investmentAmount, otherAccount };
+        }
+    
+        it("Allows manager to report gain", async function () {
+            const { strategy, manager } = await deployAndSetupScenarioForReporting();
+            const gain = ethers.parseEther("10");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, 0))
+                .to.emit(tfStrategy, 'GainReported')
+                .withArgs(gain);
+    
+            const totalGains = await tfStrategy.totalGains();
+            expect(totalGains).to.equal(gain);
+        });
+    
+        it("Allows manager to report loss", async function () {
+            const { strategy, manager } = await deployAndSetupScenarioForReporting();
+            const loss = ethers.parseEther("10");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(0, loss))
+                .to.emit(tfStrategy, 'LossReported')
+                .withArgs(loss);
+    
+            const totalLosses = await tfStrategy.totalLosses();
+            expect(totalLosses).to.equal(loss);
+        });
+    
+        it("Reverts if not called by manager", async function () {
+            const { strategy, otherAccount } = await deployAndSetupScenarioForReporting();
+            const gain = ethers.parseEther("5");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(otherAccount).reportGainOrLoss(gain, 0))
+                .to.be.revertedWith("Only the manager can report gains or losses");
+        });
+    
+        it("Reverts if both gain and loss are reported", async function () {
+            const { strategy, manager } = await deployAndSetupScenarioForReporting();
+            const gain = ethers.parseEther("5");
+            const loss = ethers.parseEther("5");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, loss))
+                .to.be.revertedWith("Cannot report both gain and loss");
+        });
+    
+        it("Reverts if loss reported is more than total invested in RWA", async function () {
+            const { strategy, manager, investmentAmount } = await deployAndSetupScenarioForReporting();
+            const excessiveLoss = investmentAmount + ethers.parseEther("1"); // More than invested
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(0, excessiveLoss))
+                .to.be.revertedWith("Cannot report loss more than total invested");
+        });
+    });
+
+    describe("returnFunds()", function () {
+        async function deployAndSetupScenarioForReturningFunds() {
+            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+    
+            // Simulate the strategy deploying funds to the manager
+            const deployedAmount = ethers.parseEther("100");
+            await asset.transfer(strategy.target, deployedAmount);
+            await strategy.report();
+    
+            return { strategy, asset, manager, deployer, otherAccount, deployedAmount };
+        }
+    
+        it("Allows manager to return funds to the strategy", async function () {
+            const { strategy, asset, manager } = await deployAndSetupScenarioForReturningFunds();
+            const returnAmount = ethers.parseEther("50");
+    
+            // Simulate manager holding funds to return
+            await asset.transfer(manager.address, returnAmount);
+            await asset.connect(manager).approve(strategy.target, returnAmount);
+    
+            const initialStrategyBalance = await asset.balanceOf(strategy.target);
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).returnFunds(returnAmount))
+                .to.emit(tfStrategy, 'FundsReturned')
+                .withArgs(returnAmount);
+    
+            const finalStrategyBalance = await asset.balanceOf(strategy.target);
+            expect(finalStrategyBalance).to.equal(initialStrategyBalance + returnAmount);
+        });
+    
+        it("Reverts if not called by manager", async function () {
+            const { strategy, deployer, deployedAmount } = await deployAndSetupScenarioForReturningFunds();
+            const returnAmount = ethers.parseEther("10");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(deployer).returnFunds(returnAmount))
+                .to.be.revertedWith("Only the manager can return funds.");
+        });
+    
+        it("Reverts if attempting to return 0 funds", async function () {
+            const { strategy, manager } = await deployAndSetupScenarioForReturningFunds();
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).returnFunds(0))
+                .to.be.revertedWith("Amount must be greater than 0.");
+        });
+    
+        it("Successfully updates TF Strategy balance after funds return", async function () {
+            const { strategy, asset, manager } = await deployAndSetupScenarioForReturningFunds();
+            const returnAmount = ethers.parseEther("50");
+            
+            // Simulate manager holding funds to return
+            await asset.transfer(manager.address, returnAmount);
+            await asset.connect(manager).approve(strategy.target, returnAmount);
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            const initialTFStrategyBalance = await asset.balanceOf(strategy.target);
+    
+            await tfStrategy.connect(manager).returnFunds(returnAmount);
+    
+            const finalTFStrategyBalance = await asset.balanceOf(strategy.target);
+            expect(finalTFStrategyBalance).to.equal(initialTFStrategyBalance + returnAmount);
+        });
+    });    
 });
