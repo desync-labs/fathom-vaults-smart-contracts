@@ -48,6 +48,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint24 poolFee;
     }
 
+    // Command for V3_SWAP_EXACT_IN
+    bytes1 COMMAND = 0x00; // Assuming 0x00 is the COMMAND for V3_SWAP_EXACT_IN
+
     // --- Math ---
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
@@ -453,7 +456,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 _amount,
         uint256 _minAmountOut
     ) internal returns (uint256 receivedAmount) {
-        if (_path.length != 0) {
             address _tokencoinAddress = _path[_path.length - 1];
             uint256 _tokencoinBalanceBefore = ERC20(_tokencoinAddress).balanceOf(address(this));
 
@@ -494,7 +496,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             uint256 _tokencoinBalanceAfter = ERC20(_tokencoinAddress).balanceOf(address(this));
 
             receivedAmount = _tokencoinBalanceAfter.sub(_tokencoinBalanceBefore);
-        }
     }
 
     function _sellCollateralV3(
@@ -588,15 +589,12 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 amountOutMinimum,
         bytes memory path,
         bool sourceOfFundsIsMsgSender
-    ) internal pure returns (bytes memory commands, bytes[] memory inputs) {
-        // Command for V3_SWAP_EXACT_IN
-        bytes1 command = 0x00; // Assuming 0x00 is the command for V3_SWAP_EXACT_IN
-
-        // Encode the inputs for the V3_SWAP_EXACT_IN command
+    ) internal view returns (bytes memory commands, bytes[] memory inputs) {
+        // Encode the inputs for the V3_SWAP_EXACT_IN COMMAND
         bytes memory input = abi.encode(recipient, amountIn, amountOutMinimum, path, sourceOfFundsIsMsgSender);
 
-        // Prepare the command and input for the caller to use with `execute` function of UniversalRouter
-        commands = abi.encodePacked(command);
+        // Prepare the COMMAND and input for the caller to use with `execute` function of UniversalRouter
+        commands = abi.encodePacked(COMMAND);
         inputs = new bytes[](1);
         inputs[0] = input;
     }
