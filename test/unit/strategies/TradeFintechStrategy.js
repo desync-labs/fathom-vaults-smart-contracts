@@ -10,8 +10,11 @@ async function deployTFStrategyFixture() {
     const profitMaxUnlockTime = 30;
     const amount = "1000";
     const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
-    const depositPeriodEnds = 604800; // 1 week
-    const lockPeriodEnds = 86400 * 30; // 30 days
+    const latestBlock = await time.latestBlock();
+    const latestBlockTimestamp = (await ethers.provider.getBlock(latestBlock)).timestamp;
+    const depositPeriodEnds = latestBlockTimestamp + 604800; // 1 week
+    const lockPeriodEnds = latestBlockTimestamp + (86400 * 30); // 30 days
+    const depositLimit = ethers.parseEther("1000000000000")
 
     const vaultName = 'Vault Shares FXD';
     const vaultSymbol = 'vFXD';
@@ -79,10 +82,17 @@ async function deployTFStrategyFixture() {
         tokenizedStrategy.target,
         manager.address,
         depositPeriodEnds,
-        lockPeriodEnds
+        lockPeriodEnds,
+        depositLimit
     );
+    
+    let strategy = await ethers.getContractAt("TradeFintechStrategy", tfStrategy.target); 
 
-    const strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
+    const MANAGER = ethers.keccak256(ethers.toUtf8Bytes("MANAGER"));
+
+    await strategy.grantRole(MANAGER, manager.address);
+
+    strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
 
     // Add Strategy to Vault
     await expect(vault.addStrategy(strategy.target))
@@ -92,7 +102,7 @@ async function deployTFStrategyFixture() {
         .to.emit(vault, 'UpdatedMaxDebtForStrategy')
         .withArgs(deployer.address, strategy.target, amount);
 
-    return { vault, strategy, asset, deployer, manager, otherAccount, depositPeriodEnds, lockPeriodEnds };
+    return { vault, strategy, asset, deployer, manager, otherAccount, depositPeriodEnds, lockPeriodEnds, depositLimit };
 }
 
 describe("TradeFintechStrategy tests", function () {
@@ -120,7 +130,7 @@ describe("TradeFintechStrategy tests", function () {
             await strategy.report();
 
             const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-            const totalAssets = await TFStrategy.totalInvestedInRWA();
+            const totalAssets = await TFStrategy.totalInvested();
             expect(totalAssets).to.equal(depositAmount);
             expect(await asset.balanceOf(manager.address)).to.equal(depositAmount);
         });
@@ -135,15 +145,15 @@ describe("TradeFintechStrategy tests", function () {
 
     describe("availableDepositLimit()", function () {
         it("Returns max uint256 when the contract holds no asset tokens", async function () {
-            const { strategy, deployer } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, deployer, depositLimit } = await loadFixture(deployTFStrategyFixture);
             
             const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
             const availableLimit = await TFStrategy.availableDepositLimit(deployer.address);
-            expect(availableLimit).to.equal(ethers.MaxUint256);
+            expect(availableLimit).to.equal(depositLimit);
         });
     
         it("Correctly reduces the available deposit limit based on the contract's balance", async function () {
-            const { strategy, asset, deployer } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, asset, deployer, depositLimit } = await loadFixture(deployTFStrategyFixture);
 
             const depositAmount = ethers.parseEther("100");
     
@@ -152,7 +162,7 @@ describe("TradeFintechStrategy tests", function () {
     
             const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
             const availableLimit = await TFStrategy.availableDepositLimit(deployer.address);
-            const expectedLimit = ethers.MaxUint256 - depositAmount;
+            const expectedLimit = depositLimit - depositAmount;
             expect(availableLimit).to.equal(expectedLimit);
         });
     });
@@ -200,7 +210,7 @@ describe("TradeFintechStrategy tests", function () {
     
             // Verify totalInvestedInRWA was updated correctly
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-            const totalInvestedInRWA = await tfStrategy.totalInvestedInRWA();
+            const totalInvestedInRWA = await tfStrategy.totalInvested();
             expect(totalInvestedInRWA).to.equal(deployAmount);
         });
     
@@ -234,7 +244,7 @@ describe("TradeFintechStrategy tests", function () {
             expect(managerBalance).to.equal(initialManagerBalance);
     
             // Verify totalInvestedInRWA was not updated
-            const totalInvestedInRWA = await TFStrategy.totalInvestedInRWA();
+            const totalInvestedInRWA = await TFStrategy.totalInvested();
             expect(totalInvestedInRWA).to.equal(0);
         });
     });
@@ -278,7 +288,7 @@ describe("TradeFintechStrategy tests", function () {
             expect(strategyBalanceAfter).to.equal(withdrawalAmount);
     
             // Verify totalInvestedInRWA is updated correctly
-            const totalInvestedAfter = await TFStrategy.totalInvestedInRWA();
+            const totalInvestedAfter = await TFStrategy.totalInvested();
             const expectedInvestedAfter = deployAmount - withdrawalAmount;
             expect(totalInvestedAfter).to.equal(expectedInvestedAfter);
         });
@@ -386,7 +396,7 @@ describe("TradeFintechStrategy tests", function () {
     
             // Verify internal accounting
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-            const totalInvestedAfterWithdraw = await tfStrategy.totalInvestedInRWA();
+            const totalInvestedAfterWithdraw = await tfStrategy.totalInvested();
             expect(totalInvestedAfterWithdraw).to.equal(deployAmount - emergencyWithdrawAmount);
         });
     
@@ -453,9 +463,13 @@ describe("TradeFintechStrategy tests", function () {
             const gain = ethers.parseEther("5");
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+
+            const errorMessage = `AccessControl: account ${otherAccount.address
+                .toString()
+                .toLowerCase()} is missing role 0xaf290d8680820aad922855f39b306097b20e28774d6c1ad35a20325630c3a02c`;
     
             await expect(tfStrategy.connect(otherAccount).reportGainOrLoss(gain, 0))
-                .to.be.revertedWith("Only the manager can report gains or losses");
+                .to.be.revertedWith(errorMessage);
         });
     
         it("Reverts if both gain and loss are reported", async function () {
@@ -517,9 +531,13 @@ describe("TradeFintechStrategy tests", function () {
             const returnAmount = ethers.parseEther("10");
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+
+            const errorMessage = `AccessControl: account ${deployer.address
+                .toString()
+                .toLowerCase()} is missing role 0xaf290d8680820aad922855f39b306097b20e28774d6c1ad35a20325630c3a02c`;
     
             await expect(tfStrategy.connect(deployer).returnFunds(returnAmount))
-                .to.be.revertedWith("Only the manager can return funds.");
+                .to.be.revertedWith(errorMessage);
         });
     
         it("Reverts if attempting to return 0 funds", async function () {

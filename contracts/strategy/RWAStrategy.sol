@@ -23,7 +23,13 @@ contract RWAStrategy is BaseStrategy {
     uint256 public totalGains;
     uint256 public totalLosses;
 
-    constructor(address _asset, string memory _name, address _tokenizedStrategyAddress, address _managerAddress, uint256 _minAmount) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+    constructor(
+        address _asset,
+        string memory _name,
+        address _tokenizedStrategyAddress,
+        address _managerAddress,
+        uint256 _minAmount
+    ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         managerAddress = _managerAddress;
         minAmount = _minAmount;
     }
@@ -96,7 +102,6 @@ contract RWAStrategy is BaseStrategy {
     function setMinAmount(uint256 _minAmount) external onlyManagement {
         minAmount = _minAmount;
     }
-
 
     /// @notice Allows the manager to report gains or losses.
     /// @dev Should be called before calling report() to report the amount of the gain or loss.
