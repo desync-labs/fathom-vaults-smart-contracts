@@ -99,6 +99,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     error DEXCannotGiveEnoughAmount();
     error NotEnoughToRepayDebt();
     error V3InfoNotSet();
+    error SameV3Info();
     error HighChanceOfLoss();
 
     modifier onlyStrategyManager() {
@@ -120,6 +121,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         address _bookKeeper,
         address _stablecoinAdapter
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+        if (_asset == address(0)) revert ZeroAddress();
+        if (_tokenizedStrategyAddress == address(0)) revert ZeroAddress();
         if (_strategyManager == address(0)) revert ZeroAddress();
         if (_fixedSpreadLiquidationStrategy == address(0)) revert ZeroAddress();
         if (_bookKeeper == address(0)) revert ZeroAddress();
@@ -177,6 +180,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     /// @param _universalRouter The address of the UniswapV3 UniversalRouter contract.
     function setV3Info(address _permit2, address _universalRouter, uint24 _poolFee) external onlyStrategyManager {
         if (_permit2 == address(0) || _universalRouter == address(0)) revert ZeroAddress();
+        if (_poolFee == 0) revert ZeroAmount();
+        if (uniswapV3Info[_universalRouter].permit2 == _permit2 && uniswapV3Info[_universalRouter].universalRouter == _universalRouter && uniswapV3Info[_universalRouter].poolFee == _poolFee) revert SameV3Info();
         uniswapV3Info[_universalRouter] = UniswapV3Info({ permit2: _permit2, universalRouter: _universalRouter, poolFee: _poolFee });
         emit LogSetV3Info(_permit2, _universalRouter);
     }
