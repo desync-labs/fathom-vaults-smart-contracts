@@ -80,19 +80,16 @@ async function deployTFStrategyFixture() {
         asset.target,
         "Trade Fintech Strategy",
         tokenizedStrategy.target,
-        manager.address,
         depositPeriodEnds,
         lockPeriodEnds,
         depositLimit
     );
-    
-    let strategy = await ethers.getContractAt("TradeFintechStrategy", tfStrategy.target); 
 
-    const MANAGER = ethers.keccak256(ethers.toUtf8Bytes("MANAGER"));
+    const strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
 
-    await strategy.grantRole(MANAGER, manager.address);
-
-    strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
+    // Set new manager
+    await strategy.setPendingManagement(manager.address);
+    await strategy.connect(manager).acceptManagement();
 
     // Add Strategy to Vault
     await expect(vault.addStrategy(strategy.target))
@@ -115,8 +112,8 @@ describe("TradeFintechStrategy tests", function () {
             const latestBlock = await time.latestBlock();
             const latestBlockTimestamp = (await ethers.provider.getBlock(latestBlock)).timestamp;
 
-            expect(await TFStrategy.managerAddress()).to.equal(manager.address);
-            expect(await TFStrategy.depositPeriodEnds()).to.be.lessThanOrEqual(latestBlockTimestamp + depositPeriodEnds);
+            expect(await strategy.management()).to.equal(manager.address);
+            expect(await TFStrategy.depositPeriodEnds()).to.be.equal(depositPeriodEnds);
         });
     });
 
@@ -385,27 +382,30 @@ describe("TradeFintechStrategy tests", function () {
             const { strategy, asset, manager, deployAmount, emergencyWithdrawAmount } = await deployAndSetupScenario();
     
             // Authorize and shutdown the strategy
-            await strategy.shutdownStrategy();
+            await strategy.connect(manager).shutdownStrategy();
     
             // Attempt emergency withdrawal            
-            await strategy.emergencyWithdraw(emergencyWithdrawAmount);
+            await strategy.connect(manager).emergencyWithdraw(emergencyWithdrawAmount);
     
             // Verify funds were transferred from strategy to manager
-            const finalStrategyBalance = await asset.balanceOf(manager.address);
-            expect(finalStrategyBalance).to.equal(emergencyWithdrawAmount);
+            const finalManagerBalance = await asset.balanceOf(manager.address);
+            expect(finalManagerBalance).to.equal(deployAmount);
+
+            const finalStrategyBalance = await asset.balanceOf(strategy.target);
+            expect(finalStrategyBalance).to.equal(0);
     
             // Verify internal accounting
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
             const totalInvestedAfterWithdraw = await tfStrategy.totalInvested();
-            expect(totalInvestedAfterWithdraw).to.equal(deployAmount - emergencyWithdrawAmount);
+            expect(totalInvestedAfterWithdraw).to.equal(0);
         });
     
         it("Reverts emergency withdrawal if strategy is not shutdown", async function () {
-            const { strategy, emergencyWithdrawAmount } = await deployAndSetupScenario();
+            const { strategy, emergencyWithdrawAmount, manager } = await deployAndSetupScenario();
     
             // Attempt emergency withdrawal without shutting down the strategy
             await expect(
-                strategy.emergencyWithdraw(emergencyWithdrawAmount)
+                strategy.connect(manager).emergencyWithdraw(emergencyWithdrawAmount)
             ).to.be.revertedWith("not shutdown");
         });
 
@@ -438,7 +438,7 @@ describe("TradeFintechStrategy tests", function () {
     
             await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, 0))
                 .to.emit(tfStrategy, 'GainReported')
-                .withArgs(gain);
+                .withArgs(manager.address, gain);
     
             const totalGains = await tfStrategy.totalGains();
             expect(totalGains).to.equal(gain);
@@ -452,7 +452,7 @@ describe("TradeFintechStrategy tests", function () {
     
             await expect(tfStrategy.connect(manager).reportGainOrLoss(0, loss))
                 .to.emit(tfStrategy, 'LossReported')
-                .withArgs(loss);
+                .withArgs(manager.address, loss);
     
             const totalLosses = await tfStrategy.totalLosses();
             expect(totalLosses).to.equal(loss);
@@ -463,13 +463,9 @@ describe("TradeFintechStrategy tests", function () {
             const gain = ethers.parseEther("5");
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-
-            const errorMessage = `AccessControl: account ${otherAccount.address
-                .toString()
-                .toLowerCase()} is missing role 0xaf290d8680820aad922855f39b306097b20e28774d6c1ad35a20325630c3a02c`;
     
             await expect(tfStrategy.connect(otherAccount).reportGainOrLoss(gain, 0))
-                .to.be.revertedWith(errorMessage);
+                .to.be.revertedWith("!management");
         });
     
         it("Reverts if both gain and loss are reported", async function () {
@@ -520,7 +516,7 @@ describe("TradeFintechStrategy tests", function () {
     
             await expect(tfStrategy.connect(manager).returnFunds(returnAmount))
                 .to.emit(tfStrategy, 'FundsReturned')
-                .withArgs(returnAmount);
+                .withArgs(manager.address, returnAmount);
     
             const finalStrategyBalance = await asset.balanceOf(strategy.target);
             expect(finalStrategyBalance).to.equal(initialStrategyBalance + returnAmount);
@@ -531,13 +527,9 @@ describe("TradeFintechStrategy tests", function () {
             const returnAmount = ethers.parseEther("10");
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-
-            const errorMessage = `AccessControl: account ${deployer.address
-                .toString()
-                .toLowerCase()} is missing role 0xaf290d8680820aad922855f39b306097b20e28774d6c1ad35a20325630c3a02c`;
     
             await expect(tfStrategy.connect(deployer).returnFunds(returnAmount))
-                .to.be.revertedWith(errorMessage);
+                .to.be.revertedWith("!management");
         });
     
         it("Reverts if attempting to return 0 funds", async function () {
@@ -565,6 +557,39 @@ describe("TradeFintechStrategy tests", function () {
     
             const finalTFStrategyBalance = await asset.balanceOf(strategy.target);
             expect(finalTFStrategyBalance).to.equal(initialTFStrategyBalance + returnAmount);
+        });
+    });
+
+    describe("setDepositLimit()", function () {    
+        it("Allows manager to set deposit limit", async function () {
+            const { strategy, manager } = await loadFixture(deployTFStrategyFixture);
+            const depositLimit = ethers.parseEther("50");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await tfStrategy.connect(manager).setDepositLimit(depositLimit);
+    
+            const newDepositLimit = await tfStrategy.depositLimit();
+            expect(newDepositLimit).to.equal(depositLimit);
+        });
+    
+        it("Reverts if not called by manager", async function () {
+            const { strategy, deployer } = await loadFixture(deployTFStrategyFixture);
+            const depositLimit = ethers.parseEther("50");
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(deployer).setDepositLimit(depositLimit))
+                .to.be.revertedWith("!management");
+        });
+    
+        it("Reverts if attempting to set 0 as new deposit limit", async function () {
+            const { strategy, manager } = await loadFixture(deployTFStrategyFixture);
+
+            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
+    
+            await expect(tfStrategy.connect(manager).setDepositLimit(0))
+                .to.be.revertedWith("Deposit limit must be greater than 0.");
         });
     });    
 });
