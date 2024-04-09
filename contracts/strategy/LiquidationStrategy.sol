@@ -62,7 +62,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     ERC20 public fathomStablecoin;
     ERC20 public usdToken;
 
-    mapping (address => CollateralInfo) public idleCollateral;
+    mapping(address => CollateralInfo) public idleCollateral;
     mapping(address => UniswapV3Info) public uniswapV3Info;
 
     event LogSetStrategyManager(address _strategyManager);
@@ -315,15 +315,29 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 retrievedCollateralAmount = _retrieveCollateral(_vars.tokenAdapter.collateralToken(), _vars.tokenAdapter, _collateralAmountToLiquidate);
         // +1 to compensate for precision loss with division
         uint256 amountNeededToPayDebt = _debtValueToRepay.div(RAY) + 1;
-
         uint256 fathomStablecoinReceivedV2;
         uint256 fathomStablecoinReceivedV3;
-
         if (uniswapV3Info[_vars.routerV3].universalRouter == address(0) && _vars.routerV2 != address(0)) {
             _vars.v2Ratio = 10000; // Adjust to use V2 fully
         }
         // If bot tells the strategy to use DEX
         if (_vars.routerV2 == address(0) && _vars.routerV3 == address(0)) {
+            if (fathomStablecoin.balanceOf(address(this)) < amountNeededToPayDebt) {
+                revert NotEnoughToRepayDebt();
+            }
+            _depositStablecoin(amountNeededToPayDebt, _vars.liquidatorAddress);
+            idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount += retrievedCollateralAmount;
+            idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt += amountNeededToPayDebt;
+            idleCollateral[_vars.tokenAdapter.collateralToken()].averagePriceOfCollateral = idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt.mul(WAD).div(idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount);
+            emit LogFlashLiquidationSuccess(
+                _vars.liquidatorAddress,
+                amountNeededToPayDebt,
+                _collateralAmountToLiquidate,
+                fathomStablecoinReceivedV2,
+                fathomStablecoinReceivedV3,
+                _vars.v2Ratio
+            );
+        } else {
             uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
             uint256 balanceOfFXDBeforeSwap = fathomStablecoin.balanceOf(address(this));
             if (_vars.v2Ratio > 0) {
@@ -362,22 +376,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             } else {
                 emit LogProfitOrLoss(balanceOfFXDAfterSwap - balanceOfFXDBeforeSwap, false);
             }
-        } else {
-            if (fathomStablecoin.balanceOf(address(this)) < amountNeededToPayDebt) {
-                revert NotEnoughToRepayDebt();
-            }
-            _depositStablecoin(amountNeededToPayDebt, _vars.liquidatorAddress);
-            idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount += retrievedCollateralAmount;
-            idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt += amountNeededToPayDebt;
-            idleCollateral[_vars.tokenAdapter.collateralToken()].averagePriceOfCollateral = idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt.mul(WAD).div(idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount);
-            emit LogFlashLiquidationSuccess(
-                _vars.liquidatorAddress,
-                amountNeededToPayDebt,
-                _collateralAmountToLiquidate,
-                fathomStablecoinReceivedV2,
-                fathomStablecoinReceivedV3,
-                _vars.v2Ratio
-            );
         }
     }
 
@@ -461,7 +459,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
             // Check if enough FXD will be returned from the DEX to complete flash liquidation
             uint256[] memory amounts = _router.getAmountsOut(_amount, _path);
-
             uint256 amountToReceive = amounts[amounts.length - 1];
 
             if (amountToReceive < _minAmountOut) {
@@ -482,10 +479,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                     )
                 );
             }
-
             ERC20(_token).safeApprove(address(_router), type(uint).max);
             _router.swapExactTokensForTokens(
-                _amount, // xdc
+                _amount, // col
                 _minAmountOut, // fxd
                 _path,
                 address(this),
