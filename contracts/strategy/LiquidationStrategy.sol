@@ -320,7 +320,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         if (uniswapV3Info[_vars.routerV3].universalRouter == address(0) && _vars.routerV2 != address(0)) {
             _vars.v2Ratio = 10000; // Adjust to use V2 fully
         }
-        // If bot tells the strategy to use DEX
+        // If bot tells the strategy to not use DEX
         if (_vars.routerV2 == address(0) && _vars.routerV3 == address(0)) {
             if (fathomStablecoin.balanceOf(address(this)) < amountNeededToPayDebt) {
                 revert NotEnoughToRepayDebt();

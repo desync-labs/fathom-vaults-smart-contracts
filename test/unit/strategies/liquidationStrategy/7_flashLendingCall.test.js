@@ -65,7 +65,6 @@ describe("LiquidationStrategy - flashLendingCall", function () {
                 ["address", "address", "address", "address", "uint256"],
                 [otherAccount.address, mockTokenAdapter.target, ethers.ZeroAddress, ethers.ZeroAddress, 10000]
             );
-            // Assuming there's a mock setup for the success path
             await mockERC20FXD.mint(liquidationStrategy.target, ethers.parseEther("1000000"));
             await expect(liquidationStrategy.connect(owner).flashLendingCall(
                 owner.address, ethers.parseEther("1000"), ethers.parseEther("500"), callData
@@ -140,11 +139,10 @@ describe("LiquidationStrategy - flashLendingCall", function () {
                 ["address", "address", "address", "address", "uint256"],
                 [otherAccount.address, mockTokenAdapter.target, mockUniswapV2Router.target, ethers.ZeroAddress, 10000]
             );
-            // Assuming there's a mock setup for the success path
             await mockERC20FXD.mint(liquidationStrategy.target, ethers.parseEther("1000000"));
             await expect(liquidationStrategy.connect(owner).flashLendingCall(
                 owner.address, ethers.parseEther("1000"), ethers.parseEther("500"), callData
-            )).not.to.be.reverted; // Adjust this line based on actual mock setups
+            )).not.to.be.reverted;
         });
         it("should revert when there is not enough FXD after selling collateral", async function () {
             const abiEncoder = new ethers.AbiCoder;
