@@ -38,16 +38,7 @@ contract TradeFintechStrategy is BaseStrategy {
         depositLimit = _depositLimit;
     }
 
-    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
-        if (!TokenizedStrategy.isShutdown()) {
-            // deposit any loose funds
-            uint256 looseAsset = asset.balanceOf(address(this));
-            if (looseAsset > 0) {
-                uint256 _amount = Math.min(looseAsset, availableDepositLimit(address(this)));
-                asset.transfer(TokenizedStrategy.management(), _amount);
-                totalInvested += _amount;
-            }
-        }
+    function _harvestAndReport() internal view override returns (uint256 _totalAssets) {
         _totalAssets = totalInvested + asset.balanceOf(address(this));
     }
 
@@ -134,6 +125,14 @@ contract TradeFintechStrategy is BaseStrategy {
         totalInvested -= _amount;
 
         emit FundsReturned(msg.sender, _amount);
+    }
+
+    function withdrawFunds(uint256 _amount) external onlyManagement {
+        require(_amount > 0, "Amount must be greater than 0.");
+
+        asset.safeTransfer(TokenizedStrategy.management(), _amount);
+
+        totalInvested += _amount;
     }
 
     /// @notice Allows the manager to set the deposit limit.

@@ -31,14 +31,12 @@ abstract contract ReentrancyGuard {
     // amount. Since refunds are capped to a percentage of the total
     // transaction's gas, it is best to keep them low in cases like this one, to
     // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
 
     // Define a unique identifier for the _status variable storage slot
     bytes32 private constant _STATUS_SLOT = keccak256("org.openzeppelin.reentrancyGuard.status");
 
     constructor() {
-        _setStatus(_NOT_ENTERED);
+        _setStatus(1);
     }
 
     /**
@@ -56,16 +54,16 @@ abstract contract ReentrancyGuard {
 
     function _nonReentrantBefore() private {
         // On the first call to nonReentrant, _status will be _NOT_ENTERED
-        require(_status() != _ENTERED, "ReentrancyGuard: reentrant call");
+        require(_status() != 2, "ReentrancyGuard: reentrant call");
 
         // Any calls to nonReentrant after this point will fail
-        _setStatus(_ENTERED);
+        _setStatus(2);
     }
 
     function _nonReentrantAfter() private {
         // By storing the original value once again, a refund is triggered (see
         // https://eips.ethereum.org/EIPS/eip-2200)
-        _setStatus(_NOT_ENTERED);
+        _setStatus(1);
     }
 
     // Internal function to get the current status
@@ -89,6 +87,6 @@ abstract contract ReentrancyGuard {
      * `nonReentrant` function in the call stack.
      */
     function _reentrancyGuardEntered() internal view returns (bool) {
-        return _status() == _ENTERED;
+        return _status() == 2;
     }
 }
