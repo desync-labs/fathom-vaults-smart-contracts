@@ -64,11 +64,11 @@ async function deployVaultThroughFactory() {
 
     const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
     const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
-    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+    const DEBT_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_MANAGER"));
 
     await vault.grantRole(STRATEGY_MANAGER, deployer.address);
     await vault.grantRole(REPORTING_MANAGER, deployer.address);
-    await vault.grantRole(DEBT_PURCHASER, deployer.address);
+    await vault.grantRole(DEBT_MANAGER, deployer.address);
 
     const Investor = await ethers.getContractFactory("Investor");
     const investor = await Investor.deploy({ gasLimit: "0x1000000" });
@@ -145,11 +145,11 @@ async function deployVault() {
 
     const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
     const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
-    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+    const DEBT_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_MANAGER"));
 
     await vault.grantRole(STRATEGY_MANAGER, deployer.address);
     await vault.grantRole(REPORTING_MANAGER, deployer.address);
-    await vault.grantRole(DEBT_PURCHASER, deployer.address);
+    await vault.grantRole(DEBT_MANAGER, deployer.address);
 
     const ONE_YEAR = 31_556_952;
 
@@ -320,6 +320,121 @@ describe("VaultPackage tests", function () {
             await expect(vault.setDefaultQueue([strategy.target, strategy2.target]))
               .to.emit(vault, "UpdatedDefaultQueue")
               .withArgs([strategy.target, strategy2.target]);
+        });
+    });
+
+    describe.only("updateDebt()", function () {
+        async function setupScenario() {
+            const { deployer, otherAccount, strategy, asset, tokenizedStrategy, vault } = await loadFixture(deployVaultThroughFactory);
+            const amount = 1000;
+
+            const Investor = await ethers.getContractFactory("Investor");
+            const investor2 = await Investor.deploy();
+            const investor3 = await Investor.deploy();
+
+            // Set up strategies
+            const InvestorStrategy = await ethers.getContractFactory("InvestorStrategy");
+
+            const investorStrategy2 = await InvestorStrategy.deploy(
+                investor2.target,
+                asset.target,
+                "Investor Strategy 2",
+                tokenizedStrategy.target
+            );
+
+            const investorStrategy3 = await InvestorStrategy.deploy(
+                investor3.target,
+                asset.target,
+                "Investor Strategy 3",
+                tokenizedStrategy.target
+            );
+
+            const strategy2 = await ethers.getContractAt("TokenizedStrategy", investorStrategy2.target);
+            const inactiveStrategy = await ethers.getContractAt("TokenizedStrategy", investorStrategy3.target);
+
+            // Setup Investor
+            await asset.approve(investor2.target, amount);
+            await expect(investor2.setStrategy(strategy2.target))
+                .to.emit(investor2, 'StrategyUpdate')
+                .withArgs(strategy2.target, strategy2.target, await vault.asset());
+            let blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const startDistribution = blockTimestamp + 10;
+            const endDistribution = blockTimestamp + 60;
+            await expect(investor2.setupDistribution(amount, startDistribution, endDistribution))
+                .to.emit(investor2, 'DistributionSetup')
+                .withArgs(amount, startDistribution, endDistribution);
+            expect(await investor2.rewardsLeft()).to.equal(amount);
+            expect(await investor2.rewardRate()).to.equal(amount / (endDistribution - startDistribution));
+
+            // Add Strategy to Vault
+            await expect(vault.addStrategy(strategy2.target))
+                .to.emit(vault, 'StrategyChanged')
+                .withArgs(strategy2.target, 0);
+            await expect(vault.updateMaxDebtForStrategy(strategy2.target, amount))
+                .to.emit(vault, 'UpdatedMaxDebtForStrategy')
+                .withArgs(deployer.address, strategy2.target, amount);
+
+            const deployAmount = ethers.parseEther("1000");
+            await asset.mint(deployer.address, deployAmount);
+            await asset.approve(vault.target, deployAmount);
+            await vault.setDepositLimit(deployAmount);
+            await vault.deposit(deployAmount, deployer.address);
+
+            return { vault, strategy, strategy2, inactiveStrategy, otherAccount };
+        }
+
+        it("Should update the debt properly when authorized", async function() {
+            const { vault, strategy } = await setupScenario();
+            const newDebt = 1000;
+            await vault.updateDebt(strategy.target, newDebt);
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            expect(currentDebt).to.equal(newDebt);
+        });
+
+        it("Should revert if the debt did not change", async function() {
+            const { vault, strategy } = await setupScenario();
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            await expect(vault.updateDebt(strategy.target, currentDebt))
+                .to.be.revertedWithCustomError(vault, "DebtDidntChange");
+        });
+
+        it("Should revert if called by unauthorized user", async function() {
+            const { vault, strategy, otherAccount } = await setupScenario();
+            const newDebt = ethers.parseEther("300");
+            await expect(vault.connect(otherAccount).updateDebt(strategy.target, newDebt))
+                .to.be.revertedWithCustomError(vault, "NotAuthorized");
+        });
+
+        it("Should set debt to zero if the vault is shutdown", async function() {
+            const { vault, strategy } = await setupScenario();
+            await vault.shutdown();
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            expect(currentDebt).to.equal(0);
+        });
+
+        it("Should handle the case where the vault is increasing the strategy's debt", async function() {
+            const { vault, strategy } = await setupScenario();
+            const initialDebt = 100;
+            const newDebt = 200;
+            await vault.updateDebt(strategy.target, initialDebt);
+            await vault.updateDebt(strategy.target, newDebt);
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            expect(currentDebt).to.equal(newDebt);
+        });
+
+        it("Should handle the case where the vault is decreasing the strategy's debt", async function() {
+            const { vault, strategy } = await setupScenario();
+            const initialDebt = 400;
+            const newDebt = 100;
+            await vault.updateDebt(strategy.target, initialDebt);
+            await vault.updateDebt(strategy.target, newDebt);
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            expect(currentDebt).to.equal(newDebt);
         });
     });
 });

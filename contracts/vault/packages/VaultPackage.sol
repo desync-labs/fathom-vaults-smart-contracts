@@ -25,6 +25,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     using Math for uint256;
     using SafeERC20 for ERC20;
 
+    modifier onlyManager(address account) {
+        if (!hasRole(STRATEGY_MANAGER, account) || !hasRole(DEBT_MANAGER, account)) {
+            revert NotAuthorized();
+        }
+        _;
+    }
+
     // solhint-disable-next-line function-max-lines
     function initialize(
         uint256 _profitMaxUnlockTime,
@@ -307,7 +314,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param newDebt The target debt for the strategy.
     /// @return The amount of debt added or removed.
     // solhint-disable-next-line function-max-lines,code-complexity
-    function updateDebt(address strategy, uint256 newDebt) external override onlyRole(STRATEGY_MANAGER) nonReentrant returns (uint256) {
+    function updateDebt(address strategy, uint256 newDebt) external override onlyManager(msg.sender) nonReentrant returns (uint256) {
         // How much the strategy currently has.
         uint256 currentDebt = strategies[strategy].currentDebt;
 
@@ -440,11 +447,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @notice Used for governance to buy bad debt from the vault.
     /// @dev This should only ever be used in an emergency in place
     /// of force revoking a strategy in order to not report a loss.
-    /// It allows the DEBT_PURCHASER role to buy the strategies debt
+    /// It allows the DEBT_MANAGER role to buy the strategies debt
     /// for an equal amount of `asset`.
     /// @param strategy The strategy to buy the debt for
     /// @param amount The amount of debt to buy from the vault.
-    function buyDebt(address strategy, uint256 amount) external override onlyRole(DEBT_PURCHASER) nonReentrant {
+    function buyDebt(address strategy, uint256 amount) external override onlyRole(DEBT_MANAGER) nonReentrant {
         if (strategies[strategy].activation == 0) {
             revert InactiveStrategy(strategy);
         }

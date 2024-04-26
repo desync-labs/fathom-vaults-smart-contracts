@@ -21,7 +21,7 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     /// @notice Roles
     bytes32 public constant STRATEGY_MANAGER = keccak256("STRATEGY_MANAGER");
     bytes32 public constant REPORTING_MANAGER = keccak256("REPORTING_MANAGER");
-    bytes32 public constant DEBT_PURCHASER = keccak256("DEBT_PURCHASER");
+    bytes32 public constant DEBT_MANAGER = keccak256("DEBT_MANAGER");
 
     /// @notice EIP-2612 permit() typehashes
     bytes32 public constant DOMAIN_TYPE_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
