@@ -20,6 +20,7 @@ async function deployRWAStrategyFixture() {
     const assetSymbol = 'FXD';
     const vaultDecimals = 18;
     const asset = await Asset.deploy(assetSymbol, vaultDecimals, { gasLimit: "0x1000000" });
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
     await asset.mint(deployer.address, ethers.parseEther(amount));
 
@@ -48,7 +49,9 @@ async function deployRWAStrategyFixture() {
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
     
     await factory.deployVault(
+        0,
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultName,
         vaultSymbol,
@@ -59,6 +62,14 @@ async function deployRWAStrategyFixture() {
     const vaultsCopy = [...vaults];
     const vaultAddress = vaultsCopy.pop();
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
+
+    const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+    const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+
+    await vault.grantRole(STRATEGY_MANAGER, deployer.address);
+    await vault.grantRole(REPORTING_MANAGER, deployer.address);
+    await vault.grantRole(DEBT_PURCHASER, deployer.address);
 
     // Deploy RWAStrategy
     const RWAStrategy = await ethers.getContractFactory("RWAStrategy");

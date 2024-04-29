@@ -18,4 +18,7 @@ contract FactoryStorage is AccessControl {
 
     /// @notice Initialized state of the factory.
     bool public initialized;
+
+    mapping(uint256 => address) public vaultPackages;
+    uint256 public nextVaultPackageId;
 }

@@ -22,25 +22,39 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         if (_feeBPS > MAX_BPS) {
             revert FeeGreaterThan100();
         }
-        vaultPackage = _vaultPackage;
+
+        addVaultPackageAndUpdateTo(_vaultPackage);
         feeRecipient = _feeRecipient;
         feeBPS = _feeBPS;
 
-        emit VaultPackageUpdated(_vaultPackage);
         emit FeeConfigUpdated(_feeRecipient, _feeBPS);
 
         initialized = true;
     }
 
-    function updateVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function addVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
         }
         if (vaultPackage == _vaultPackage) {
             revert SameVaultPackage();
         }
+        uint256 id = nextVaultPackageId;
+        vaultPackages[id] = _vaultPackage;
+        nextVaultPackageId = nextVaultPackageId + 1;
+        emit VaultPackageAdded(id, _vaultPackage);
+    }
+
+    function updateVaultPackage(uint256 _id) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        address _vaultPackage = vaultPackages[_id];
+        if (_vaultPackage == address(0)) {
+            revert InvalidVaultPackageId();
+        }
+        if (vaultPackage == _vaultPackage) {
+            revert SameVaultPackage();
+        }
         vaultPackage = _vaultPackage;
-        emit VaultPackageUpdated(_vaultPackage);
+        emit VaultPackageUpdated(_id, _vaultPackage);
     }
 
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -56,6 +70,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
     }
 
     function deployVault(
+        uint256 _vaultPackageId,
         uint32 _profitMaxUnlockTime,
         uint256 _assetType,
         address _asset,
@@ -64,7 +79,10 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         address _accountant,
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
-        FathomVault vault = new FathomVault(vaultPackage, new bytes(0));
+        if (vaultPackages[_vaultPackageId] == address(0)) {
+            revert InvalidVaultPackageId();
+        }
+        FathomVault vault = new FathomVault(vaultPackages[_vaultPackageId], new bytes(0));
         IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _assetType, _asset, _name, _symbol, _accountant, _admin);
 
         vaults.push(address(vault));
@@ -83,5 +101,20 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
 
     function protocolFeeConfig() external view override returns (uint16 /*feeBps*/, address /*feeRecipient*/) {
         return (feeBPS, feeRecipient);
+    }
+
+    function addVaultPackageAndUpdateTo(address _vaultPackage) public override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_vaultPackage == address(0)) {
+            revert ZeroAddress();
+        }
+        if (vaultPackage == _vaultPackage) {
+            revert SameVaultPackage();
+        }
+        uint256 id = nextVaultPackageId;
+        vaultPackages[id] = _vaultPackage;
+
+        vaultPackage = _vaultPackage;
+        nextVaultPackageId = nextVaultPackageId + 1;
+        emit VaultPackageUpdated(id, _vaultPackage);
     }
 }

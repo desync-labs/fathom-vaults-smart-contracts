@@ -50,6 +50,7 @@ async function deployVault() {
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
     
     await factory.deployVault(
+        0,
         profitMaxUnlockTime,
         assetType,
         assetAddress,
@@ -137,6 +138,7 @@ async function deployVaultApothem() {
     await tokenizedStrategy.deploymentTransaction().wait(1);
     
     const deployVaultTx = await factory.deployVault(
+        0,
         profitMaxUnlockTime,
         assetType,
         assetAddress,
