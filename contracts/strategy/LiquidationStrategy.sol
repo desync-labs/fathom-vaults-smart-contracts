@@ -49,7 +49,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     }
 
     // Command for V3_SWAP_EXACT_IN
-    bytes1 COMMAND = 0x00; // Assuming 0x00 is the COMMAND for V3_SWAP_EXACT_IN
+    bytes1 constant COMMAND = 0x00; // Assuming 0x00 is the COMMAND for V3_SWAP_EXACT_IN
 
     // --- Math ---
     uint256 constant WAD = 10 ** 18;

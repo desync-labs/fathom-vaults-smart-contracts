@@ -20,13 +20,11 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
         from: deployer,
         args: [
             fathomStablecoinAddress, // _asset
-            "FXDLiquidationStrategy", // Liquidation Strategy Name
+            "FXDLiquidationStrategyV1149", // Liquidation Strategy Name
             "0xD797f2d5952F9bdEd7804a0D348fE75956bF73D8", //2024.03.21 tokenizedStrategyAddress on dev env
             strategyManagerAddress, // _strategyManager
             fixedSpreadLiquidationStrategyAddress, // _fixedSpreadLiquidationStrategy
-            wrappedXDCAddress, // _wrappedXDC
             bookKeeperAddress, // _bookKeeper
-            usdTokenAddress, // _usdToken
             stablecoinAdapterAddress // _stablecoinAdapter
         ],
         log: true,
@@ -35,14 +33,13 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
 
     console.log(`${liquidationStrategy.address} is the liquidationStrategy address`);
 
-
     // Vault
 
     // const totalGain = ethers.parseUnits("10", 18);
     // opening position when XDC price is 1 USD
     // const depositAmount = ethers.parseUnits("450", 18);
     // opening position when XDC price is 0.02 USD
-    const depositAmount = ethers.parseUnits("0000", 18);
+    const depositAmount = ethers.parseUnits("10000", 18);
     // const depositLimit = ethers.parseUnits("20000", 18);
     const maxDebt = ethers.parseUnits("20000", 18);
     // const profitMaxUnlockTime = 604800; // 7 days seconds
@@ -115,8 +112,8 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
 
     // Simulate a deposit
     // console.log("Depositing...");
-    // const depositTx = await vault.deposit(depositAmount, deployer, { gasLimit: "0x1000000" });
-    // await depositTx.wait(); // Wait for the transaction to be confirmed
+    const depositTx = await vault.deposit(depositAmount, deployer, { gasLimit: "0x1000000" });
+    await depositTx.wait(); // Wait for the transaction to be confirmed
 
     // console.log("Updating balances...");
     // balanceInShares = await vault.balanceOf(deployer);
@@ -132,15 +129,15 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
 
 
     // Setup Strategy
-    // console.log("Adding Strategy to the Vault...");
-    // const addStrategyTx = await vault.addStrategy(liquidationStrategy.address, { gasLimit: "0x1000000" });
-    // await addStrategyTx.wait();
-    // console.log("Setting Vault's Strategy maxDebt...");
-    // const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(liquidationStrategy.address, maxDebt, { gasLimit: "0x1000000" });
-    // await updateMaxDebtForStrategyTx.wait();
-    // console.log("Update Vault's Strategy debt...");
-    // const updateDebtTx = await vault.updateDebt(liquidationStrategy.address, depositAmount, { gasLimit: "0x1000000" });
-    // await updateDebtTx.wait();
+    console.log("Adding Strategy to the Vault...");
+    const addStrategyTx = await vault.addStrategy(liquidationStrategy.address, { gasLimit: "0x1000000" });
+    await addStrategyTx.wait();
+    console.log("Setting Vault's Strategy maxDebt...");
+    const updateMaxDebtForStrategyTx = await vault.updateMaxDebtForStrategy(liquidationStrategy.address, maxDebt, { gasLimit: "0x1000000" });
+    await updateMaxDebtForStrategyTx.wait();
+    console.log("Update Vault's Strategy debt...");
+    const updateDebtTx = await vault.updateDebt(liquidationStrategy.address, depositAmount, { gasLimit: "0x1000000" });
+    await updateDebtTx.wait();
 
     // console.log("Updating balances...");
     // balanceInShares = await vault.balanceOf(deployer);
@@ -153,8 +150,8 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
     console.log("Balance of Vault in Tokens = ", ethers.formatUnits(balanceVaultInTokens, 18));
     balanceStrategy = await assetInstance.balanceOf(liquidationStrategy.address);
     console.log("Balance of Strategy = ", ethers.formatUnits(balanceStrategy, 18));
-    let pricePerShare = await vault.pricePerShare();
-    console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
+    // let pricePerShare = await vault.pricePerShare();
+    // console.log("Price Per Share = ", ethers.formatUnits(pricePerShare, 18));
     let vaultStrategyBalance = await liqStrategyTokenizedStrategyInstance.balanceOf(vaultAddress);
     console.log("Vault Balance on Strategy = ", ethers.formatUnits(vaultStrategyBalance, 18));
     let vaultStrategyBalanceInTokens = await liqStrategyTokenizedStrategyInstance.convertToAssets(vaultStrategyBalance);
