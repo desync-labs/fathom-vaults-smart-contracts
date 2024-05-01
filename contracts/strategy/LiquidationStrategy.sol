@@ -54,6 +54,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     // --- Math ---
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
+    uint256 constant TENK = 10000;
 
     IStablecoinAdapter public stablecoinAdapter;
     IBookKeeper public bookKeeper;
@@ -318,7 +319,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 fathomStablecoinReceivedV2;
         uint256 fathomStablecoinReceivedV3;
         if (uniswapV3Info[_vars.routerV3].universalRouter == address(0) && _vars.routerV2 != address(0)) {
-            _vars.v2Ratio = 10000; // Adjust to use V2 fully
+            _vars.v2Ratio = TENK; // Adjust to use V2 fully
         }
         // If bot tells the strategy to not use DEX
         if (_vars.routerV2 == address(0) && _vars.routerV3 == address(0)) {
@@ -338,16 +339,16 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                 _vars.v2Ratio
             );
         } else {
-            uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(10000);
+            uint256 _collateralAmountToLiquidateV2 = _vars.v2Ratio == 0 ? 0 : _collateralAmountToLiquidate.mul(_vars.v2Ratio).div(TENK);
             uint256 balanceOfFXDBeforeSwap = fathomStablecoin.balanceOf(address(this));
             if (_vars.v2Ratio > 0) {
                 fathomStablecoinReceivedV2 = _handleCollateralSellingV2(
                     _vars,
                     _collateralAmountToLiquidateV2,
-                    amountNeededToPayDebt.mul(_vars.v2Ratio).div(10000)
+                    amountNeededToPayDebt.mul(_vars.v2Ratio).div(TENK)
                 );
             }
-            if (_vars.v2Ratio < 10000) {
+            if (_vars.v2Ratio < TENK) {
                 fathomStablecoinReceivedV3 = _sellCollateralV3(
                     _vars.tokenAdapter.collateralToken(),
                     address(fathomStablecoin),
