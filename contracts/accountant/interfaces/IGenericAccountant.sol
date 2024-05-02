@@ -7,6 +7,8 @@ interface IGenericAccountant {
     event PerformanceFeeSet(uint256 fee);
     event FeeRecipientSet(address feeRecipient);
 
+    function report(address strategy, uint256 gain, uint256 loss) external returns (uint256, uint256);
+
     function setPerformanceFee(uint256 fee) external;
 
     function setFeeRecipient(address _feeRecipient) external;

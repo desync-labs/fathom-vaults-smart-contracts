@@ -12,7 +12,7 @@ import "./interfaces/IGenericAccountant.sol";
 /// @title GenericAccountant
 /// @dev GenericAccountant is a simple accountant that charges a performance fee.
 /// @dev GenericAccountant isn't giving any refunds in case of losses.
-contract GenericAccountant is AccessControl, IAccountant, IGenericAccountant {
+contract GenericAccountant is AccessControl, IGenericAccountant {
     using SafeERC20 for ERC20;
 
     /// @notice Constant defining the fee basis points.
