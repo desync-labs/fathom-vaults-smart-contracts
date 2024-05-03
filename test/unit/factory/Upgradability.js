@@ -67,39 +67,22 @@ describe("Factory Contract Upgradability", function () {
             .withArgs(newFactory.target);
     });
 
-    describe("addVaultPackageAndUpdateTo()", function () {
-        it("should update vault implementation address", async function () {
-            const { factory, VaultPackage } = await loadFixture(deployFactory);
-            const vaultPackage = await VaultPackage.deploy();
-            // Update the vault implementation address
-            await factory.addVaultPackageAndUpdateTo(vaultPackage.target);
-            // Verify that the vault implementation address was updated
-            let vaultPackageAddress = await factory.vaultPackage();
-            expect(vaultPackageAddress).to.equal(vaultPackage.target);
-        });
-    
-        it("should not allow non-owner to update vault implementation address", async function () {
-            const { factory, FactoryPackage, vaultPackage, otherAccount } = await loadFixture(deployFactory);
-            // Attempt to update the vault implementation address
-            const errorMessage = new RegExp(`AccessControl: account ${otherAccount.address.toLowerCase()} is missing role 0x0000000000000000000000000000000000000000000000000000000000000000`);
-            await expect(factory.connect(otherAccount).addVaultPackageAndUpdateTo(vaultPackage.target)).to.be.revertedWith(errorMessage);
-        });
-    });
-
     describe("addVaultPackage()", function () {
         it("should add a new vault package successfully", async function () {
-            const { factory, VaultPackage, vaultPackage, owner } = await loadFixture(deployFactory);
-            const initialId = await factory.nextVaultPackageId();
+            const { factory, VaultPackage } = await loadFixture(deployFactory);
+            let vaultPackages = await factory.getVaultPackages();
+            const initialLength = vaultPackages.length;
 
             const newVaultPackage = await VaultPackage.deploy();
         
             // Add the vault package
             await factory.addVaultPackage(newVaultPackage.target);
         
-            const newVaultPackageAddress = await factory.vaultPackages(initialId);
+            const newVaultPackageAddress = await factory.getVaultPackage(initialLength);
             expect(newVaultPackageAddress).to.equal(newVaultPackage.target);
-            const newId = await factory.nextVaultPackageId();
-            expect(newId).to.equal(initialId + BigInt(1));
+            vaultPackages = await factory.getVaultPackages();
+            const newLength = vaultPackages.length;
+            expect(newLength).to.equal(initialLength + 1);
         });
         
         it("should prevent adding a zero address as a vault package", async function () {
@@ -119,46 +102,20 @@ describe("Factory Contract Upgradability", function () {
         });
     });
 
-    describe("updateVaultPackage()", function () {
-        it("should update the vault package successfully", async function () {
-            const { factory, vaultPackage, VaultPackage, owner } = await loadFixture(deployFactory);
-            const newVaultPackage = await VaultPackage.deploy();
+    describe("getVaultPackages()", function () {
+        it("should retrieve all vault packages", async function () {
+            const { factory, owner, VaultPackage } = await loadFixture(deployFactory);
 
-            await expect(factory.addVaultPackage(newVaultPackage.target))
-                .to.emit(factory, "VaultPackageAdded")
-                .withArgs(1, newVaultPackage.target);
-        
-            // Update to a new vault package
-            await expect(factory.updateVaultPackage(1))
-                .to.emit(factory, "VaultPackageUpdated")
-                .withArgs(1, newVaultPackage.target);
-        
-            const currentVaultPackage = await factory.vaultPackage();
-            expect(currentVaultPackage).to.equal(newVaultPackage.target);
-        });
-        
-        it("should prevent updating with an invalid package ID", async function () {
-            const { factory, owner } = await loadFixture(deployFactory);
-        
-            await expect(factory.updateVaultPackage(999))
-                .to.be.revertedWithCustomError(factory, "InvalidVaultPackageId");
-        });
-        
-        it("should prevent updating to the same vault package", async function () {
-            const { factory, VaultPackage, vaultPackage, owner } = await loadFixture(deployFactory);
-        
-            await expect(factory.updateVaultPackage(0))
-                .to.be.revertedWithCustomError(factory, "SameVaultPackage");
-        });
-        
-        it("should prevent non-owner from updating the vault package", async function () {
-            const { factory, otherAccount } = await loadFixture(deployFactory);
+            const vaultPackage1 = await VaultPackage.deploy();
+            const vaultPackage2 = await VaultPackage.deploy();
 
-            const errorMessage = new RegExp(`AccessControl: account ${otherAccount.address.toLowerCase()} is missing role 0x0000000000000000000000000000000000000000000000000000000000000000`);
-        
-            await expect(factory.connect(otherAccount).updateVaultPackage(1))
-                .to.be.revertedWith(errorMessage);
-        });        
+            await factory.addVaultPackage(vaultPackage1.target);
+            await factory.addVaultPackage(vaultPackage2.target);
+
+            const vaultPackages = await factory.getVaultPackages();
+            expect(vaultPackages.length).to.equal(2);
+            expect(vaultPackages).to.include.members([vaultPackage1.target, vaultPackage2.target]);
+        });
     });
     
 });

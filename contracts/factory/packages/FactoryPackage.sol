@@ -23,7 +23,6 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
             revert FeeGreaterThan100();
         }
 
-        addVaultPackageAndUpdateTo(_vaultPackage);
         feeRecipient = _feeRecipient;
         feeBPS = _feeBPS;
 
@@ -36,25 +35,14 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
         }
-        if (vaultPackage == _vaultPackage) {
-            revert SameVaultPackage();
+        for (uint256 i = 0; i < vaultPackages.length; i++) {
+            if (vaultPackages[i] == _vaultPackage) {
+                revert SameVaultPackage();
+            }
         }
-        uint256 id = nextVaultPackageId;
-        vaultPackages[id] = _vaultPackage;
-        nextVaultPackageId = nextVaultPackageId + 1;
+        vaultPackages.push(_vaultPackage);
+        uint256 id = vaultPackages.length - 1;
         emit VaultPackageAdded(id, _vaultPackage);
-    }
-
-    function updateVaultPackage(uint256 _id) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        address _vaultPackage = vaultPackages[_id];
-        if (_vaultPackage == address(0)) {
-            revert InvalidVaultPackageId();
-        }
-        if (vaultPackage == _vaultPackage) {
-            revert SameVaultPackage();
-        }
-        vaultPackage = _vaultPackage;
-        emit VaultPackageUpdated(_id, _vaultPackage);
     }
 
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -95,26 +83,27 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         return vaults;
     }
 
+    function getVaultPackages() external view override returns (address[] memory) {
+        return vaultPackages;
+    }
+
+    /**
+     * @notice Retrieves a single vault package by its index.
+     * @param index The index of the vault package in the array.
+     * @return The address of the vault package at the specified index.
+     */
+    function getVaultPackage(uint256 index) external view returns (address) {
+        if (index > vaultPackages.length) {
+            revert InvalidVaultPackageId();
+        }
+        return vaultPackages[index];
+    }
+
     function getVaultCreator(address _vault) external view override returns (address) {
         return vaultCreators[_vault];
     }
 
     function protocolFeeConfig() external view override returns (uint16 /*feeBps*/, address /*feeRecipient*/) {
         return (feeBPS, feeRecipient);
-    }
-
-    function addVaultPackageAndUpdateTo(address _vaultPackage) public override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_vaultPackage == address(0)) {
-            revert ZeroAddress();
-        }
-        if (vaultPackage == _vaultPackage) {
-            revert SameVaultPackage();
-        }
-        uint256 id = nextVaultPackageId;
-        vaultPackages[id] = _vaultPackage;
-
-        vaultPackage = _vaultPackage;
-        nextVaultPackageId = nextVaultPackageId + 1;
-        emit VaultPackageUpdated(id, _vaultPackage);
     }
 }

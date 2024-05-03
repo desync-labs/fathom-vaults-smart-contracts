@@ -19,11 +19,9 @@ interface IFactory {
 
     function addVaultPackage(address _vaultPackage) external;
 
-    function updateVaultPackage(uint256 _id) external;
-
-    function addVaultPackageAndUpdateTo(address _vaultPackage) external;
-
     function getVaults() external view returns (address[] memory);
+
+    function getVaultPackages() external view returns (address[] memory);
 
     function getVaultCreator(address _vault) external view returns (address);
 

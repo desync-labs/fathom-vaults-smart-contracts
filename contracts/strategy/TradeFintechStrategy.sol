@@ -25,6 +25,8 @@ contract TradeFintechStrategy is BaseStrategy {
     event GainReported(address indexed sender, uint256 gain);
     event LossReported(address indexed sender, uint256 loss);
 
+    error ZeroValue();
+
     constructor(
         address _asset,
         string memory _name,
@@ -33,6 +35,9 @@ contract TradeFintechStrategy is BaseStrategy {
         uint256 _lockPeriodEnds,
         uint256 _depositLimit
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+        if (_depositPeriodEnds == 0 || _lockPeriodEnds == 0 || _depositLimit == 0) {
+            revert ZeroValue();
+        }
         depositPeriodEnds = _depositPeriodEnds;
         lockPeriodEnds = _lockPeriodEnds;
         depositLimit = _depositLimit;
@@ -44,7 +49,7 @@ contract TradeFintechStrategy is BaseStrategy {
 
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
         // Return the remaining room.
-        return depositLimit - asset.balanceOf(address(this));
+        return depositLimit - asset.balanceOf(address(this)) > 0 ? depositLimit - asset.balanceOf(address(this)) : 0;
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
@@ -88,11 +93,9 @@ contract TradeFintechStrategy is BaseStrategy {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 amountToWithdraw = Math.min(_amount, totalInvested);
-        asset.safeTransferFrom(TokenizedStrategy.management(), address(this), amountToWithdraw);
-        uint256 totalIdle = asset.balanceOf(address(this));
-        asset.transfer(TokenizedStrategy.management(), totalIdle);
-        totalInvested = 0;
+        uint256 amountToWithdraw = Math.min(_amount, TokenizedStrategy.totalIdle() + totalInvested);
+        asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
+        totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
     }
 
     /// @notice Allows the manager to report gains or losses.
@@ -139,6 +142,7 @@ contract TradeFintechStrategy is BaseStrategy {
     /// @param _depositLimit The new deposit limit.
     function setDepositLimit(uint256 _depositLimit) external onlyManagement {
         require(_depositLimit > 0, "Deposit limit must be greater than 0.");
+        require(_depositLimit > TokenizedStrategy.totalIdle() + totalInvested, "Deposit limit must be greater than total invested.");
         depositLimit = _depositLimit;
     }
 }

@@ -23,6 +23,8 @@ contract RWAStrategy is BaseStrategy {
     uint256 public totalGains;
     uint256 public totalLosses;
 
+    error ZeroAddress();
+
     constructor(
         address _asset,
         string memory _name,
@@ -30,6 +32,9 @@ contract RWAStrategy is BaseStrategy {
         address _managerAddress,
         uint256 _minAmount
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
+        if (_managerAddress == address(0)) {
+            revert ZeroAddress();
+        }
         managerAddress = _managerAddress;
         minAmount = _minAmount;
     }
