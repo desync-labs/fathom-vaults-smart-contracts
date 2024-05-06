@@ -93,7 +93,7 @@ contract TradeFintechStrategy is BaseStrategy {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 amountToWithdraw = Math.min(_amount, TokenizedStrategy.totalIdle() + totalInvested);
+        uint256 amountToWithdraw = Math.min(_amount, TokenizedStrategy.totalIdle());
         asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
         totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
     }
@@ -121,6 +121,7 @@ contract TradeFintechStrategy is BaseStrategy {
     /// @param _amount The amount that is being returned.
     function returnFunds(uint256 _amount) external onlyManagement {
         require(_amount > 0, "Amount must be greater than 0.");
+        require(totalInvested > 0, "No funds to return.");
 
         // Transfer the amount from the manager to the strategy contract
         asset.safeTransferFrom(TokenizedStrategy.management(), address(this), _amount);

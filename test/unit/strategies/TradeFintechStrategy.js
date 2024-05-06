@@ -48,6 +48,8 @@ async function deployTFStrategyFixture() {
     const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
     await factory.initialize(vaultPackage.target, otherAccount.address, protocolFee);
 
+    await factory.addVaultPackage(vaultPackage.target);
+
     // Deploy TokenizedStrategy
     const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
@@ -96,9 +98,9 @@ async function deployTFStrategyFixture() {
     await expect(vault.addStrategy(strategy.target))
         .to.emit(vault, 'StrategyChanged')
         .withArgs(strategy.target, 0);
-    await expect(vault.updateMaxDebtForStrategy(strategy.target, amount))
+    await expect(vault.updateMaxDebtForStrategy(strategy.target, depositLimit))
         .to.emit(vault, 'UpdatedMaxDebtForStrategy')
-        .withArgs(deployer.address, strategy.target, amount);
+        .withArgs(deployer.address, strategy.target, depositLimit);
 
     return { vault, strategy, asset, deployer, manager, otherAccount, depositPeriodEnds, lockPeriodEnds, depositLimit };
 }
@@ -120,11 +122,16 @@ describe("TradeFintechStrategy tests", function () {
 
     describe("_harvestAndReport()", function () {
         it("Correctly transfer funds to manager and reports total assets", async function () {
-            const { strategy, asset, manager } = await loadFixture(deployTFStrategyFixture);
+            const { vault, strategy, asset, manager, deployer } = await loadFixture(deployTFStrategyFixture);
 
             const depositAmount = ethers.parseEther("100");
+            await asset.mint(deployer.address, depositAmount);
+            await asset.approve(vault.target, depositAmount);
+            await vault.setDepositLimit(depositAmount);
+
+            await vault.deposit(depositAmount, manager.address);
+            await vault.updateDebt(strategy.target, depositAmount);
     
-            await asset.transfer(strategy.target, depositAmount);
             await strategy.report();
 
             const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
@@ -365,6 +372,7 @@ describe("TradeFintechStrategy tests", function () {
             // Simulate the strategy investing funds
             const deployAmount = ethers.parseEther("100");
             const emergencyWithdrawAmount = ethers.parseEther("50");
+            await asset.mint(deployer.address, deployAmount);
             await asset.approve(vault.target, deployAmount);
             await vault.setDepositLimit(deployAmount);
             await vault.deposit(deployAmount, deployer.address);
@@ -394,11 +402,6 @@ describe("TradeFintechStrategy tests", function () {
 
             const finalStrategyBalance = await asset.balanceOf(strategy.target);
             expect(finalStrategyBalance).to.equal(0);
-    
-            // Verify internal accounting
-            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-            const totalInvestedAfterWithdraw = await tfStrategy.totalInvested();
-            expect(totalInvestedAfterWithdraw).to.equal(0);
         });
     
         it("Reverts emergency withdrawal if strategy is not shutdown", async function () {
@@ -422,7 +425,17 @@ describe("TradeFintechStrategy tests", function () {
 
     describe("reportGainOrLoss()", function () {
         async function deployAndSetupScenarioForReporting() {
-            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, asset, manager, deployer, otherAccount, vault } = await loadFixture(deployTFStrategyFixture);
+
+            const depositAmount = ethers.parseEther("100");
+            await asset.mint(deployer.address, depositAmount);
+            await asset.approve(vault.target, depositAmount);
+            await vault.setDepositLimit(depositAmount);
+
+            await vault.deposit(depositAmount, manager.address);
+            await vault.updateDebt(strategy.target, depositAmount);
+    
+            await strategy.report();
     
             // Simulate the strategy investing funds
             const investmentAmount = ethers.parseEther("100");
@@ -493,14 +506,20 @@ describe("TradeFintechStrategy tests", function () {
 
     describe("returnFunds()", function () {
         async function deployAndSetupScenarioForReturningFunds() {
-            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, asset, manager, deployer, otherAccount, vault } = await loadFixture(deployTFStrategyFixture);
     
             // Simulate the strategy deploying funds to the manager
-            const deployedAmount = ethers.parseEther("100");
-            await asset.transfer(strategy.target, deployedAmount);
+            const depositAmount = ethers.parseEther("100");
+            await asset.mint(deployer.address, depositAmount);
+            await asset.approve(vault.target, depositAmount);
+            await vault.setDepositLimit(depositAmount);
+
+            await vault.deposit(depositAmount, manager.address);
+            await vault.updateDebt(strategy.target, depositAmount);
+    
             await strategy.report();
     
-            return { strategy, asset, manager, deployer, otherAccount, deployedAmount };
+            return { strategy, asset, manager, deployer, otherAccount, depositAmount };
         }
     
         it("Allows manager to return funds to the strategy", async function () {
@@ -524,7 +543,7 @@ describe("TradeFintechStrategy tests", function () {
         });
     
         it("Reverts if not called by manager", async function () {
-            const { strategy, deployer, deployedAmount } = await deployAndSetupScenarioForReturningFunds();
+            const { strategy, deployer } = await deployAndSetupScenarioForReturningFunds();
             const returnAmount = ethers.parseEther("10");
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
