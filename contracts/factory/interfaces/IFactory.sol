@@ -21,10 +21,11 @@ interface IFactory {
 
     function getVaults() external view returns (address[] memory);
 
+    function getVaultPackage(uint256 index) external view returns (address);
+
     function getVaultPackages() external view returns (address[] memory);
 
     function getVaultCreator(address _vault) external view returns (address);
 
     function protocolFeeConfig() external view returns (uint16 /*feeBps*/, address /*feeRecipient*/);
-
 }

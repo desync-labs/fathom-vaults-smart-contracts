@@ -5,24 +5,13 @@
 pragma solidity 0.8.19;
 
 interface ILender {
-    function setUniFees(
-        address _token0,
-        address _token1,
-        uint24 _fee
-    ) external;
+    function setUniFees(address _token0, address _token1, uint24 _fee) external;
 
     function getSupplyCap() external returns (uint256);
 
-    function sellRewardManually(
-        address _token,
-        uint256 _amount,
-        uint256 _minAmountOut
-    ) external;
+    function sellRewardManually(address _token, uint256 _amount, uint256 _minAmountOut) external;
 
-    function setMinAmountToSellMapping(
-        address _token,
-        uint256 _amount
-    ) external;
+    function setMinAmountToSellMapping(address _token, uint256 _amount) external;
 
     function setClaimRewards(bool _bool) external;
 

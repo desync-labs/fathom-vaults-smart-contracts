@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.9.0) (security/ReentrancyGuard.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
 /**
  * @dev Contract module that helps prevent reentrant calls to a function.
@@ -37,11 +37,6 @@ abstract contract ReentrancyGuard {
     uint256 public constant FALSE_VALUE = 0;
     uint256 public constant TRUE_VALUE = 1;
 
-
-    constructor() {
-        _setStatus(FALSE_VALUE);
-    }
-
     /**
      * @dev Prevents a contract from calling itself, directly or indirectly.
      * Calling a `nonReentrant` function from another `nonReentrant`
@@ -53,6 +48,18 @@ abstract contract ReentrancyGuard {
         _nonReentrantBefore();
         _;
         _nonReentrantAfter();
+    }
+
+    constructor() {
+        _setStatus(FALSE_VALUE);
+    }
+
+    /**
+     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
+     * `nonReentrant` function in the call stack.
+     */
+    function _reentrancyGuardEntered() internal view returns (bool) {
+        return _status() == TRUE_VALUE;
     }
 
     function _nonReentrantBefore() private {
@@ -69,14 +76,6 @@ abstract contract ReentrancyGuard {
         _setStatus(FALSE_VALUE);
     }
 
-    // Internal function to get the current status
-    function _status() private view returns (uint256 status) {
-        bytes32 slot = _STATUS_SLOT;
-        assembly {
-            status := sload(slot)
-        }
-    }
-
     // Internal function to set the status
     function _setStatus(uint256 status) private {
         bytes32 slot = _STATUS_SLOT;
@@ -85,11 +84,11 @@ abstract contract ReentrancyGuard {
         }
     }
 
-    /**
-     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
-     * `nonReentrant` function in the call stack.
-     */
-    function _reentrancyGuardEntered() internal view returns (bool) {
-        return _status() == TRUE_VALUE;
+    // Internal function to get the current status
+    function _status() private view returns (uint256 status) {
+        bytes32 slot = _STATUS_SLOT;
+        assembly {
+            status := sload(slot)
+        }
     }
 }

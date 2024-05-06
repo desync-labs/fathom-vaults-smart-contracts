@@ -14,29 +14,36 @@ contract RWAStrategy is BaseStrategy {
 
     // The minimum amount to send to the manager
     uint256 public minAmount;
-
-    // The address that we send funds to
-    // and that will buy RWAs with the funds
-    address public immutable managerAddress;
+    uint256 public depositLimit;
 
     uint256 public totalInvestedInRWA;
     uint256 public totalGains;
     uint256 public totalLosses;
 
     error ZeroAddress();
+    error AmountTooHigh();
+
+    // The address that we send funds to
+    // and that will buy RWAs with the funds
+    address public immutable managerAddress;
 
     constructor(
         address _asset,
         string memory _name,
         address _tokenizedStrategyAddress,
         address _managerAddress,
-        uint256 _minAmount
+        uint256 _minAmount,
+        uint256 _depositLimit
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         if (_managerAddress == address(0)) {
             revert ZeroAddress();
         }
+        if (_minAmount > ERC20(_asset).totalSupply()) {
+            revert AmountTooHigh();
+        }
         managerAddress = _managerAddress;
         minAmount = _minAmount;
+        depositLimit = _depositLimit;
     }
 
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
@@ -54,7 +61,7 @@ contract RWAStrategy is BaseStrategy {
 
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
         // Return the remaining room.
-        return type(uint256).max - asset.balanceOf(address(this));
+        return depositLimit - asset.balanceOf(address(this)) > 0 ? depositLimit - asset.balanceOf(address(this)) : 0;
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
@@ -126,5 +133,13 @@ contract RWAStrategy is BaseStrategy {
             totalLosses += _loss;
             totalInvestedInRWA -= _loss;
         }
+    }
+
+    /// @notice Allows the manager to set the deposit limit.
+    /// @param _depositLimit The new deposit limit.
+    function setDepositLimit(uint256 _depositLimit) external onlyManagement {
+        require(_depositLimit > 0, "Deposit limit must be greater than 0.");
+        require(_depositLimit > TokenizedStrategy.totalIdle() + totalInvested, "Deposit limit must be greater than total invested.");
+        depositLimit = _depositLimit;
     }
 }

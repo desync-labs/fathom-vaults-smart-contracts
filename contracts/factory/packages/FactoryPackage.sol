@@ -92,7 +92,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
      * @param index The index of the vault package in the array.
      * @return The address of the vault package at the specified index.
      */
-    function getVaultPackage(uint256 index) external view returns (address) {
+    function getVaultPackage(uint256 index) external view override returns (address) {
         if (index > vaultPackages.length) {
             revert InvalidVaultPackageId();
         }

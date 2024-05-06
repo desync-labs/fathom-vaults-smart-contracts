@@ -26,6 +26,7 @@ contract TradeFintechStrategy is BaseStrategy {
     event LossReported(address indexed sender, uint256 loss);
 
     error ZeroValue();
+    error InvalidPeriods();
 
     constructor(
         address _asset,
@@ -37,6 +38,9 @@ contract TradeFintechStrategy is BaseStrategy {
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         if (_depositPeriodEnds == 0 || _lockPeriodEnds == 0 || _depositLimit == 0) {
             revert ZeroValue();
+        }
+        if (_depositPeriodEnds < block.timestamp || _lockPeriods < block.timestamp) {
+            revert InvalidPeriods();
         }
         depositPeriodEnds = _depositPeriodEnds;
         lockPeriodEnds = _lockPeriodEnds;
