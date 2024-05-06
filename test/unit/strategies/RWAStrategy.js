@@ -44,6 +44,8 @@ async function deployRWAStrategyFixture() {
     const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
     await factory.initialize(vaultPackage.target, otherAccount.address, protocolFee);
 
+    await factory.addVaultPackage(vaultPackage.target);
+
     // Deploy TokenizedStrategy
     const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);

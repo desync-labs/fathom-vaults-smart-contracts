@@ -34,9 +34,12 @@ abstract contract ReentrancyGuard {
 
     // Define a unique identifier for the _status variable storage slot
     bytes32 private constant _STATUS_SLOT = keccak256("org.openzeppelin.reentrancyGuard.status");
+    uint256 public constant FALSE_VALUE = 0;
+    uint256 public constant TRUE_VALUE = 1;
+
 
     constructor() {
-        _setStatus(1);
+        _setStatus(FALSE_VALUE);
     }
 
     /**
@@ -54,16 +57,16 @@ abstract contract ReentrancyGuard {
 
     function _nonReentrantBefore() private {
         // On the first call to nonReentrant, _status will be _NOT_ENTERED
-        require(_status() != 2, "ReentrancyGuard: reentrant call");
+        require(_status() != TRUE_VALUE, "ReentrancyGuard: reentrant call");
 
         // Any calls to nonReentrant after this point will fail
-        _setStatus(2);
+        _setStatus(TRUE_VALUE);
     }
 
     function _nonReentrantAfter() private {
         // By storing the original value once again, a refund is triggered (see
         // https://eips.ethereum.org/EIPS/eip-2200)
-        _setStatus(1);
+        _setStatus(FALSE_VALUE);
     }
 
     // Internal function to get the current status
@@ -87,6 +90,6 @@ abstract contract ReentrancyGuard {
      * `nonReentrant` function in the call stack.
      */
     function _reentrancyGuardEntered() internal view returns (bool) {
-        return _status() == 2;
+        return _status() == TRUE_VALUE;
     }
 }

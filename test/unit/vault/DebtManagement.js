@@ -43,6 +43,8 @@ describe("Debt Management", function () {
 
         const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
         await factory.initialize(vaultPackage.target, owner.address, protocolFee);
+
+        await factory.addVaultPackage(vaultPackage.target);
         
         await factory.deployVault(
             0,

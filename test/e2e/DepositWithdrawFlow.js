@@ -43,6 +43,8 @@ async function deployVault() {
     const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
     await factory.initialize(vaultPackage.target, account3.address, protocolFee);
 
+    await factory.addVaultPackage(vaultPackage.target);
+
     const Investor = await ethers.getContractFactory("Investor");
     const investor = await Investor.deploy({ gasLimit: "0x1000000" });
 
@@ -132,6 +134,8 @@ async function deployVaultApothem() {
     const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
     const factoryInitTx = await factory.initialize(vaultPackage.target, owner.address, protocolFee, { gasLimit: "0x1000000" });
     await factoryInitTx.wait();
+
+    await factory.addVaultPackage(vaultPackage.target);
 
     const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
