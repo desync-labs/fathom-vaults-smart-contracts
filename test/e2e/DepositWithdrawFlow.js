@@ -428,6 +428,7 @@ describe.only("Vault Deposit and Withdraw with RWA Strategy", function () {
         const { vault, asset, owner, factory, otherAccount, tokenizedStrategy } = await loadFixture(deployVault);
 
         const amount = 1000;
+        const depositLimit = ethers.parseEther("1000000000000000000");
 
         const minAmountToSell = 1;
         console.log("minAmountToSell = ", minAmountToSell);
@@ -447,7 +448,7 @@ describe.only("Vault Deposit and Withdraw with RWA Strategy", function () {
 
         // Setup RWA Strategy
         const RWAStrategyContract = await ethers.getContractFactory("RWAStrategy");
-        const RWAStrategy = await RWAStrategyContract.deploy(await vault.asset(), "RWA Strategy", tokenizedStrategy.target, owner.address, minAmountToSell);
+        const RWAStrategy = await RWAStrategyContract.deploy(await vault.asset(), "RWA Strategy", tokenizedStrategy.target, owner.address, minAmountToSell, depositLimit);
         const strategy = await ethers.getContractAt("TokenizedStrategy", RWAStrategy.target);
         let strategyAsset = await strategy.asset();
         console.log("Strategy Asset = ", strategyAsset);

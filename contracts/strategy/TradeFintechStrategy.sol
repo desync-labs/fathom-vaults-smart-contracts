@@ -36,10 +36,7 @@ contract TradeFintechStrategy is BaseStrategy {
         uint256 _lockPeriodEnds,
         uint256 _depositLimit
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
-        if (_depositPeriodEnds == 0 || _lockPeriodEnds == 0 || _depositLimit == 0) {
-            revert ZeroValue();
-        }
-        if (_depositPeriodEnds < block.timestamp || _lockPeriods < block.timestamp) {
+        if (_depositPeriodEnds < block.timestamp || _lockPeriodEnds < block.timestamp) {
             revert InvalidPeriods();
         }
         depositPeriodEnds = _depositPeriodEnds;
@@ -97,7 +94,7 @@ contract TradeFintechStrategy is BaseStrategy {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 amountToWithdraw = Math.min(_amount, TokenizedStrategy.totalIdle());
+        uint256 amountToWithdraw = Math.min(_amount, asset.balanceOf(address(this)));
         asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
         totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
     }

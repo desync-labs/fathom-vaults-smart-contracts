@@ -16,7 +16,7 @@ contract RWAStrategy is BaseStrategy {
     uint256 public minAmount;
     uint256 public depositLimit;
 
-    uint256 public totalInvestedInRWA;
+    uint256 public totalInvested;
     uint256 public totalGains;
     uint256 public totalLosses;
 
@@ -53,10 +53,10 @@ contract RWAStrategy is BaseStrategy {
             if (looseAsset > minAmount) {
                 uint256 _amount = Math.min(looseAsset, availableDepositLimit(address(this)));
                 asset.transfer(managerAddress, _amount);
-                totalInvestedInRWA += _amount;
+                totalInvested += _amount;
             }
         }
-        _totalAssets = totalInvestedInRWA + asset.balanceOf(address(this));
+        _totalAssets = totalInvested + asset.balanceOf(address(this));
     }
 
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
@@ -65,13 +65,13 @@ contract RWAStrategy is BaseStrategy {
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
-        return TokenizedStrategy.totalIdle() + totalInvestedInRWA;
+        return TokenizedStrategy.totalIdle() + totalInvested;
     }
 
     function _deployFunds(uint256 _amount) internal override {
         if (_amount > minAmount) {
             asset.transfer(managerAddress, _amount);
-            totalInvestedInRWA += _amount;
+            totalInvested += _amount;
         }
     }
 
@@ -80,7 +80,7 @@ contract RWAStrategy is BaseStrategy {
         // revert if there is not enough liquidity so we don't improperly
         // pass a loss on to the user withdrawing.
         asset.safeTransferFrom(managerAddress, address(this), _amount);
-        totalInvestedInRWA -= _amount;
+        totalInvested -= _amount;
     }
 
     /**
@@ -105,10 +105,13 @@ contract RWAStrategy is BaseStrategy {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 amountToWithdraw = Math.min(_amount, totalInvestedInRWA);
-        asset.safeTransferFrom(managerAddress, address(this), amountToWithdraw);
+        uint256 amountToWithdraw = _amount;
+        if (_amount > asset.balanceOf(address(this))) {
+            amountToWithdraw = Math.min(_amount - asset.balanceOf(address(this)), totalInvested);
+            asset.safeTransferFrom(managerAddress, address(this), amountToWithdraw);
+        }
         asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
-        totalInvestedInRWA -= amountToWithdraw;
+        totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
     }
 
     function setMinAmount(uint256 _minAmount) external onlyManagement {
@@ -129,9 +132,9 @@ contract RWAStrategy is BaseStrategy {
             ERC20(asset).safeTransferFrom(managerAddress, address(this), _gain);
             totalGains += _gain;
         } else if (_loss > 0) {
-            require(_loss <= totalInvestedInRWA, "Cannot report loss more than total invested");
+            require(_loss <= totalInvested, "Cannot report loss more than total invested");
             totalLosses += _loss;
-            totalInvestedInRWA -= _loss;
+            totalInvested -= _loss;
         }
     }
 
