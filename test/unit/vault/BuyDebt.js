@@ -47,7 +47,7 @@ describe("Buy Debt", function () {
         await factory.addVaultPackage(vaultPackage.target);
         
         await factory.deployVault(
-            0,
+            vaultPackage.target,
             profitMaxUnlockTime,
             assetType,
             assetAddress,

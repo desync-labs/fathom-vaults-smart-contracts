@@ -49,8 +49,9 @@ contract TradeFintechStrategy is BaseStrategy {
     }
 
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
+        uint256 balance = asset.balanceOf(address(this));
         // Return the remaining room.
-        return depositLimit - asset.balanceOf(address(this)) > 0 ? depositLimit - asset.balanceOf(address(this)) : 0;
+        return depositLimit < balance ? 0 : depositLimit - balance;
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
@@ -123,6 +124,7 @@ contract TradeFintechStrategy is BaseStrategy {
     function returnFunds(uint256 _amount) external onlyManagement {
         require(_amount > 0, "Amount must be greater than 0.");
         require(totalInvested > 0, "No funds to return.");
+        require(_amount <= totalInvested, "Amount must be less than total invested.");
 
         // Transfer the amount from the manager to the strategy contract
         asset.safeTransferFrom(TokenizedStrategy.management(), address(this), _amount);

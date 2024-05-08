@@ -7,7 +7,7 @@ interface IFactory {
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external;
 
     function deployVault(
-        uint256 _vaultPackageId,
+        address _vaultPackageAddress,
         uint32 _profitMaxUnlockTime,
         uint256 _assetType,
         address _asset,
@@ -21,11 +21,7 @@ interface IFactory {
 
     function getVaults() external view returns (address[] memory);
 
-    function getVaultPackage(uint256 index) external view returns (address);
-
-    function getVaultPackages() external view returns (address[] memory);
-
-    function getVaultCreator(address _vault) external view returns (address);
+    function isVaultPackage(address _vaultPackage) external view returns (bool);
 
     function protocolFeeConfig() external view returns (uint16 /*feeBps*/, address /*feeRecipient*/);
 }

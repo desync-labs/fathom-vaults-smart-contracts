@@ -22,6 +22,7 @@ contract RWAStrategy is BaseStrategy {
 
     error ZeroAddress();
     error AmountTooHigh();
+    error ZeroValue();
 
     // The address that we send funds to
     // and that will buy RWAs with the funds
@@ -41,6 +42,9 @@ contract RWAStrategy is BaseStrategy {
         if (_minAmount > ERC20(_asset).totalSupply()) {
             revert AmountTooHigh();
         }
+        if (_depositLimit == 0) {
+            revert ZeroValue();
+        }
         managerAddress = _managerAddress;
         minAmount = _minAmount;
         depositLimit = _depositLimit;
@@ -49,9 +53,9 @@ contract RWAStrategy is BaseStrategy {
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         if (!TokenizedStrategy.isShutdown()) {
             // deposit any loose funds
-            uint256 looseAsset = asset.balanceOf(address(this));
-            if (looseAsset > minAmount) {
-                uint256 _amount = Math.min(looseAsset, availableDepositLimit(address(this)));
+            uint256 balance = asset.balanceOf(address(this));
+            if (balance > minAmount) {
+                uint256 _amount = Math.min(balance, availableDepositLimit(address(this)));
                 asset.transfer(managerAddress, _amount);
                 totalInvested += _amount;
             }
@@ -60,8 +64,9 @@ contract RWAStrategy is BaseStrategy {
     }
 
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
+        uint256 balance = asset.balanceOf(address(this));
         // Return the remaining room.
-        return depositLimit - asset.balanceOf(address(this)) > 0 ? depositLimit - asset.balanceOf(address(this)) : 0;
+        return depositLimit < balance ? 0 : depositLimit - balance;
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
@@ -106,11 +111,12 @@ contract RWAStrategy is BaseStrategy {
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
         uint256 amountToWithdraw = _amount;
-        if (_amount > asset.balanceOf(address(this))) {
-            amountToWithdraw = Math.min(_amount - asset.balanceOf(address(this)), totalInvested);
+        uint256 balance = asset.balanceOf(address(this));
+        if (_amount > balance) {
+            amountToWithdraw = Math.min(_amount - balance, totalInvested);
             asset.safeTransferFrom(managerAddress, address(this), amountToWithdraw);
         }
-        asset.transfer(TokenizedStrategy.management(), amountToWithdraw);
+        asset.transfer(TokenizedStrategy.management(), _amount);
         totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
     }
 

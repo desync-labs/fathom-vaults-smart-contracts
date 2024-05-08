@@ -35,14 +35,11 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
         }
-        for (uint256 i = 0; i < vaultPackages.length; i++) {
-            if (vaultPackages[i] == _vaultPackage) {
-                revert SameVaultPackage();
-            }
+        if (isPackage[_vaultPackage]) {
+            revert SameVaultPackage();
         }
-        vaultPackages.push(_vaultPackage);
-        uint256 id = vaultPackages.length - 1;
-        emit VaultPackageAdded(id, _vaultPackage);
+        isPackage[_vaultPackage] = true;
+        emit VaultPackageAdded(_vaultPackage, msg.sender);
     }
 
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -58,7 +55,7 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
     }
 
     function deployVault(
-        uint256 _vaultPackageId,
+        address _vaultPackageAddress,
         uint32 _profitMaxUnlockTime,
         uint256 _assetType,
         address _asset,
@@ -67,14 +64,13 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         address _accountant,
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) returns (address) {
-        if (vaultPackages[_vaultPackageId] == address(0)) {
+        if (isPackage[_vaultPackageAddress] == false) {
             revert InvalidVaultPackageId();
         }
-        FathomVault vault = new FathomVault(vaultPackages[_vaultPackageId], new bytes(0));
+        FathomVault vault = new FathomVault(_vaultPackageAddress, new bytes(0));
         IVaultInit(address(vault)).initialize(_profitMaxUnlockTime, _assetType, _asset, _name, _symbol, _accountant, _admin);
 
         vaults.push(address(vault));
-        vaultCreators[address(vault)] = msg.sender;
         emit VaultDeployed(address(vault), _profitMaxUnlockTime, _asset, _name, _symbol, _accountant, _admin);
         return address(vault);
     }
@@ -83,24 +79,8 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         return vaults;
     }
 
-    function getVaultPackages() external view override returns (address[] memory) {
-        return vaultPackages;
-    }
-
-    /**
-     * @notice Retrieves a single vault package by its index.
-     * @param index The index of the vault package in the array.
-     * @return The address of the vault package at the specified index.
-     */
-    function getVaultPackage(uint256 index) external view override returns (address) {
-        if (index > vaultPackages.length) {
-            revert InvalidVaultPackageId();
-        }
-        return vaultPackages[index];
-    }
-
-    function getVaultCreator(address _vault) external view override returns (address) {
-        return vaultCreators[_vault];
+    function isVaultPackage(address _vaultPackage) external view override returns (bool) {
+        return isPackage[_vaultPackage];
     }
 
     function protocolFeeConfig() external view override returns (uint16 /*feeBps*/, address /*feeRecipient*/) {

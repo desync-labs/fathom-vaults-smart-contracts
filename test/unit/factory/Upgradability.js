@@ -25,7 +25,7 @@ describe("Factory Contract Upgradability", function () {
 
         await factory.initialize(vaultPackage.target, owner.address, 0);
 
-        return { factory, Factory, FactoryPackage, otherAccount, vaultPackage, VaultPackage };
+        return { factory, Factory, FactoryPackage, owner, otherAccount, vaultPackage, VaultPackage };
     }
 
     it("should deploy the contract", async function () {
@@ -69,24 +69,16 @@ describe("Factory Contract Upgradability", function () {
 
     describe("addVaultPackage()", function () {
         it("should add a new vault package successfully", async function () {
-            const { factory, VaultPackage } = await loadFixture(deployFactory);
-            let vaultPackages = await factory.getVaultPackages();
-            const initialLength = vaultPackages.length;
+            const { factory, vaultPackage, owner } = await loadFixture(deployFactory);
+            await expect(factory.addVaultPackage(vaultPackage.target))
+                .to.emit(factory, 'VaultPackageAdded')
+                .withArgs(vaultPackage.target, owner.address);
 
-            const newVaultPackage = await VaultPackage.deploy();
-        
-            // Add the vault package
-            await factory.addVaultPackage(newVaultPackage.target);
-        
-            const newVaultPackageAddress = await factory.getVaultPackage(initialLength);
-            expect(newVaultPackageAddress).to.equal(newVaultPackage.target);
-            vaultPackages = await factory.getVaultPackages();
-            const newLength = vaultPackages.length;
-            expect(newLength).to.equal(initialLength + 1);
+            expect(await factory.isPackage(vaultPackage)).to.be.true;
         });
         
         it("should prevent adding a zero address as a vault package", async function () {
-            const { factory, owner } = await loadFixture(deployFactory);
+            const { factory } = await loadFixture(deployFactory);
         
             await expect(factory.addVaultPackage(ethers.ZeroAddress))
                 .to.be.revertedWithCustomError(factory, "ZeroAddress");
@@ -100,22 +92,5 @@ describe("Factory Contract Upgradability", function () {
             await expect(factory.connect(otherAccount).addVaultPackage(vaultPackage.target))
                 .to.be.revertedWith(errorMessage);
         });
-    });
-
-    describe("getVaultPackages()", function () {
-        it("should retrieve all vault packages", async function () {
-            const { factory, owner, VaultPackage } = await loadFixture(deployFactory);
-
-            const vaultPackage1 = await VaultPackage.deploy();
-            const vaultPackage2 = await VaultPackage.deploy();
-
-            await factory.addVaultPackage(vaultPackage1.target);
-            await factory.addVaultPackage(vaultPackage2.target);
-
-            const vaultPackages = await factory.getVaultPackages();
-            expect(vaultPackages.length).to.equal(2);
-            expect(vaultPackages).to.include.members([vaultPackage1.target, vaultPackage2.target]);
-        });
-    });
-    
+    });    
 });

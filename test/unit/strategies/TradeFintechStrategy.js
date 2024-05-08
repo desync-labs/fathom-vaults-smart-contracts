@@ -55,7 +55,7 @@ async function deployTFStrategyFixture() {
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
     
     await factory.deployVault(
-        0,
+        vaultPackage.target,
         profitMaxUnlockTime,
         assetType,
         assetAddress,
