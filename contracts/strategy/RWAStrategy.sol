@@ -110,14 +110,24 @@ contract RWAStrategy is BaseStrategy {
      * @param _amount The amount of asset to attempt to free.
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 amountToWithdraw = _amount;
         uint256 balance = asset.balanceOf(address(this));
+        uint256 amountToTransfer = _amount;
+
         if (_amount > balance) {
-            amountToWithdraw = Math.min(_amount - balance, totalInvested);
-            asset.safeTransferFrom(managerAddress, address(this), amountToWithdraw);
+            uint256 shortfall = _amount - balance; // Calculate the shortfall to be covered
+            uint256 amountToWithdrawFromManager = Math.min(shortfall, totalInvested); // Determine amount we can safely withdraw from manager
+
+            asset.safeTransferFrom(managerAddress, address(this), amountToWithdrawFromManager);
+            
+            // Update the amount to transfer after possibly receiving more funds
+            amountToTransfer = Math.min(balance + amountToWithdrawFromManager, _amount);
+
+            // Adjust totalInvested based on how much was actually transferred from the manager
+            totalInvested = totalInvested > amountToWithdrawFromManager ? totalInvested - amountToWithdrawFromManager : 0;
         }
-        asset.transfer(TokenizedStrategy.management(), _amount);
-        totalInvested = totalInvested > amountToWithdraw ? totalInvested - amountToWithdraw : 0;
+
+        // Transfer the determined amount to the management, ensuring not to exceed the requested _amount
+        asset.transfer(TokenizedStrategy.management(), amountToTransfer);
     }
 
     function setMinAmount(uint256 _minAmount) external onlyManagement {

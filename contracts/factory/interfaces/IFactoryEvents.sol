@@ -4,7 +4,7 @@
 pragma solidity 0.8.19;
 
 interface IFactoryEvents {
-    event VaultPackageUpdated(uint256 id, address indexed vaultPackage);
+    event VaultPackageRemoved(address indexed vaultPackage);
     event VaultPackageAdded(address indexed vaultPackage, address indexed creator);
     event FeeConfigUpdated(address indexed feeRecipient, uint16 feeBPS);
     event VaultDeployed(

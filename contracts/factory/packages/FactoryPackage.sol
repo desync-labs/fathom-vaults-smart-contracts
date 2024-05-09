@@ -35,11 +35,22 @@ contract FactoryPackage is FactoryStorage, IFactory, IFactoryInit, IFactoryEvent
         if (_vaultPackage == address(0)) {
             revert ZeroAddress();
         }
-        if (isPackage[_vaultPackage]) {
+        if (isPackage[_vaultPackage] == true) {
             revert SameVaultPackage();
         }
         isPackage[_vaultPackage] = true;
         emit VaultPackageAdded(_vaultPackage, msg.sender);
+    }
+
+    function removeVaultPackage(address _vaultPackage) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_vaultPackage == address(0)) {
+            revert ZeroAddress();
+        }
+        if (isPackage[_vaultPackage] == false) {
+            revert InvalidVaultPackageId();
+        }
+        isPackage[_vaultPackage] = false;
+        emit VaultPackageRemoved(_vaultPackage);
     }
 
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external override onlyRole(DEFAULT_ADMIN_ROLE) {

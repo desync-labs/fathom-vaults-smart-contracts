@@ -92,5 +92,49 @@ describe("Factory Contract Upgradability", function () {
             await expect(factory.connect(otherAccount).addVaultPackage(vaultPackage.target))
                 .to.be.revertedWith(errorMessage);
         });
+    });
+
+    describe("removeVaultPackage()", function () {
+        it("should remove a vault package successfully", async function () {
+            const { factory, vaultPackage } = await loadFixture(deployFactory);
+            // First, add a vault package to ensure it's there to be removed
+            await factory.addVaultPackage(vaultPackage.target);
+            expect(await factory.isPackage(vaultPackage.target)).to.be.true;
+            
+            // Now, remove the vault package
+            await expect(factory.removeVaultPackage(vaultPackage.target))
+                .to.emit(factory, 'VaultPackageRemoved')
+                .withArgs(vaultPackage.target);
+    
+            expect(await factory.isPackage(vaultPackage.target)).to.be.false;
+        });
+        
+        it("should prevent removing a zero address as a vault package", async function () {
+            const { factory } = await loadFixture(deployFactory);
+    
+            await expect(factory.removeVaultPackage(ethers.ZeroAddress))
+                .to.be.revertedWithCustomError(factory, "ZeroAddress");
+        });
+    
+        it("should prevent removing a non-existent vault package", async function () {
+            const { factory, vaultPackage } = await loadFixture(deployFactory);
+            // Ensure the package is not already added
+            expect(await factory.isPackage(vaultPackage.target)).to.be.false;
+    
+            await expect(factory.removeVaultPackage(vaultPackage.target))
+                .to.be.revertedWithCustomError(factory, "InvalidVaultPackageId");
+        });
+    
+        it("should prevent non-owner from removing a vault package", async function () {
+            const { factory, vaultPackage, otherAccount } = await loadFixture(deployFactory);
+            // Add a vault package first
+            await factory.addVaultPackage(vaultPackage.target);
+    
+            const errorMessage = new RegExp(`AccessControl: account ${otherAccount.address.toLowerCase()} is missing role 0x0000000000000000000000000000000000000000000000000000000000000000`);
+
+            // Try to remove the package as a non-owner
+            await expect(factory.connect(otherAccount).removeVaultPackage(vaultPackage.target))
+                .to.be.revertedWith(errorMessage);
+        });
     });    
 });

@@ -19,6 +19,8 @@ interface IFactory {
 
     function addVaultPackage(address _vaultPackage) external;
 
+    function removeVaultPackage(address _vaultPackage) external;
+
     function getVaults() external view returns (address[] memory);
 
     function isVaultPackage(address _vaultPackage) external view returns (bool);

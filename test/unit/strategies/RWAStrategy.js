@@ -352,7 +352,7 @@ describe("RWAStrategy tests", function () {
         }
     
         it("Successfully performs emergency withdrawal after shutdown", async function () {
-            const { strategy, asset, manager, deployAmount, emergencyWithdrawAmount } = await deployAndSetupScenario();
+            const { strategy, asset, deployAmount, emergencyWithdrawAmount } = await deployAndSetupScenario();
     
             // Authorize and shutdown the strategy
             await strategy.shutdownStrategy();
@@ -368,6 +368,31 @@ describe("RWAStrategy tests", function () {
             const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
             const totalInvestedAfterWithdraw = await rwaStrategy.totalInvested();
             expect(totalInvestedAfterWithdraw).to.equal(deployAmount - emergencyWithdrawAmount);
+        });
+
+        it("Handles withdrawal exceeding the current balance by pulling from manager", async function () {
+            const { strategy, asset, manager, deployAmount,  } = await deployAndSetupScenario();
+    
+            // Authorize and shutdown the strategy
+            await strategy.shutdownStrategy();
+    
+            // Withdraw more than the current balance
+            const emergencyWithdrawAmount = 3000;
+    
+            // Ensure manager has enough funds to cover the transfer
+            await asset.connect(manager).approve(strategy.target, emergencyWithdrawAmount);
+    
+            // Attempt emergency withdrawal
+            await strategy.emergencyWithdraw(emergencyWithdrawAmount);
+    
+            // Verify final balances
+            const finalStrategyBalance = await asset.balanceOf(strategy.target);
+            expect(finalStrategyBalance).to.equal(0);
+    
+            // Verify totalInvested reflects the withdrawn amount from manager
+            const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
+            const totalInvestedAfterWithdraw = await rwaStrategy.totalInvested();
+            expect(totalInvestedAfterWithdraw).to.equal(0);
         });
     
         it("Reverts emergency withdrawal if strategy is not shutdown", async function () {

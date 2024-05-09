@@ -123,7 +123,6 @@ contract TradeFintechStrategy is BaseStrategy {
     /// @param _amount The amount that is being returned.
     function returnFunds(uint256 _amount) external onlyManagement {
         require(_amount > 0, "Amount must be greater than 0.");
-        require(totalInvested > 0, "No funds to return.");
         require(_amount <= totalInvested, "Amount must be less than total invested.");
 
         // Transfer the amount from the manager to the strategy contract
