@@ -259,7 +259,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         _adjustAmountNeededToPayDebt(_collateral, _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD));
 
-        uint256 receivedAmount = _sellCollateralV3(_collateral, address(fathomStablecoin), _amount, 3000, _universalRouter);
+        uint256 receivedAmount = _sellCollateralV3(_collateral, address(fathomStablecoin), _amount, uniswapV3Info[_universalRouter].poolFee, _universalRouter);
         emit LogSellCollateralV3(_universalRouter, _amount, receivedAmount); // This line is crucial for logging the sale details
 
         uint256 balanceOfFXDAfterSwap = fathomStablecoin.balanceOf(address(this));
@@ -586,7 +586,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 amountOutMinimum,
         bytes memory path,
         bool sourceOfFundsIsMsgSender
-    ) internal view returns (bytes memory commands, bytes[] memory inputs) {
+    ) internal pure returns (bytes memory commands, bytes[] memory inputs) {
         // Encode the inputs for the V3_SWAP_EXACT_IN COMMAND
         bytes memory input = abi.encode(recipient, amountIn, amountOutMinimum, path, sourceOfFundsIsMsgSender);
 
