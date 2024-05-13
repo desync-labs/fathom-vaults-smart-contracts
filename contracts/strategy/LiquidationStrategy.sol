@@ -13,6 +13,7 @@ import { IFlashLendingCallee } from "./interfaces/liquidationStrategy/IFlashLend
 import { ILiquidationStrategy } from "./interfaces/liquidationStrategy/ILiquidationStrategy.sol";
 import { IERC165 } from "./interfaces/liquidationStrategy/IERC165.sol";
 import { IGenericTokenAdapter } from "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
+import { IUniswapV2Factory } from "./interfaces/liquidationStrategy/IUniswapV2Factory.sol";
 import { IUniswapV2Router02 } from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
 import { IStablecoinAdapter } from "./interfaces/liquidationStrategy/IStablecoinAdapter.sol";
 import { IBookKeeper } from "./interfaces/liquidationStrategy/IBookKeeper.sol";
@@ -546,10 +547,15 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 scenarioOneAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path1, _router);
 
         //if USDT is not set in path, then return path1
-        if (address(usdToken) == address(0)) {
+        if (address(usdToken) == address(0) || 
+            IUniswapV2Factory(_router.factory()).getPair(_collateralToken, address(usdToken)) == address(0)) {
+            // Scenario 1: Collateral -> FXD
+            return (path1, scenarioOneAmountOut);
+        } else if (usdToken.balanceOf(IUniswapV2Factory(_router.factory()).getPair(_collateralToken, address(usdToken))) == 0) {
+            // Scenario 1: Collateral -> FXD
             return (path1, scenarioOneAmountOut);
         } else {
-            // DEX (Collateral -> USDT) -> DEX (USDT -> FXD)
+            // Scenario 2: Collateral -> USDT -> FXD will be considered
             address[] memory path2 = new address[](3);
             path2[0] = _collateralToken;
             path2[1] = address(usdToken);
