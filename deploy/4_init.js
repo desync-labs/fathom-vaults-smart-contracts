@@ -17,6 +17,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const maxDebt = ethers.parseUnits("1000000", 18);
     const profitMaxUnlockTime = 604800; // 1 week in seconds
     const protocolFee = 2000; // 20% of total fee
+    const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
     const vaultTokenName = "FXD-fVault-1";
     const vaultTokenSymbol = "fvFXD1";
@@ -50,6 +51,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const deployVaultTx = await factory.deployVault(
         profitMaxUnlockTime,
+        assetType,
         assetAddress,
         vaultTokenName,
         vaultTokenSymbol,
@@ -63,6 +65,17 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vaultAddress = vaultsCopy.pop();
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
+
+    const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+    const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+    const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+
+    let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(DEBT_PURCHASER, deployer);
+    await grantRoleTx.wait();
 
     console.log("Setting deposit limit...");
     const setDepositLimitTx = await vault.setDepositLimit(depositLimit);

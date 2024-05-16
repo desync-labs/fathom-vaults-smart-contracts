@@ -33,16 +33,16 @@ module.exports = {
             url: `http://127.0.0.1:8545`,
             accounts: [fs.readFileSync("./privateKey").toString()],
         },
-        hardhat: {
-            accounts: {
-                // 1 million ETH in wei
-                count: 3,
-                initialBalance: '1000000000000000000000000',
-            },
-            forking: {
-                url: "https://earpc.xinfin.network"
-            }
-        },
+        // hardhat: {
+        //     accounts: {
+        //         // 1 million ETH in wei
+        //         count: 3,
+        //         initialBalance: '1000000000000000000000000',
+        //     },
+        //     forking: {
+        //         url: "https://earpc.xinfin.network"
+        //     }
+        // },
     },
     namedAccounts: {
         deployer: 0,

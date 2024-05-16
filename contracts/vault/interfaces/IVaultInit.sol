@@ -6,6 +6,7 @@ pragma solidity 0.8.19;
 interface IVaultInit {
     function initialize(
         uint256 _profitMaxUnlockTime,
+        uint256 _assetType,
         address _asset,
         string calldata _name,
         string calldata _symbol,

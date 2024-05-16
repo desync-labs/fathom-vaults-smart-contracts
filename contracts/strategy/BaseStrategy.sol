@@ -47,7 +47,7 @@ abstract contract BaseStrategy {
      * a delegateCall from this address to the TokenizedStrategy.
      */
     modifier onlySelf() {
-        _onlySelf();
+        require(msg.sender == address(this), "!self");
         _;
     }
 
@@ -77,12 +77,8 @@ abstract contract BaseStrategy {
         _;
     }
 
-    function _onlySelf() internal view {
-        require(msg.sender == address(this), "!self");
-    }
-
     /*//////////////////////////////////////////////////////////////
-                            CONSTANTS
+                            IMMUTABLES
     //////////////////////////////////////////////////////////////*/
 
     /**
@@ -99,10 +95,6 @@ abstract contract BaseStrategy {
      */
     // NOTE: This is a holder address based on expected deterministic location for testing
     address public immutable tokenizedStrategyAddress;
-
-    /*//////////////////////////////////////////////////////////////
-                            IMMUTABLES
-    //////////////////////////////////////////////////////////////*/
 
     /**
      * This variable is set to address(this) during initialization of each strategy.
