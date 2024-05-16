@@ -18,6 +18,7 @@ module.exports = {
     networks: {
         apothem: {
             url: `https://earpc.apothem.network`,
+            // url: 'https://erpc.apothem.network',
             accounts: [fs.readFileSync("./privateKey").toString()],
         },
         xdc: {

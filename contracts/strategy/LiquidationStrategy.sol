@@ -38,14 +38,13 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     }
 
     struct CollateralInfo {
-        uint256 CollateralAmount;
+        uint256 collateralAmount;
         uint256 amountNeededToPayDebt;
         uint256 averagePriceOfCollateral;
     }
 
     struct UniswapV3Info {
         address permit2;
-        address universalRouter;
         uint24 poolFee;
     }
 
@@ -186,8 +185,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     function setV3Info(address _permit2, address _universalRouter, uint24 _poolFee) external onlyStrategyManager {
         if (_permit2 == address(0) || _universalRouter == address(0)) revert ZeroAddress();
         if (_poolFee == 0) revert ZeroAmount();
-        if (uniswapV3Info[_universalRouter].permit2 == _permit2 && uniswapV3Info[_universalRouter].universalRouter == _universalRouter && uniswapV3Info[_universalRouter].poolFee == _poolFee) revert SameV3Info();
-        uniswapV3Info[_universalRouter] = UniswapV3Info({ permit2: _permit2, universalRouter: _universalRouter, poolFee: _poolFee });
+        if (keccak256(abi.encode(_permit2, _universalRouter, _poolFee)) == keccak256(abi.encode(uniswapV3Info[_universalRouter].permit2, _universalRouter, uniswapV3Info[_universalRouter].poolFee))) revert SameV3Info();
+        uniswapV3Info[_universalRouter] = UniswapV3Info({ permit2: _permit2, poolFee: _poolFee });
         emit LogSetV3Info(_permit2, _universalRouter);
     }
 
@@ -206,18 +205,22 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     function sellCollateralV2(address _collateral, IUniswapV2Router02 _router, uint256 _amount, uint256 _minAmountOut) external onlyStrategyManager {
         if (address(_router) == address(0)) revert ZeroAddress();
         if (_amount == 0) revert ZeroAmount();
-        if (_amount > idleCollateral[_collateral].CollateralAmount) revert WrongAmount();
+        if (_amount > idleCollateral[_collateral].collateralAmount) revert WrongAmount();
 
         // Calculate the cost of Collateral in terms of FXD using the average price
-        uint256 costOfCollateralInFXD = _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD); 
+        uint256 _averagePriceOfCollateral = idleCollateral[_collateral].averagePriceOfCollateral;
+        uint256 costOfCollateralInFXD = _amount.mul(_averagePriceOfCollateral).div(WAD); 
         uint256 balanceOfFXDBeforeSwap = fathomStablecoin.balanceOf(address(this));
         
         // Existing logic for selling Collateral
-        idleCollateral[_collateral].CollateralAmount -= _amount;
+        idleCollateral[_collateral].collateralAmount -= _amount;
 
         _nullifyIdleCollateral(_collateral);
 
-        _adjustAmountNeededToPayDebt(_collateral, _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD));
+        //if idleCollateral is nullified in previous line, no need to _adjustAmountNeededToPayDebt
+        if (idleCollateral[_collateral].collateralAmount != 0) {
+            _adjustAmountNeededToPayDebt(_collateral, _amount.mul(_averagePriceOfCollateral).div(WAD));
+        }
 
         (address[] memory path, uint256 dexAmountOut) = _computeMostProfitablePath(_router, _collateral, _amount);
 
@@ -244,21 +247,24 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     function sellCollateralV3(address _collateral, address _universalRouter, uint256 _amount) external onlyStrategyManager {
         if (_universalRouter == address(0)) revert ZeroAddress();
         if (_amount == 0) revert ZeroAmount();
-        if (_amount > idleCollateral[_collateral].CollateralAmount) revert WrongAmount();
-        if (uniswapV3Info[_universalRouter].universalRouter == address(0) || 
-            uniswapV3Info[_universalRouter].permit2 == address(0) || 
+        if (_amount > idleCollateral[_collateral].collateralAmount) revert WrongAmount();
+        if (uniswapV3Info[_universalRouter].permit2 == address(0) || 
             uniswapV3Info[_universalRouter].poolFee == 0) revert V3InfoNotSet();
 
         // Calculate the cost of Collateral in terms of FXD using the average price
-        uint256 costOfCollateralInFXD = _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD); 
+        uint256 _averagePriceOfCollateral = idleCollateral[_collateral].averagePriceOfCollateral;
+        uint256 costOfCollateralInFXD = _amount.mul(_averagePriceOfCollateral).div(WAD); 
         uint256 balanceOfFXDBeforeSwap = fathomStablecoin.balanceOf(address(this));
         
         // Existing logic for selling Collateral
-        idleCollateral[_collateral].CollateralAmount -= _amount;
+        idleCollateral[_collateral].collateralAmount -= _amount;
 
         _nullifyIdleCollateral(_collateral);
 
-        _adjustAmountNeededToPayDebt(_collateral, _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD));
+        //if idleCollateral is nullified in previous line, no need to _adjustAmountNeededToPayDebt
+        if (idleCollateral[_collateral].collateralAmount != 0) {
+            _adjustAmountNeededToPayDebt(_collateral, _amount.mul(_averagePriceOfCollateral).div(WAD));
+        }
 
         uint256 receivedAmount = _sellCollateralV3(_collateral, address(fathomStablecoin), _amount, uniswapV3Info[_universalRouter].poolFee, _universalRouter);
         emit LogSellCollateralV3(_universalRouter, _amount, receivedAmount); // This line is crucial for logging the sale details
@@ -276,13 +282,17 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     /// @param _amount The amount of Collateral to withdraw.
     function shutdownWithdrawCollateral(address _collateral, uint256 _amount) external onlyStrategyManager {
         if (_amount == 0) revert ZeroAmount();
-        if (_amount > idleCollateral[_collateral].CollateralAmount) revert WrongAmount();
+        uint256 _collateralAmount = idleCollateral[_collateral].collateralAmount;
+        if (_amount > _collateralAmount) revert WrongAmount();
 
-        idleCollateral[_collateral].CollateralAmount = idleCollateral[_collateral].CollateralAmount - _amount;
+        idleCollateral[_collateral].collateralAmount = _collateralAmount - _amount;
 
         _nullifyIdleCollateral(_collateral);
-
-        _adjustAmountNeededToPayDebt(_collateral, _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD));
+        
+        //if idleCollateral is nullified in previous line, no need to _adjustAmountNeededToPayDebt
+        if (idleCollateral[_collateral].collateralAmount != 0) {
+            _adjustAmountNeededToPayDebt(_collateral, _amount.mul(idleCollateral[_collateral].averagePriceOfCollateral).div(WAD));
+        }
 
         ERC20(_collateral).safeTransfer(strategyManager, _amount);
         emit LogShutdownWithdrawCollateral(strategyManager, _amount);
@@ -313,13 +323,14 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             data,
             (address, IGenericTokenAdapter, address, address, uint256)
         );
+        address _collateralToken = _vars.tokenAdapter.collateralToken();
         // Retrieve collateral token from CollateralTokenAdapter
-        uint256 retrievedCollateralAmount = _retrieveCollateral(_vars.tokenAdapter.collateralToken(), _vars.tokenAdapter, _collateralAmountToLiquidate);
+        uint256 retrievedCollateralAmount = _retrieveCollateral(_collateralToken, _vars.tokenAdapter, _collateralAmountToLiquidate);
         // +1 to compensate for precision loss with division
         uint256 amountNeededToPayDebt = _debtValueToRepay.div(RAY) + 1;
         uint256 fathomStablecoinReceivedV2;
         uint256 fathomStablecoinReceivedV3;
-        if (uniswapV3Info[_vars.routerV3].universalRouter == address(0) && _vars.routerV2 != address(0)) {
+        if (uniswapV3Info[_vars.routerV3].permit2 == address(0) && _vars.routerV2 != address(0)) {
             _vars.v2Ratio = TENK; // Adjust to use V2 fully
         }
         // If bot tells the strategy to not use DEX
@@ -328,9 +339,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                 revert NotEnoughToRepayDebt();
             }
             _depositStablecoin(amountNeededToPayDebt, _vars.liquidatorAddress);
-            idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount += retrievedCollateralAmount;
-            idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt += amountNeededToPayDebt;
-            idleCollateral[_vars.tokenAdapter.collateralToken()].averagePriceOfCollateral = idleCollateral[_vars.tokenAdapter.collateralToken()].amountNeededToPayDebt.mul(WAD).div(idleCollateral[_vars.tokenAdapter.collateralToken()].CollateralAmount);
+            idleCollateral[_collateralToken].collateralAmount += retrievedCollateralAmount;
+            idleCollateral[_collateralToken].amountNeededToPayDebt += amountNeededToPayDebt;
+            idleCollateral[_collateralToken].averagePriceOfCollateral = idleCollateral[_collateralToken].amountNeededToPayDebt.mul(WAD).div(idleCollateral[_collateralToken].collateralAmount);
             emit LogFlashLiquidationSuccess(
                 _vars.liquidatorAddress,
                 amountNeededToPayDebt,
@@ -351,11 +362,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             }
             if (_vars.v2Ratio < TENK) {
                 fathomStablecoinReceivedV3 = _sellCollateralV3(
-                    _vars.tokenAdapter.collateralToken(),
+                    _collateralToken,
                     address(fathomStablecoin),
                     _collateralAmountToLiquidate.sub(_collateralAmountToLiquidateV2),
                     uniswapV3Info[_vars.routerV3].poolFee,
-                    uniswapV3Info[_vars.routerV3].universalRouter
+                    _vars.routerV3
                 );
             }
             if ((fathomStablecoinReceivedV2 + fathomStablecoinReceivedV3) < amountNeededToPayDebt) {
@@ -386,9 +397,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     }
 
     function _nullifyIdleCollateral(address _collateral) internal {
-        if (idleCollateral[_collateral].CollateralAmount == 0) {
-            idleCollateral[_collateral].amountNeededToPayDebt = 0;
-            idleCollateral[_collateral].averagePriceOfCollateral = 0;
+        if (idleCollateral[_collateral].collateralAmount == 0) {
+            delete idleCollateral[_collateral];
         }
     }
 
@@ -433,15 +443,16 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 _collateralAmountToLiquidateV2,
         uint256 amountNeededToPayDebtV2
     ) internal returns (uint256 fathomStablecoinReceivedV2) {
+        address _collateralToken = _vars.tokenAdapter.collateralToken();
         (address[] memory path, uint256 dexAmountOut) = _computeMostProfitablePath(
             IUniswapV2Router02(_vars.routerV2),
-            _vars.tokenAdapter.collateralToken(),
+            _collateralToken,
             _collateralAmountToLiquidateV2
         );
         uint256 minAmountOutAfterComparison = dexAmountOut < amountNeededToPayDebtV2 ? dexAmountOut : amountNeededToPayDebtV2;
         return
             _sellCollateralV2(
-                _vars.tokenAdapter.collateralToken(),
+                _collateralToken,
                 path,
                 IUniswapV2Router02(_vars.routerV2),
                 _collateralAmountToLiquidateV2,
@@ -517,12 +528,12 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         IPermit2(uniswapV3Info[_routerV3].permit2).approve(
             _tokenIn,
-            address(uniswapV3Info[_routerV3].universalRouter),
+            _routerV3,
             uint160(_amountIn),
             uint48(block.timestamp)
         );
 
-        IUniversalRouter(uniswapV3Info[_routerV3].universalRouter).execute(commands, inputs, block.timestamp);
+        IUniversalRouter(_routerV3).execute(commands, inputs, block.timestamp);
 
         ERC20(_tokenIn).safeApprove(uniswapV3Info[_routerV3].permit2, 0);
 
