@@ -84,9 +84,9 @@ module.exports = async ({ getNamedAccounts, deployments, ethers }) => {
 
     // Approve tokens for vault
     // console.log("Approving tokens for vault...");
-    //approve 450 FXD to vault
-    // const approveTx = await assetInstance.approve(vaultAddress, depositAmount, { gasLimit: "0x1000000" });
-    // await approveTx.wait(); // Wait for the transaction to be confirmed
+    //approve FXD to vault
+    const approveTx = await assetInstance.approve(vaultAddress, depositAmount, { gasLimit: "0x1000000" });
+    await approveTx.wait(); // Wait for the transaction to be confirmed
 
     // Set deposit limit
     // console.log("Setting deposit limit...");
