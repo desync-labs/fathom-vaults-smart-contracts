@@ -544,11 +544,8 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 scenarioOneAmountOut = _getDexAmountOut(_collateralAmountToLiquidate, path1, _router);
 
         //if USDT is not set in path, then return path1
-        if (address(usdToken) == address(0) || 
-            IUniswapV2Factory(_router.factory()).getPair(_collateralToken, address(usdToken)) == address(0)) {
-            // Scenario 1: Collateral -> FXD
-            return (path1, scenarioOneAmountOut);
-        } else if (usdToken.balanceOf(IUniswapV2Factory(_router.factory()).getPair(_collateralToken, address(usdToken))) == 0) {
+        address pair = IUniswapV2Factory(_router.factory()).getPair(_collateralToken, address(usdToken));
+        if (address(usdToken) == address(0) || pair == address(0) || usdToken.balanceOf(pair) == 0) {
             // Scenario 1: Collateral -> FXD
             return (path1, scenarioOneAmountOut);
         } else {
