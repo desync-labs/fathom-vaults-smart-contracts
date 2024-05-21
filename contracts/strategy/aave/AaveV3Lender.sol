@@ -42,7 +42,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         address _router
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         // Set the lending pool.
-        LENDING_POOL = IPool(_lendingPool);        
+        LENDING_POOL = IPool(_lendingPool);
         // Set the aToken based on the asset we are using.
         A_TOKEN = IAToken(LENDING_POOL.getReserveData(_asset).aTokenAddress);
 
@@ -69,11 +69,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     /// @param _token0 The first token of the pair.
     /// @param _token1 The second token of the pair.
     /// @param _fee The fee to be used for the pair.
-    function setUniFees(
-        address _token0,
-        address _token1,
-        uint24 _fee
-    ) external override onlyManagement {
+    function setUniFees(address _token0, address _token1, uint24 _fee) external override onlyManagement {
         require(_fee < type(uint256).max, "Fee too high");
         _setUniFees(_token0, _token1, _fee);
     }
@@ -85,17 +81,8 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     /// @param _token The address of the token to sell.
     /// @param _amount The amount of `_token` to sell.
     /// @param _minAmountOut The minimum of `asset` to get out.
-    function sellRewardManually(
-        address _token,
-        uint256 _amount,
-        uint256 _minAmountOut
-    ) external override onlyManagement {
-        _swapFrom(
-            _token,
-            address(asset),
-            Math.min(_amount, ERC20(_token).balanceOf(address(this))),
-            _minAmountOut
-        );
+    function sellRewardManually(address _token, uint256 _amount, uint256 _minAmountOut) external override onlyManagement {
+        _swapFrom(_token, address(asset), Math.min(_amount, ERC20(_token).balanceOf(address(this))), _minAmountOut);
     }
 
     /// @notice Set the `minAmountToSellMapping` for a specific `_token`.
@@ -105,10 +92,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     ///     are to low or any other reason that may cause reverts.
     /// @param _token The address of the token to adjust.
     /// @param _amount Min required amount to sell.
-    function setMinAmountToSellMapping(
-        address _token,
-        uint256 _amount
-    ) external override onlyManagement {
+    function setMinAmountToSellMapping(address _token, uint256 _amount) external override onlyManagement {
         require(_amount < type(uint256).max, "Amount too high");
         minAmountToSellMapping[_token] = _amount;
     }
@@ -119,11 +103,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         claimRewards = _bool;
     }
 
-    function setRewardsController(address _rewardsController)
-        external
-        override
-        onlyManagement
-    {
+    function setRewardsController(address _rewardsController) external override onlyManagement {
         rewardsController = IRewardsController(_rewardsController);
     }
 
@@ -144,9 +124,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     ///     by `totalSupply`.
     /// @param . The address that is depositing into the strategy.
     /// @return . The available amount the `_owner` can deposit in terms of `asset`
-    function availableDepositLimit(
-        address /*_owner*/
-    ) public view override returns (uint256) {
+    function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
         uint256 supplyCap = getSupplyCap();
 
         // If we have no supply cap.
@@ -165,14 +143,10 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     /// @return The supply cap
     function getSupplyCap() public view override returns (uint256) {
         // Get the bit map data config.
-        uint256 data = LENDING_POOL
-            .getReserveData(address(asset))
-            .configuration
-            .data;
+        uint256 data = LENDING_POOL.getReserveData(address(asset)).configuration.data;
 
         // Get out the supply cap for the asset.
-        uint256 cap = (data & ~SUPPLY_CAP_MASK) >>
-            SUPPLY_CAP_START_BIT_POSITION;
+        uint256 cap = (data & ~SUPPLY_CAP_MASK) >> SUPPLY_CAP_START_BIT_POSITION;
 
         // Adjust to the correct decimals.
         return cap * (10 ** DECIMALS);
@@ -193,9 +167,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     ///     or conversion rates from shares to assets.
     /// @param . The address that is withdrawing from the strategy.
     /// @return . The available amount that can be withdrawn in terms of `asset`
-    function availableWithdrawLimit(
-        address /*_owner*/
-    ) public view override returns (uint256) {
+    function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
         return TokenizedStrategy.totalIdle() + asset.balanceOf(address(A_TOKEN));
     }
 
@@ -233,11 +205,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         /// We don't check available liquidity because we need the tx to
         /// revert if there is not enough liquidity so we don't improperly
         /// pass a loss on to the user withdrawing.
-        LENDING_POOL.withdraw(
-            address(asset),
-            Math.min(A_TOKEN.balanceOf(address(this)), _amount),
-            address(this)
-        );
+        LENDING_POOL.withdraw(address(asset), Math.min(A_TOKEN.balanceOf(address(this)), _amount), address(this));
     }
 
     /// @dev Internal function to harvest all rewards, redeploy any idle
@@ -258,11 +226,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     ///     redeployed or simply realize any profits/losses.
     /// @return _totalAssets A trusted and accurate account for the total
     ///     amount of 'asset' the strategy currently holds including idle funds.
-    function _harvestAndReport()
-        internal
-        override
-        returns (uint256 _totalAssets)
-    {
+    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         if (claimRewards) {
             // Claim and sell any rewards to `asset`.
             _claimAndSellRewards();
@@ -272,18 +236,11 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
             // deposit any loose funds
             uint256 looseAsset = asset.balanceOf(address(this));
             if (looseAsset > 0) {
-                LENDING_POOL.supply(
-                    address(asset),
-                    Math.min(looseAsset, availableDepositLimit(address(this))),
-                    address(this),
-                    0
-                );
+                LENDING_POOL.supply(address(asset), Math.min(looseAsset, availableDepositLimit(address(this))), address(this), 0);
             }
         }
 
-        _totalAssets =
-            A_TOKEN.balanceOf(address(this)) +
-            asset.balanceOf(address(this));
+        _totalAssets = A_TOKEN.balanceOf(address(this)) + asset.balanceOf(address(this));
     }
 
     /// @notice Used to claim any pending rewards and sell them to asset.
@@ -291,8 +248,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         //claim all rewards
         address[] memory assets = new address[](1);
         assets[0] = address(A_TOKEN);
-        (address[] memory rewardsList, ) = rewardsController
-            .claimAllRewardsToSelf(assets);
+        (address[] memory rewardsList, ) = rewardsController.claimAllRewardsToSelf(assets);
         //swap as much as possible back to want
         address token;
 
@@ -327,10 +283,6 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
     ///     }
     /// @param _amount The amount of asset to attempt to free.
     function _emergencyWithdraw(uint256 _amount) internal override {
-        LENDING_POOL.withdraw(
-            address(asset),
-            Math.min(_amount, A_TOKEN.balanceOf(address(this))),
-            address(this)
-        );
+        LENDING_POOL.withdraw(address(asset), Math.min(_amount, A_TOKEN.balanceOf(address(this))), address(this));
     }
 }
