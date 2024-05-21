@@ -4,8 +4,8 @@
 
 pragma solidity 0.8.19;
 
-import {IPool} from "./IPool.sol";
-import {IRewardsController} from "./IRewardsController.sol";
+import { IPool } from "./IPool.sol";
+import { IRewardsController } from "./IRewardsController.sol";
 
 /**
  * @title IInitializableAToken

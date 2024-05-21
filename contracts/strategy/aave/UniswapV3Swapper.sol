@@ -5,7 +5,6 @@ pragma solidity 0.8.19;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
 
-
 /**
  *   @title UniswapV3Swapper
  *   @author Yearn.finance
@@ -21,7 +20,7 @@ import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
  *   for each token pair. The inheriting contract can use the {_setUniFees}
  *   function to easily set this for any token pairs needed.
  */
- // solhint-disable
+// solhint-disable
 contract UniswapV3Swapper {
     // Address of base Token.
     address public base;
@@ -40,11 +39,7 @@ contract UniswapV3Swapper {
      * is to help set the mapping. It can be called internally during
      * initialization, through permissioned functions etc.
      */
-    function _setUniFees(
-        address _token0,
-        address _token1,
-        uint24 _fee
-    ) internal {
+    function _setUniFees(address _token0, address _token1, uint24 _fee) internal {
         uniFees[_token0][_token1] = _fee;
         uniFees[_token1][_token0] = _fee;
     }
@@ -66,25 +61,19 @@ contract UniswapV3Swapper {
      * @param _minAmountOut The min of `_to` to get out.
      * @return _amountOut The actual amount of `_to` that was swapped to
      */
-    function _swapFrom(
-        address _from,
-        address _to,
-        uint256 _amountIn,
-        uint256 _minAmountOut
-    ) internal returns (uint256 _amountOut) {
+    function _swapFrom(address _from, address _to, uint256 _amountIn, uint256 _minAmountOut) internal returns (uint256 _amountOut) {
         _checkAllowance(router, _from, _amountIn);
         if (_from == base || _to == base) {
-            ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
-                .ExactInputSingleParams(
-                    _from, // tokenIn
-                    _to, // tokenOut
-                    uniFees[_from][_to], // from-to fee
-                    address(this), // recipient
-                    block.timestamp, // deadline
-                    _amountIn, // amountIn
-                    _minAmountOut, // amountOut
-                    0 // sqrtPriceLimitX96
-                );
+            ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams(
+                _from, // tokenIn
+                _to, // tokenOut
+                uniFees[_from][_to], // from-to fee
+                address(this), // recipient
+                block.timestamp, // deadline
+                _amountIn, // amountIn
+                _minAmountOut, // amountOut
+                0 // sqrtPriceLimitX96
+            );
 
             _amountOut = ISwapRouter(router).exactInputSingle(params);
         } else {
@@ -96,15 +85,7 @@ contract UniswapV3Swapper {
                 _to // tokenOut
             );
 
-            _amountOut = ISwapRouter(router).exactInput(
-                ISwapRouter.ExactInputParams(
-                    path,
-                    address(this),
-                    block.timestamp,
-                    _amountIn,
-                    _minAmountOut
-                )
-            );
+            _amountOut = ISwapRouter(router).exactInput(ISwapRouter.ExactInputParams(path, address(this), block.timestamp, _amountIn, _minAmountOut));
         }
     }
 
@@ -116,11 +97,7 @@ contract UniswapV3Swapper {
      * @param _token The ERC-20 token that will be getting spent.
      * @param _amount The amount of `_token` to be spent.
      */
-    function _checkAllowance(
-        address _contract,
-        address _token,
-        uint256 _amount
-    ) internal {
+    function _checkAllowance(address _contract, address _token, uint256 _amount) internal {
         if (ERC20(_token).allowance(address(this), _contract) < _amount) {
             ERC20(_token).approve(_contract, 0);
             ERC20(_token).approve(_contract, _amount);
