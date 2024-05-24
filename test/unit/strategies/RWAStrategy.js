@@ -8,7 +8,7 @@ const { expect } = require("chai");
 // Fixture for deploying RWAStrategy with all dependencies
 async function deployRWAStrategyFixture() {
     const profitMaxUnlockTime = 30;
-    const minAmount = 1000;
+    const minDeployAmount = 1000;
     const amount = "1000";
 
     const vaultName = 'Vault Shares FXD';
@@ -81,7 +81,7 @@ async function deployRWAStrategyFixture() {
         "RWA Strategy",
         tokenizedStrategy.target,
         manager.address,
-        minAmount,
+        minDeployAmount,
         depositLimit
     );
 
@@ -98,14 +98,14 @@ async function deployRWAStrategyFixture() {
     return { vault, strategy, asset, deployer, manager, otherAccount, depositLimit };
 }
 
-describe("RWAStrategy tests", function () {
+describe.only("RWAStrategy tests", function () {
 
     describe("RWAStrategy init tests", function () {
         it("Initializes with correct parameters", async function () {
             const { strategy, manager } = await loadFixture(deployRWAStrategyFixture);
             const RWAStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
             expect(await RWAStrategy.managerAddress()).to.equal(manager.address);
-            expect(await RWAStrategy.minAmount()).to.equal(1000);
+            expect(await RWAStrategy.minDeployAmount()).to.equal(1000);
         });
     });
 
@@ -128,11 +128,11 @@ describe("RWAStrategy tests", function () {
                 .to.be.revertedWith("!keeper");
         });
 
-        it("Does not transfer funds if minAmount is not reached", async function () {
+        it("Does not transfer funds if minDeployAmount is not reached", async function () {
             const { strategy, asset, manager } = await loadFixture(deployRWAStrategyFixture);
             const initialManagerBalance = await asset.balanceOf(manager.address);
     
-            // Ensure the strategy has some balance but below minAmount
+            // Ensure the strategy has some balance but below minDeployAmount
             const belowMinAmount = 1;
             await asset.transfer(strategy.target, belowMinAmount);
     
@@ -232,7 +232,7 @@ describe("RWAStrategy tests", function () {
             expect(totalInvested).to.equal(deployAmount);
         });
     
-        it("Does not transfer funds if amount does not exceed minAmount", async function () {
+        it("Does not transfer funds if amount does not exceed minDeployAmount", async function () {
             const { vault, strategy, asset, mockAsset, deployer, manager } = await loadFixture(deployRWAStrategyFixture);
     
             const deployAmount = 50;
@@ -299,6 +299,7 @@ describe("RWAStrategy tests", function () {
     
         it("Reverts withdrawal if attempting to free more funds than available", async function () {
             const { vault, strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployRWAStrategyFixture);
+            const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
     
             // Simulate the strategy investing funds
             const deployAmount = 2000;
@@ -320,13 +321,14 @@ describe("RWAStrategy tests", function () {
     
             // Attempt to withdraw more than the manager's balance, expecting a revert
             const withdrawalAmount = 2000; // More than manager's balance
+
             await expect(vault.withdraw(
                 withdrawalAmount,
                 otherAccount.address, // receiver
                 deployer.address, // owner
                 0,
                 [] // Adjust based on actual parameters
-            )).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+            )).to.be.revertedWithCustomError(rwaStrategy, "ManagerBalanceTooLow");
         });
     });
 
@@ -414,26 +416,26 @@ describe("RWAStrategy tests", function () {
         });
     });
 
-    describe("setMinAmountToSell()", function () {    
-        it("Allows management to update minAmount", async function () {
+    describe("setMinDeployAmountToSell()", function () {    
+        it("Allows management to update minDeployAmount", async function () {
             const { strategy, manager } = await loadFixture(deployRWAStrategyFixture);
             const newMinAmount = 500;
     
             const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
 
-            await rwaStrategy.setMinAmount(newMinAmount);
+            await rwaStrategy.setMinDeployAmount(newMinAmount);
     
-            const updatedMinAmount = await rwaStrategy.minAmount();
+            const updatedMinAmount = await rwaStrategy.minDeployAmount();
             expect(updatedMinAmount).to.equal(newMinAmount);
         });
     
-        it("Reverts when a non-management user tries to update minAmount", async function () {
+        it("Reverts when a non-management user tries to update minDeployAmount", async function () {
             const { strategy, otherAccount } = await loadFixture(deployRWAStrategyFixture);
             const newMinAmount = 500;
 
             const rwaStrategy = await ethers.getContractAt("RWAStrategy", strategy.target);
     
-            await expect(rwaStrategy.connect(otherAccount).setMinAmount(newMinAmount))
+            await expect(rwaStrategy.connect(otherAccount).setMinDeployAmount(newMinAmount))
                 .to.be.revertedWith("!management");
         });
     });

@@ -7,158 +7,145 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import { IRWAStrategy } from "./interfaces/IRWAStrategy.sol";
+
 // solhint-disable
-contract RWAStrategy is BaseStrategy {
+contract RWAStrategy is BaseStrategy, IRWAStrategy {
     using SafeERC20 for ERC20;
     using Math for uint256;
 
     // The minimum amount to send to the manager
-    uint256 public minAmount;
+    uint256 public minDeployAmount;
     uint256 public depositLimit;
-
     uint256 public totalInvested;
-    uint256 public totalGains;
-    uint256 public totalLosses;
 
     error ZeroAddress();
     error AmountTooHigh();
     error ZeroValue();
+    error InvalidDepositLimit();
+    error NotRWAManager();
+    error InvalidLossAmount();
+    error ManagerBalanceTooLow();
 
     // The address that we send funds to
     // and that will buy RWAs with the funds
     address public immutable managerAddress;
+
+    modifier onlyRWAManager() {
+        if (msg.sender != managerAddress) {
+            revert NotRWAManager();
+        }
+        _;
+    }
 
     constructor(
         address _asset,
         string memory _name,
         address _tokenizedStrategyAddress,
         address _managerAddress,
-        uint256 _minAmount,
+        uint256 _minDeployAmount,
         uint256 _depositLimit
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         if (_managerAddress == address(0)) {
             revert ZeroAddress();
         }
-        if (_minAmount > ERC20(_asset).totalSupply()) {
+        if (_minDeployAmount > ERC20(_asset).totalSupply()) {
             revert AmountTooHigh();
         }
         if (_depositLimit == 0) {
             revert ZeroValue();
         }
         managerAddress = _managerAddress;
-        minAmount = _minAmount;
+        minDeployAmount = _minDeployAmount;
         depositLimit = _depositLimit;
     }
 
-    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
-        if (!TokenizedStrategy.isShutdown()) {
-            // deposit any loose funds
-            uint256 balance = asset.balanceOf(address(this));
-            if (balance > minAmount) {
-                uint256 _amount = Math.min(balance, availableDepositLimit(address(this)));
-                asset.transfer(managerAddress, _amount);
-                totalInvested += _amount;
-            }
+    /// @inheritdoc IRWAStrategy
+    function reportLoss(uint256 _amount) external onlyRWAManager {
+        if (_amount == 0 || _amount > totalInvested) {
+            revert InvalidLossAmount();
         }
-        _totalAssets = totalInvested + asset.balanceOf(address(this));
-    }
-
-    function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
-        uint256 balance = asset.balanceOf(address(this));
-        // Return the remaining room.
-        return depositLimit < balance ? 0 : depositLimit - balance;
-    }
-
-    function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
-        return TokenizedStrategy.totalIdle() + totalInvested;
-    }
-
-    function _deployFunds(uint256 _amount) internal override {
-        if (_amount > minAmount) {
-            asset.transfer(managerAddress, _amount);
-            totalInvested += _amount;
-        }
-    }
-
-    function _freeFunds(uint256 _amount) internal override {
-        // We don't check available liquidity because we need the tx to
-        // revert if there is not enough liquidity so we don't improperly
-        // pass a loss on to the user withdrawing.
-        asset.safeTransferFrom(managerAddress, address(this), _amount);
         totalInvested -= _amount;
     }
 
-    /**
-     * @dev Optional function for a strategist to override that will
-     * allow management to manually withdraw deployed funds from the
-     * yield source if a strategy is shutdown.
-     *
-     * This should attempt to free `_amount`, noting that `_amount` may
-     * be more than is currently deployed.
-     *
-     * NOTE: This will not realize any profits or losses. A separate
-     * {report} will be needed in order to record any profit/loss. If
-     * a report may need to be called after a shutdown it is important
-     * to check if the strategy is shutdown during {_harvestAndReport}
-     * so that it does not simply re-deploy all funds that had been freed.
-     *
-     * EX:
-     *   if(freeAsset > 0 && !TokenizedStrategy.isShutdown()) {
-     *       depositFunds...
-     *    }
-     *
-     * @param _amount The amount of asset to attempt to free.
-     */
+    /// @inheritdoc IRWAStrategy
+    function setDepositLimit(uint256 _depositLimit) external onlyManagement {
+        // require(_depositLimit > 0, "Deposit limit must be greater than 0."); // VK: don't need this check
+        if (_depositLimit == 0 || _depositLimit < asset.balanceOf(address(this)) + totalInvested) {
+            revert InvalidDepositLimit();
+        }
+
+        depositLimit = _depositLimit;
+    }
+
+    /// @inheritdoc IRWAStrategy
+    function setMinDeployAmount(uint256 _minDeployAmount) external onlyManagement {
+        if (_minDeployAmount > ERC20(asset).totalSupply()) {
+            revert AmountTooHigh();
+        }
+
+        minDeployAmount = _minDeployAmount;
+    }
+
+    /// @inheritdoc BaseStrategy
+    function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
+        uint256 deposited = asset.balanceOf(address(this)) + totalInvested;
+        return depositLimit < deposited ? 0 : depositLimit - deposited;
+    }
+
+    /// @inheritdoc BaseStrategy
+    function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
+        return asset.balanceOf(address(this)) + totalInvested;
+    }
+
+    /// @inheritdoc BaseStrategy
+    function _harvestAndReport() internal override returns (uint256 _totalAssets) {
+        uint256 idle = asset.balanceOf(address(this));
+        _totalAssets = totalInvested + idle;
+
+        if (!TokenizedStrategy.isShutdown()) {
+            // deposit any loose funds
+            _deployFunds(idle);
+        }
+    }
+
+    /// @inheritdoc BaseStrategy
+    function _deployFunds(uint256 _amount) internal override {
+        if (_amount > 0 && _amount >= minDeployAmount) {
+            // we cannot deposit more than the deposit limit
+            uint256 amountToTransfer = Math.min(_amount, depositLimit - totalInvested);
+            asset.transfer(managerAddress, amountToTransfer);
+            totalInvested += amountToTransfer;
+        }
+    }
+
+    /// @inheritdoc BaseStrategy
+    function _freeFunds(uint256 _amount) internal override {
+        if (_amount > 0) {
+            if (_amount > asset.balanceOf(address(managerAddress))) {
+                revert ManagerBalanceTooLow();
+            }
+            asset.safeTransferFrom(managerAddress, address(this), _amount);
+            totalInvested -= _amount;
+        }
+    }
+
+    /// @inheritdoc BaseStrategy
     function _emergencyWithdraw(uint256 _amount) internal override {
         uint256 balance = asset.balanceOf(address(this));
-        uint256 amountToTransfer = _amount;
+        uint256 amountToTransfer;
 
         if (_amount > balance) {
-            uint256 shortfall = _amount - balance; // Calculate the shortfall to be covered
-            uint256 amountToWithdrawFromManager = Math.min(shortfall, totalInvested); // Determine amount we can safely withdraw from manager
+             // we cannot withdraw from manager more than the total invested
+            uint256 availableManagerBalance = Math.min(asset.balanceOf(managerAddress), totalInvested);
+            uint256 amountToWithdraw = Math.min(_amount - balance, availableManagerBalance);
+            _freeFunds(amountToWithdraw);
 
-            asset.safeTransferFrom(managerAddress, address(this), amountToWithdrawFromManager);
-            
-            // Update the amount to transfer after possibly receiving more funds
-            amountToTransfer = Math.min(balance + amountToWithdrawFromManager, _amount);
-
-            // Adjust totalInvested based on how much was actually transferred from the manager
-            totalInvested = totalInvested > amountToWithdrawFromManager ? totalInvested - amountToWithdrawFromManager : 0;
+            amountToTransfer = asset.balanceOf(address(this));
+        } else {
+            amountToTransfer = _amount;
         }
 
-        // Transfer the determined amount to the management, ensuring not to exceed the requested _amount
         asset.transfer(TokenizedStrategy.management(), amountToTransfer);
-    }
-
-    function setMinAmount(uint256 _minAmount) external onlyManagement {
-        minAmount = _minAmount;
-    }
-
-    /// @notice Allows the manager to report gains or losses.
-    /// @dev Should be called before calling report() to report the amount of the gain or loss.
-    /// @dev The manager can only report gains or losses.
-    /// @param _gain The amount of the gain.
-    /// @param _loss The amount of the loss.
-    function reportGainOrLoss(uint256 _gain, uint256 _loss) external {
-        require(msg.sender == managerAddress, "Only the manager can report gains or losses");
-
-        if (_gain > 0) {
-            require(_loss == 0, "Cannot report both gain and loss");
-            // Transfer the gain from the manager to the strategy contract
-            ERC20(asset).safeTransferFrom(managerAddress, address(this), _gain);
-            totalGains += _gain;
-        } else if (_loss > 0) {
-            require(_loss <= totalInvested, "Cannot report loss more than total invested");
-            totalLosses += _loss;
-            totalInvested -= _loss;
-        }
-    }
-
-    /// @notice Allows the manager to set the deposit limit.
-    /// @param _depositLimit The new deposit limit.
-    function setDepositLimit(uint256 _depositLimit) external onlyManagement {
-        require(_depositLimit > 0, "Deposit limit must be greater than 0.");
-        require(_depositLimit > TokenizedStrategy.totalIdle() + totalInvested, "Deposit limit must be greater than total invested.");
-        depositLimit = _depositLimit;
     }
 }

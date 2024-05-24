@@ -163,7 +163,7 @@ async function deployVaultApothem() {
     return { vault, owner, otherAccount, account3, account4, account5, asset, profitMaxUnlockTime, factory, tokenizedStrategy };
 }
 
-describe.only("Vault Deposit and Withdraw", function () {
+describe("Vault Deposit and Withdraw", function () {
 
     it("Should deposit and withdraw", async function () {
         const { vault, asset, owner } = await loadFixture(deployVault);
@@ -422,7 +422,7 @@ describe("Vault Deposit and Withdraw with Strategy", function () {
     });
 });
 
-describe.only("Vault Deposit and Withdraw with RWA Strategy", function () {
+describe("Vault Deposit and Withdraw with RWA Strategy", function () {
     
     it("Should deposit, setup RWA Strategy, add Strategy to the Vault, send funds from Vault to Strategy, create Profit Reports and withdraw all", async function () {
         const { vault, asset, owner, factory, otherAccount, tokenizedStrategy } = await loadFixture(deployVault);
