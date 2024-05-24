@@ -2,14 +2,16 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-interface IRWAStrategy {
-    /// @notice Report a loss
+import {IRWAStrategyEvents} from "./IRWAStrategyEvents.sol";
+import {IRWAStrategyErrors} from "./IRWAStrategyErrors.sol";
+
+interface IRWAStrategy is IRWAStrategyEvents, IRWAStrategyErrors {
+    /// @notice Report a gain or loss
     /// @dev Only the rwa manager can call this
-    /// we only need a separate function for reporting losses
-    /// in case of gains, the manager just transfers the gains to the strategy
-    /// this will reduce the total invested amount
+    /// gain will transfer the gain to the strategy
+    /// lose will reduce the total invested amount
     /// @param _amount The amount of the loss
-    function reportLoss(uint256 _amount) external;
+    function reportGainOrLoss(uint256 _amount, bool isGain) external;
 
     /// @notice Set the deposit limit
     /// @dev Only the strategy manager can call this

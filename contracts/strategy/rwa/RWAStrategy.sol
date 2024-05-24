@@ -2,12 +2,12 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import "./BaseStrategy.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { IRWAStrategy } from "./interfaces/IRWAStrategy.sol";
+import { BaseStrategy } from "../BaseStrategy.sol";
+import { IRWAStrategy } from "./IRWAStrategy.sol";
 
 // solhint-disable
 contract RWAStrategy is BaseStrategy, IRWAStrategy {
@@ -19,13 +19,6 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     uint256 public depositLimit;
     uint256 public totalInvested;
 
-    error ZeroAddress();
-    error AmountTooHigh();
-    error ZeroValue();
-    error InvalidDepositLimit();
-    error NotRWAManager();
-    error InvalidLossAmount();
-    error ManagerBalanceTooLow();
 
     // The address that we send funds to
     // and that will buy RWAs with the funds
@@ -47,13 +40,13 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
         uint256 _depositLimit
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         if (_managerAddress == address(0)) {
-            revert ZeroAddress();
+            revert ZeroManager();
         }
         if (_minDeployAmount > ERC20(_asset).totalSupply()) {
-            revert AmountTooHigh();
+            revert InvalidMinDeployAmount();
         }
         if (_depositLimit == 0) {
-            revert ZeroValue();
+            revert InvalidDepositLimit();
         }
         managerAddress = _managerAddress;
         minDeployAmount = _minDeployAmount;
@@ -61,13 +54,19 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     }
 
     /// @inheritdoc IRWAStrategy
-    function reportLoss(uint256 _amount) external onlyRWAManager {
-        if (_amount == 0 || _amount > totalInvested) {
-            revert InvalidLossAmount();
+    function reportGainOrLoss(uint256 _amount, bool isGain) external onlyRWAManager {
+        if (isGain) {
+            asset.safeTransferFrom(managerAddress, address(this), _amount);
+            emit GainReported(_amount);
+        } else {
+            if (_amount == 0 || _amount > totalInvested) {
+                revert InvalidLossAmount();
+            }
+            
+            totalInvested -= _amount;
+            emit LossReported(_amount);
         }
-        totalInvested -= _amount;
     }
-
     /// @inheritdoc IRWAStrategy
     function setDepositLimit(uint256 _depositLimit) external onlyManagement {
         // require(_depositLimit > 0, "Deposit limit must be greater than 0."); // VK: don't need this check
@@ -76,15 +75,17 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
         }
 
         depositLimit = _depositLimit;
+        emit DepositLimitSet(_depositLimit);
     }
 
     /// @inheritdoc IRWAStrategy
     function setMinDeployAmount(uint256 _minDeployAmount) external onlyManagement {
         if (_minDeployAmount > ERC20(asset).totalSupply()) {
-            revert AmountTooHigh();
+            revert InvalidMinDeployAmount();
         }
 
         minDeployAmount = _minDeployAmount;
+        emit MinDeployAmountSet(_minDeployAmount);
     }
 
     /// @inheritdoc BaseStrategy
