@@ -105,7 +105,7 @@ async function deployTFStrategyFixture() {
     return { vault, strategy, asset, deployer, manager, otherAccount, depositPeriodEnds, lockPeriodEnds, depositLimit };
 }
 
-describe("TradeFintechStrategy tests", function () {
+describe.only("TradeFintechStrategy tests", function () {
 
     describe("TradeFintechStrategy init tests", function () {
         it("Initializes with correct parameters", async function () {
@@ -450,7 +450,7 @@ describe("TradeFintechStrategy tests", function () {
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
     
-            await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, 0))
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, true))
                 .to.emit(tfStrategy, 'GainReported')
                 .withArgs(manager.address, gain);
     
@@ -464,12 +464,14 @@ describe("TradeFintechStrategy tests", function () {
 
             const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
     
-            await expect(tfStrategy.connect(manager).reportGainOrLoss(0, loss))
+            const totalInvestedBefore = await tfStrategy.totalInvested();
+
+            await expect(tfStrategy.connect(manager).reportGainOrLoss(loss, false))
                 .to.emit(tfStrategy, 'LossReported')
                 .withArgs(manager.address, loss);
     
-            const totalLosses = await tfStrategy.totalLosses();
-            expect(totalLosses).to.equal(loss);
+            const totalInvested = await tfStrategy.totalInvested();
+            expect(totalInvested).to.equal(totalInvestedBefore-loss);
         });
     
         it("Reverts if not called by manager", async function () {
@@ -480,17 +482,6 @@ describe("TradeFintechStrategy tests", function () {
     
             await expect(tfStrategy.connect(otherAccount).reportGainOrLoss(gain, 0))
                 .to.be.revertedWith("!management");
-        });
-    
-        it("Reverts if both gain and loss are reported", async function () {
-            const { strategy, manager } = await deployAndSetupScenarioForReporting();
-            const gain = ethers.parseEther("5");
-            const loss = ethers.parseEther("5");
-
-            const tfStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-    
-            await expect(tfStrategy.connect(manager).reportGainOrLoss(gain, loss))
-                .to.be.revertedWith("Cannot report both gain and loss");
         });
     
         it("Reverts if loss reported is more than total invested in RWA", async function () {
