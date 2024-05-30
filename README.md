@@ -41,3 +41,7 @@ npm run test
 
 Fathom Vaults is inspired by Yearn Vaults V3 (https://github.com/yearn/yearn-vaults-v3) and is the indirect fork.
 We learned from Yearn and rewrote in Solidity with modifications Vault, wrote from scratch Factory, and Accountant and some Strategies.
+
+## Appendix
+LiquidationStrategy's doc 2024.03.22
+https://docs.google.com/document/d/1HeMJ1BcjRx6IoSP5rU6YZVeJxkp4c8wx2yElheZxoSQ/edit?usp=sharing
