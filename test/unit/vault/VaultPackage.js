@@ -230,7 +230,7 @@ describe("VaultPackage tests", function () {
         });
     });
 
-    describe.only("setDefaultQueue()", function () {
+    describe("setDefaultQueue()", function () {
         async function setupScenario() {
             const { deployer, otherAccount, strategy, asset, tokenizedStrategy, vault } = await loadFixture(deployVaultThroughFactory);
             const amount = 1000;

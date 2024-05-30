@@ -6,12 +6,15 @@ import {IRWAStrategyEvents} from "./IRWAStrategyEvents.sol";
 import {IRWAStrategyErrors} from "./IRWAStrategyErrors.sol";
 
 interface IRWAStrategy is IRWAStrategyEvents, IRWAStrategyErrors {
-    /// @notice Report a gain or loss
-    /// @dev Only the rwa manager can call this
-    /// gain will transfer the gain to the strategy
-    /// lose will reduce the total invested amount
-    /// @param _amount The amount of the loss
-    function reportGainOrLoss(uint256 _amount, bool isGain) external;
+    /// @notice Report a gain
+    /// will transfer the amount to the strategy
+    /// @param amount The amount of the gain
+    function reportGain(uint256 amount) external;
+
+    /// @notice Report a loss
+    /// will reduce the total invested amount
+    /// @param amount The amount of the loss
+    function reportLoss(uint256 amount) external;
 
     /// @notice Set the deposit limit
     /// @dev Only the strategy manager can call this

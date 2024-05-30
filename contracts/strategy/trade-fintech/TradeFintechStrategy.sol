@@ -22,48 +22,56 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     uint256 public lockPeriodEnds;
 
     constructor(
-        address _asset,
-        string memory _name,
-        address _tokenizedStrategyAddress,
-        uint256 _depositPeriodEnds,
-        uint256 _lockPeriodEnds,
-        uint256 _depositLimit
-    ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
-        if (_depositPeriodEnds < block.timestamp || _lockPeriodEnds < block.timestamp) {
+        address asset,
+        string memory name,
+        address tokenizedStrategyAddress,
+        uint256 depositEndTS,
+        uint256 lockedEndTS,
+        uint256 maxDeposit
+    ) BaseStrategy(asset, name, tokenizedStrategyAddress) {
+        if (depositEndTS < block.timestamp || lockedEndTS < block.timestamp) {
             revert InvalidPeriods();
         }
-        depositPeriodEnds = _depositPeriodEnds;
-        lockPeriodEnds = _lockPeriodEnds;
-        depositLimit = _depositLimit;
+        depositPeriodEnds = depositEndTS;
+        lockPeriodEnds = lockedEndTS;
+        depositLimit = maxDeposit;
     }
 
     /// @inheritdoc ITradeFintechStrategy
-    function reportGainOrLoss(uint256 _amount, bool _isGain) external onlyManagement {
-        if (_isGain) {
-            totalInvested += _amount;
-            emit GainReported(msg.sender, _amount);
-        } else {
-            if (_amount > totalInvested) revert InvalidLossAmount(_amount, totalInvested);
-            totalInvested -= _amount;
-            emit LossReported(msg.sender, _amount);
-        }
+    function reportGain(uint256 amount) external override onlyManagement {
+        if (amount == 0) revert ZeroAmount();
+        totalInvested += amount;
+        emit GainReported(msg.sender, amount);
     }
 
     /// @inheritdoc ITradeFintechStrategy
-    function returnFunds(uint256 amount) external onlyManagement {
+    function reportLoss(uint256 amount) external override onlyManagement {
+        if (amount == 0) revert ZeroAmount();
+        if (amount > totalInvested) revert InvalidLossAmount(amount, totalInvested);
+
+        totalInvested -= amount;
+        emit LossReported(msg.sender, amount);
+    }
+
+    /// @inheritdoc ITradeFintechStrategy
+    function returnFunds(uint256 amount) external override onlyManagement {
+        if (amount == 0) revert ZeroAmount();
         // Transfer the amount from the manager to the strategy contract
         _freeFunds(amount);
         emit FundsReturned(msg.sender, amount);
     }
 
     /// @inheritdoc ITradeFintechStrategy
-    function lockFunds(uint256 amount) external onlyManagement {
+    function lockFunds(uint256 amount) external override onlyManagement {
+        if (amount == 0) revert ZeroAmount();
+        if (block.timestamp > depositPeriodEnds) revert LockPeriodEnded();
+
         _deployFunds(amount);
         emit FundsLocked(msg.sender, amount);
     }
 
     /// @inheritdoc ITradeFintechStrategy
-    function setDepositLimit(uint256 limit) external onlyManagement {
+    function setDepositLimit(uint256 limit) external override onlyManagement {
         uint256 invested = totalInvested;
         if (limit == 0 || limit < invested) revert InvalidDepositLimit(limit, invested);
 
@@ -90,8 +98,10 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc BaseStrategy
     function _deployFunds(uint256 amount) internal override {
-        if (amount == 0) revert ZeroValue();
-        if (amount > availableDepositLimit(address(0))) revert InsufficientFunds();
+        uint256 balance = asset.balanceOf(address(this));
+        if (amount > balance) {
+            revert InsufficientFundsIdle(amount, balance);
+        }
 
         asset.transfer(TokenizedStrategy.management(), amount);
         totalInvested += amount;
@@ -100,38 +110,27 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     /// @inheritdoc BaseStrategy
     function _freeFunds(uint256 amount) internal override {
         uint256 invested = totalInvested;
-
-        if (amount == 0) revert ZeroValue();
-        if (amount > invested) revert InsufficientFunds();
+        if (amount > invested) revert InsufficientFundsLocked(amount, invested);
 
         address manager = TokenizedStrategy.management();
         uint256 managerBalance = asset.balanceOf(manager);
 
-        if (amount > managerBalance || amount > invested) {
-            revert ManagerBalanceTooLow(managerBalance, amount, invested);
+        if (amount > managerBalance) {
+            revert ManagerBalanceTooLow(managerBalance, amount);
         }
 
         asset.safeTransferFrom(manager, address(this), amount);
         totalInvested -= amount;
     }
 
-    /// @inheritdoc BaseStrategy
-    function _emergencyWithdraw(uint256 _amount) internal override {
+    function _emergencyWithdraw(uint256 amount) internal override {
+        uint256 locked = totalInvested;
+        if (amount > locked) revert InsufficientFundsLocked(amount, locked);
+
         address manager = TokenizedStrategy.management();
-        uint256 balance = asset.balanceOf(address(this));
-        uint256 amountToTransfer;
+        uint256 amountToTransfer = Math.min(amount, asset.balanceOf(manager));
 
-        if (_amount > balance) {
-             // we cannot withdraw from manager more than the total invested
-            uint256 availableManagerBalance = Math.min(asset.balanceOf(manager), totalInvested);
-            uint256 amountToWithdraw = Math.min(_amount - balance, availableManagerBalance);
-            _freeFunds(amountToWithdraw);
-
-            amountToTransfer = asset.balanceOf(address(this));
-        } else {
-            amountToTransfer = _amount;
-        }
-
-        asset.transfer(manager, amountToTransfer);
+        asset.safeTransferFrom(manager, address(this), amountToTransfer);
+        totalInvested -= amountToTransfer;
     }
 }

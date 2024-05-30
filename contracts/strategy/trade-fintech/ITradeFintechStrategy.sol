@@ -6,11 +6,15 @@ import {ITradeFintechStrategyEvents} from "./ITradeFintechStrategyEvents.sol";
 import {ITradeFintechStrategyErrors} from "./ITradeFintechStrategyErrors.sol";
 
 interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStrategyErrors {
-    /// @notice Report a gain or loss
-    /// gain will transfer the gain to the strategy
-    /// lose will reduce the total invested amount
+    /// @notice Report a gain
+    /// will transfer the amount to the strategy
+    /// @param amount The amount of the gain
+    function reportGain(uint256 amount) external;
+
+    /// @notice Report a loss
+    /// will reduce the total invested amount
     /// @param amount The amount of the loss
-    function reportGainOrLoss(uint256 amount, bool isGain) external;
+    function reportLoss(uint256 amount) external;
 
     /// @notice Set the deposit limit
     /// @dev Only the strategy manager can call this

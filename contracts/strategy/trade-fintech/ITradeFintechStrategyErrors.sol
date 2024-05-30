@@ -10,12 +10,20 @@ interface ITradeFintechStrategyErrors {
     error InvalidLossAmount(uint256 lossAmount, uint256 totalInvestedAmount);
 
     /// @notice Error when the manager balance is too low
-    error ManagerBalanceTooLow(uint256 requiredAmount, uint256 managerBalance, uint256 totalInvestedAmount);
+    error ManagerBalanceTooLow(uint256 requiredAmount, uint256 managerBalance);
 
-
+    /// @notice depositPeriodEnds or lockPeriodEnds are less than the current block timestamp
     error InvalidPeriods();
 
-    error InsufficientFunds();
+    /// @notice Error trying to lock more funds than currently available in the strategy
+    error InsufficientFundsIdle(uint256 requiredAmount, uint256 availableAmount);
 
-    error ZeroValue();
+    /// @notice Error trying to unlock more funds than are locked
+    error InsufficientFundsLocked(uint256 requiredAmount, uint256 availableAmount);
+
+    /// @notice Error when trying to lock funds after the lock period has ended
+    error LockPeriodEnded();
+
+    /// @notice Error when the amount is zero
+    error ZeroAmount();
 }

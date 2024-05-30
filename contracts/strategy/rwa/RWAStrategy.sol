@@ -19,7 +19,6 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     uint256 public depositLimit;
     uint256 public totalInvested;
 
-
     // The address that we send funds to
     // and that will buy RWAs with the funds
     address public immutable managerAddress;
@@ -32,60 +31,63 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     }
 
     constructor(
-        address _asset,
-        string memory _name,
-        address _tokenizedStrategyAddress,
-        address _managerAddress,
-        uint256 _minDeployAmount,
-        uint256 _depositLimit
-    ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
-        if (_managerAddress == address(0)) {
+        address asset,
+        string memory name,
+        address tokenizedStrategyAddress,
+        address manager,
+        uint256 minDeploy,
+        uint256 maxDeposit
+    ) BaseStrategy(asset, name, tokenizedStrategyAddress) {
+        if (manager == address(0)) {
             revert ZeroManager();
         }
-        if (_minDeployAmount > ERC20(_asset).totalSupply()) {
+        if (minDeploy > ERC20(asset).totalSupply()) {
             revert InvalidMinDeployAmount();
         }
-        if (_depositLimit == 0) {
+        if (maxDeposit == 0) {
             revert InvalidDepositLimit();
         }
-        managerAddress = _managerAddress;
-        minDeployAmount = _minDeployAmount;
-        depositLimit = _depositLimit;
+        managerAddress = manager;
+        minDeployAmount = minDeploy;
+        depositLimit = maxDeposit;
     }
 
     /// @inheritdoc IRWAStrategy
-    function reportGainOrLoss(uint256 _amount, bool isGain) external onlyRWAManager {
-        if (isGain) {
-            asset.safeTransferFrom(managerAddress, address(this), _amount);
-            emit GainReported(_amount);
-        } else {
-            if (_amount == 0 || _amount > totalInvested) {
-                revert InvalidLossAmount();
-            }
-            
-            totalInvested -= _amount;
-            emit LossReported(_amount);
-        }
+    function reportGain(uint256 amount) external onlyRWAManager {
+        if (amount == 0) revert ZeroAmount();
+        
+        asset.safeTransferFrom(managerAddress, address(this), amount);
+        emit GainReported(msg.sender, amount);
     }
+        
     /// @inheritdoc IRWAStrategy
-    function setDepositLimit(uint256 _depositLimit) external onlyManagement {
+    function reportLoss(uint256 amount) external onlyRWAManager {
+        if (amount == 0) revert ZeroAmount();
+        if (amount > totalInvested) revert InvalidLossAmount();
+        
+        totalInvested -= amount;
+        emit LossReported(msg.sender, amount);
+    }
+
+    /// @inheritdoc IRWAStrategy
+    function setDepositLimit(uint256 newValue) external onlyManagement {
         // require(_depositLimit > 0, "Deposit limit must be greater than 0."); // VK: don't need this check
-        if (_depositLimit == 0 || _depositLimit < asset.balanceOf(address(this)) + totalInvested) {
+        if (newValue == 0 || newValue < asset.balanceOf(address(this)) + totalInvested) {
             revert InvalidDepositLimit();
         }
 
-        depositLimit = _depositLimit;
-        emit DepositLimitSet(_depositLimit);
+        depositLimit = newValue;
+        emit DepositLimitSet(msg.sender, newValue);
     }
 
     /// @inheritdoc IRWAStrategy
-    function setMinDeployAmount(uint256 _minDeployAmount) external onlyManagement {
-        if (_minDeployAmount > ERC20(asset).totalSupply()) {
+    function setMinDeployAmount(uint256 newValue) external onlyManagement {
+        if (newValue > ERC20(asset).totalSupply()) {
             revert InvalidMinDeployAmount();
         }
 
-        minDeployAmount = _minDeployAmount;
-        emit MinDeployAmountSet(_minDeployAmount);
+        minDeployAmount = newValue;
+        emit MinDeployAmountSet(msg.sender, newValue);
     }
 
     /// @inheritdoc BaseStrategy
@@ -111,42 +113,39 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     }
 
     /// @inheritdoc BaseStrategy
-    function _deployFunds(uint256 _amount) internal override {
-        if (_amount > 0 && _amount >= minDeployAmount) {
+    function _deployFunds(uint256 amount) internal override {
+        if (amount > 0 && amount >= minDeployAmount) {
             // we cannot deposit more than the deposit limit
-            uint256 amountToTransfer = Math.min(_amount, depositLimit - totalInvested);
+            uint256 amountToTransfer = Math.min(amount, depositLimit - totalInvested);
             asset.transfer(managerAddress, amountToTransfer);
             totalInvested += amountToTransfer;
         }
     }
 
     /// @inheritdoc BaseStrategy
-    function _freeFunds(uint256 _amount) internal override {
-        if (_amount > 0) {
-            if (_amount > asset.balanceOf(address(managerAddress))) {
-                revert ManagerBalanceTooLow();
-            }
-            asset.safeTransferFrom(managerAddress, address(this), _amount);
-            totalInvested -= _amount;
+    function _freeFunds(uint256 amount) internal override {
+        uint256 invested = totalInvested;
+        if (amount > invested) revert InsufficientFundsLocked(amount, invested);
+
+         uint256 managerBalance = asset.balanceOf(managerAddress);
+        if (amount > managerBalance) {
+            revert ManagerBalanceTooLow(managerBalance, amount);
         }
+
+        asset.safeTransferFrom(managerAddress, address(this), amount);
+        totalInvested -= amount;
     }
 
     /// @inheritdoc BaseStrategy
-    function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 balance = asset.balanceOf(address(this));
-        uint256 amountToTransfer;
-
-        if (_amount > balance) {
-             // we cannot withdraw from manager more than the total invested
-            uint256 availableManagerBalance = Math.min(asset.balanceOf(managerAddress), totalInvested);
-            uint256 amountToWithdraw = Math.min(_amount - balance, availableManagerBalance);
-            _freeFunds(amountToWithdraw);
-
-            amountToTransfer = asset.balanceOf(address(this));
-        } else {
-            amountToTransfer = _amount;
+    function _emergencyWithdraw(uint256 amount) internal override {
+        uint256 locked = totalInvested;
+        if (amount > locked) {
+            revert InsufficientFundsLocked(amount, locked);
         }
 
-        asset.transfer(TokenizedStrategy.management(), amountToTransfer);
+        uint256 amountToTransfer = Math.min(amount, asset.balanceOf(managerAddress));
+
+        asset.transferFrom(managerAddress, address(this), amountToTransfer);
+        totalInvested -= amountToTransfer;
     }
 }

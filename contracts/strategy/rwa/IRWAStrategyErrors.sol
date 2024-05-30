@@ -19,5 +19,11 @@ interface IRWAStrategyErrors {
     error InvalidLossAmount();
 
     /// @notice Error when the manager balance is too low
-    error ManagerBalanceTooLow();
+    error ManagerBalanceTooLow(uint256 requiredAmount, uint256 managerBalance);
+
+    /// @notice Error trying to unlock more funds than are locked
+    error InsufficientFundsLocked(uint256 requiredAmount, uint256 availableAmount);
+
+    /// @notice Error when the amount is zero
+    error ZeroAmount();
 }
