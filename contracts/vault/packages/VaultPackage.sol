@@ -26,7 +26,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     using SafeERC20 for ERC20;
 
     modifier onlyManager() {
-        if (!hasRole(STRATEGY_MANAGER, msg.sender) || !hasRole(DEBT_MANAGER, msg.sender)) {
+        if (!hasRole(STRATEGY_MANAGER, msg.sender) && !hasRole(DEBT_MANAGER, msg.sender)) {
             revert NotAuthorized();
         }
         _;
@@ -314,7 +314,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param newDebt The target debt for the strategy.
     /// @return The amount of debt added or removed.
     // solhint-disable-next-line function-max-lines,code-complexity
-    function updateDebt(address strategy, uint256 newDebt) external override onlyManager() nonReentrant returns (uint256) {
+    function updateDebt(address strategy, uint256 newDebt) external override onlyManager nonReentrant returns (uint256) {
         // How much the strategy currently has.
         uint256 currentDebt = strategies[strategy].currentDebt;
 

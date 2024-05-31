@@ -383,10 +383,27 @@ describe("VaultPackage tests", function () {
             return { vault, strategy, strategy2, inactiveStrategy, otherAccount };
         }
 
-        it("Should update the debt properly when authorized", async function() {
-            const { vault, strategy } = await setupScenario();
+        it("Should update the debt properly when called by debt manager", async function() {
+            const { vault, strategy, otherAccount } = await setupScenario();
             const newDebt = 1000;
-            await vault.updateDebt(strategy.target, newDebt);
+
+            await vault.grantRole(vault.DEBT_MANAGER(), otherAccount.address);
+
+            await vault.connect(otherAccount).updateDebt(strategy.target, newDebt);
+
+            let strategies = await vault.strategies(strategy.target);
+            let currentDebt = strategies.currentDebt;
+            expect(currentDebt).to.equal(newDebt);
+        });
+
+        it("Should update the debt properly when called by strategy manager", async function() {
+            const { vault, strategy, otherAccount } = await setupScenario();
+            const newDebt = 1000;
+
+            await vault.grantRole(vault.STRATEGY_MANAGER(), otherAccount.address);
+
+            await vault.connect(otherAccount).updateDebt(strategy.target, newDebt);
+            
             let strategies = await vault.strategies(strategy.target);
             let currentDebt = strategies.currentDebt;
             expect(currentDebt).to.equal(newDebt);
