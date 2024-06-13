@@ -5,7 +5,7 @@ pragma solidity 0.8.19;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
 import "./VaultStructs.sol";
 
 contract VaultStorage is AccessControl, ReentrancyGuard {
@@ -48,7 +48,7 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
     uint256 public profitUnlockingRate;
     /// @notice Last timestamp of the most recent profitable report.
     uint256 public lastProfitUpdate;
-/// @notice The type of asset the vault accepts.
+    /// @notice The type of asset the vault accepts.
     uint256 public assetType;
 
     /// @notice Contract that charges fees and can give refunds.

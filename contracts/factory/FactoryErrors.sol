@@ -7,3 +7,4 @@ error AlreadyInitialized();
 error ZeroAddress();
 error FeeGreaterThan100();
 error SameVaultPackage();
+error InvalidVaultPackageId();

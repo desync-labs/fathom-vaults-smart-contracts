@@ -7,6 +7,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // TokenizedStrategy interface used for internal view delegateCalls.
 import { ITokenizedStrategy } from "./interfaces/ITokenizedStrategy.sol";
+import { IBaseStrategy } from "./interfaces/IBaseStrategy.sol";
 
 /**
  * @title Fathom Base Strategy
@@ -38,7 +39,7 @@ import { ITokenizedStrategy } from "./interfaces/ITokenizedStrategy.sol";
  *  `TokenizedStrategy` variable. IE: TokenizedStrategy.globalVariable();.
  */
 // solhint-disable
-abstract contract BaseStrategy {
+abstract contract BaseStrategy is IBaseStrategy {
     /*//////////////////////////////////////////////////////////////
                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
