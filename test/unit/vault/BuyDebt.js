@@ -22,6 +22,7 @@ describe("Buy Debt", function () {
         const assetSymbol = 'FXD';
         const vaultDecimals = 18;
         const asset = await Asset.deploy(assetSymbol, vaultDecimals);
+        const assetType = 1; // 1 for Normal / 2 for Deflationary / 3 for Rebasing
 
         const assetAddress = asset.target;
 
@@ -42,9 +43,13 @@ describe("Buy Debt", function () {
 
         const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
         await factory.initialize(vaultPackage.target, owner.address, protocolFee);
+
+        await factory.addVaultPackage(vaultPackage.target);
         
         await factory.deployVault(
+            vaultPackage.target,
             profitMaxUnlockTime,
+            assetType,
             assetAddress,
             vaultName,
             vaultSymbol,
@@ -57,6 +62,14 @@ describe("Buy Debt", function () {
         const vaultAddress = vaultsCopy.pop();
         const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
         console.log("The Last Vault Address = ", vaultAddress);
+
+        const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
+        const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
+        const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
+    
+        await vault.grantRole(STRATEGY_MANAGER, owner.address);
+        await vault.grantRole(REPORTING_MANAGER, owner.address);
+        await vault.grantRole(DEBT_PURCHASER, owner.address);
 
         return { vault, owner, otherAccount, asset, factory };
     }

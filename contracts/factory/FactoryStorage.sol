@@ -11,9 +11,8 @@ contract FactoryStorage is AccessControl {
 
     uint16 public feeBPS;
     address public feeRecipient;
-    address public vaultPackage;
     address[] public vaults;
-    mapping(address => address) public vaultCreators;
+    mapping(address => bool) public isPackage;
 
     /// @notice Initialized state of the factory.
     bool public initialized;

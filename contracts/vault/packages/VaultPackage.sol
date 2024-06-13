@@ -35,7 +35,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         address _accountant, // can be zero
         address _admin
     ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-
         if (initialized == true) {
             revert AlreadyInitialized();
         }
@@ -86,12 +85,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Make sure every strategy in the new queue is active and not duplicated.
         for (uint256 i = 0; i < length; i++) {
             address strategy = newDefaultQueue[i];
-            
+
             // Check for active strategy.
             if (strategies[strategy].activation == 0) {
                 revert InactiveStrategy(strategy);
             }
-            
+
             // Check for duplicates by comparing with the rest of the queue.
             // Introduces a O(n^2) complexity but the queue is expected to be small.
             for (uint256 j = i + 1; j < length; j++) {
@@ -1419,11 +1418,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     }
 
     /// @notice Calculate share management based on gains, losses, and fees.
-    function _calculateShareManagement(
-        uint256 loss,
-        uint256 totalFees,
-        uint256 protocolFees
-    ) internal view returns (ShareManagement memory) {
+    function _calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees) internal view returns (ShareManagement memory) {
         // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
         // NOTE: this needs to be done before any pps changes
         ShareManagement memory shares;

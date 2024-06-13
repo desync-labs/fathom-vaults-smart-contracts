@@ -4,11 +4,10 @@
 pragma solidity 0.8.19;
 
 interface IFactory {
-    function updateVaultPackage(address _vaultPackage) external;
-
     function updateFeeConfig(address _feeRecipient, uint16 _feeBPS) external;
 
     function deployVault(
+        address _vaultPackageAddress,
         uint32 _profitMaxUnlockTime,
         uint256 _assetType,
         address _asset,
@@ -18,9 +17,13 @@ interface IFactory {
         address _admin
     ) external returns (address);
 
+    function addVaultPackage(address _vaultPackage) external;
+
+    function removeVaultPackage(address _vaultPackage) external;
+
     function getVaults() external view returns (address[] memory);
 
-    function getVaultCreator(address _vault) external view returns (address);
+    function isVaultPackage(address _vaultPackage) external view returns (bool);
 
     function protocolFeeConfig() external view returns (uint16 /*feeBps*/, address /*feeRecipient*/);
 }

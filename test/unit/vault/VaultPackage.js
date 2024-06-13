@@ -44,11 +44,14 @@ async function deployVaultThroughFactory() {
     const factory = await ethers.getContractAt("FactoryPackage", factoryProxy.target);
     await factory.initialize(vaultPackage.target, otherAccount.address, protocolFee);
 
+    await factory.addVaultPackage(vaultPackage.target);
+
     // Deploy TokenizedStrategy
     const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
     
     await factory.deployVault(
+        vaultPackage.target,
         profitMaxUnlockTime,
         assetType,
         assetAddress,
@@ -227,7 +230,7 @@ describe("VaultPackage tests", function () {
         });
     });
 
-    describe.only("setDefaultQueue()", function () {
+    describe("setDefaultQueue()", function () {
         async function setupScenario() {
             const { deployer, otherAccount, strategy, asset, tokenizedStrategy, vault } = await loadFixture(deployVaultThroughFactory);
             const amount = 1000;
