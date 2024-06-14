@@ -17,9 +17,8 @@ import { IPermit2 } from "../interfaces/liquidationStrategy/IPermit2.sol";
  *   remain settable by the inheriting contract to allow for customization
  *   based on needs or chain it's used on.
  *
- *   The only variables that are required to be set are the specific fees
- *   for each token pair. The inheriting contract can use the {_setUniFees}
- *   function to easily set this for any token pairs needed.
+ *   Please make sure you set router as universalRouter, permit2 and uniFees address
+ *   in the inheriting contract.
  */
 // solhint-disable
 contract UniversalSwapper {
