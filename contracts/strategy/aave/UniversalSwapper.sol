@@ -13,8 +13,8 @@ import { IPermit2 } from "../interfaces/liquidationStrategy/IPermit2.sol";
  *   strategy that would like to use UniversalRouter for swaps. It holds all needed
  *   logic to perform both exact input swaps either single or multi hop based on condition.
  *
- *   Please make sure you set router as universalRouter, permit2 address and
- *   uniFees of swap pairs in the inheriting contract.
+ *   Please make sure you set router as universalRouter, permit2 address in the inheriting contract. 
+ *   It is required to set uniFees of swap pairs before executing swaps.
  */
 // solhint-disable
 contract UniversalSwapper {
