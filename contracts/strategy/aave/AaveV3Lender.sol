@@ -3,7 +3,7 @@
 pragma solidity 0.8.19;
 
 import "../BaseStrategy.sol";
-import "./UniswapV3Swapper.sol";
+import "./UniversalSwapper.sol";
 import "./interfaces/IRewardsController.sol";
 import "./interfaces/ILender.sol";
 import { IPool } from "./interfaces/IPool.sol";
@@ -12,9 +12,9 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IAToken } from "./interfaces/IAToken.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
+contract AaveV3Lender is BaseStrategy, UniversalSwapper, ILender {
     using SafeERC20 for ERC20;
-
+ 
     // The pool to deposit and withdraw through.
     IPool public immutable LENDING_POOL;
     // To get the Supply cap of an asset.
@@ -39,7 +39,8 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         address _tokenizedStrategyAddress,
         address _lendingPool,
         address _base,
-        address _router
+        address _router,
+        address _permit2
     ) BaseStrategy(_asset, _name, _tokenizedStrategyAddress) {
         // Set the lending pool.
         LENDING_POOL = IPool(_lendingPool);
@@ -59,6 +60,7 @@ contract AaveV3Lender is BaseStrategy, UniswapV3Swapper, ILender {
         // We will use the minAmountToSell mapping instead.
         base = _base;
         router = _router;
+        permit2 = _permit2;
     }
 
     /// @notice Set the uni fees for swaps.
