@@ -11,11 +11,7 @@ import { IPermit2 } from "../interfaces/liquidationStrategy/IPermit2.sol";
  *   @title UniversalSwapper
  *   @dev This is a simple contract that can be inherited by any tokenized
  *   strategy that would like to use UniversalRouter for swaps. It holds all needed
- *   logic to perform both exact input and exact output swaps.
- *
- *   The global address variables default to the ETH mainnet addresses but
- *   remain settable by the inheriting contract to allow for customization
- *   based on needs or chain it's used on.
+ *   logic to perform both exact input swaps either single or multi hop based on condition.
  *
  *   Please make sure you set router as universalRouter, permit2 address and
  *   uniFees of swap pairs in the inheriting contract.
