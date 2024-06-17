@@ -23,7 +23,14 @@ async function deployRWAStrategyFixture() {
 
     const protocolFee = 2000; // 20% of total fee
 
-    const VaultPackage = await ethers.getContractFactory("VaultPackage");
+    const VaultLogic = await ethers.getContractFactory("VaultLogic");
+    const vaultLogic = await VaultLogic.deploy({ gasLimit: "0x1000000" });
+
+    const VaultPackage = await ethers.getContractFactory("VaultPackage", {
+        libraries: {
+            "VaultLogic": vaultLogic.target,
+        }
+    });
     const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
 
     const FactoryPackage = await ethers.getContractFactory("FactoryPackage");

@@ -24,6 +24,10 @@ interface ITradeFintechStrategyErrors {
     /// @notice Error when trying to lock funds after the lock period has ended
     error LockPeriodEnded();
 
+    error LockPeriodNotStarted();
+
     /// @notice Error when the amount is zero
     error ZeroAmount();
+
+    error LockPeriodNotEnded();
 }

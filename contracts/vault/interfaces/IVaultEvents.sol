@@ -23,6 +23,7 @@ interface IVaultEvents {
     event UpdatedUseDefaultQueue(bool useDefaultQueue);
     event UpdatedMaxDebtForStrategy(address indexed sender, address indexed strategy, uint256 newDebt);
     event UpdatedDepositLimit(uint256 depositLimit);
+    event UpdatedMinUserDeposit(uint256 minUserDeposit);
     event UpdatedMinimumTotalIdle(uint256 minimumTotalIdle);
     event UpdatedProfitMaxUnlockTime(uint256 profitMaxUnlockTime);
     event DebtPurchased(address indexed strategy, uint256 amount);

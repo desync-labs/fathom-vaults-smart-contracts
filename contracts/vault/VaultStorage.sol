@@ -94,4 +94,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
 
     /// @notice EIP-2612 permit() nonces
     mapping(address => uint256) public nonces;
+
+    uint256 public minUserDeposit;
 }

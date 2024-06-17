@@ -16,6 +16,7 @@ import "../interfaces/IWithdrawLimitModule.sol";
 import "../../accountant/interfaces/IAccountant.sol";
 import "../../factory/interfaces/IFactory.sol";
 import "../../strategy/interfaces/IStrategy.sol";
+import { VaultLogic } from "../libs/VaultLogic.sol";
 
 /// @title Fathom Vault
 /// @notice The Fathom Vault is designed as a non-opinionated system to distribute funds of
@@ -130,6 +131,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
         depositLimit = _depositLimit;
         emit UpdatedDepositLimit(_depositLimit);
+    }
+
+    function setMinUserDeposit(uint256 _minUserDeposit) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        minUserDeposit = _minUserDeposit;
+        emit UpdatedMinUserDeposit(_minUserDeposit);
     }
 
     /// @notice Set a contract to handle the deposit limit.
@@ -274,15 +280,19 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // Burn shares that have been unlocked since the last update
         _burnUnlockedShares();
 
-        (uint256 gain, uint256 loss) = _assessProfitAndLoss(strategy);
+        uint256 currentTotalSupply = _totalSupply();
+        uint256 currentTotalAssets = _totalAssets();
 
-        FeeAssessment memory assessmentFees = _assessFees(strategy, gain, loss);
+        ReportInfo memory report = VaultLogic.processReport(
+            strategy,
+            strategies[strategy].currentDebt,
+            currentTotalSupply,
+            currentTotalAssets,
+            accountant,
+            factory
+        );
 
-        ShareManagement memory shares = _calculateShareManagement(loss, assessmentFees.totalFees, assessmentFees.protocolFees);
-
-        (uint256 previouslyLockedShares, uint256 newlyLockedShares) = _handleShareBurnsAndIssues(gain, loss, shares, assessmentFees, strategy);
-
-        _manageUnlockingOfShares(previouslyLockedShares, newlyLockedShares);
+        _handleShareBurnsAndIssues(report.gain, report.loss, report.shares, report.assessmentFees, strategy);
 
         // Record the report of profit timestamp.
         strategies[strategy].lastReport = block.timestamp;
@@ -290,15 +300,15 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         // We have to recalculate the fees paid for cases with an overall loss.
         emit StrategyReported(
             strategy,
-            gain,
-            loss,
+            report.gain,
+            report.loss,
             strategies[strategy].currentDebt,
-            _convertToAssets(shares.protocolFeesShares, Rounding.ROUND_DOWN),
-            _convertToAssets(shares.protocolFeesShares + shares.accountantFeesShares, Rounding.ROUND_DOWN),
-            assessmentFees.totalRefunds
+            report.protocolFees,
+            report.totalFees,
+            report.assessmentFees.totalRefunds
         );
 
-        return (gain, loss);
+        return (report.gain, report.loss);
     }
 
     /// @notice Update the debt for a strategy.
@@ -320,50 +330,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
 
         if (currentDebt > newDebt) {
-            // Reduce debt
-            uint256 assetsToWithdraw = currentDebt - newDebt;
-
-            // Respect minimum total idle in vault
-            if (totalIdle + assetsToWithdraw < minimumTotalIdle) {
-                assetsToWithdraw = minimumTotalIdle - totalIdle;
-                // Cant withdraw more than the strategy has.
-                if (assetsToWithdraw > currentDebt) {
-                    assetsToWithdraw = currentDebt;
-                }
-            }
-
-            // Check how much we are able to withdraw.
-            // Use maxRedeem and convert since we use redeem.
-            uint256 withdrawable = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
-
-            if (withdrawable == 0) {
-                revert ZeroValue();
-            }
-
-            // If insufficient withdrawable, withdraw what we can.
-            if (withdrawable < assetsToWithdraw) {
-                assetsToWithdraw = withdrawable;
-            }
-
-            // If there are unrealised losses we don't let the vault reduce its debt until there is a new report
-            uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
-            if (unrealisedLossesShare != 0) {
-                revert StrategyHasUnrealisedLosses(unrealisedLossesShare);
-            }
-
-            // Always check the actual amount withdrawn.
-            uint256 preBalance = assetContract.balanceOf(address(this));
-            _withdrawFromStrategy(strategy, assetsToWithdraw);
-            uint256 postBalance = assetContract.balanceOf(address(this));
-
-            // making sure we are changing idle according to the real result no matter what.
-            // We pull funds with {redeem} so there can be losses or rounding differences.
-            uint256 withdrawn = Math.min(postBalance - preBalance, currentDebt);
-
-            // If we got too much make sure not to increase PPS.
-            if (withdrawn > assetsToWithdraw) {
-                assetsToWithdraw = withdrawn;
-            }
+            (uint256 withdrawn, uint256 assetsToWithdraw) = VaultLogic.decreaseDebt(
+                strategy,
+                newDebt,
+                currentDebt,
+                totalIdle,
+                minimumTotalIdle,
+                assetContract
+            );
 
             // Update storage.
             totalIdle += withdrawn; // actual amount we got.
@@ -372,54 +346,19 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
             newDebt = currentDebt - assetsToWithdraw;
         } else {
-            // We are increasing the strategies debt
-
-            // Revert if target_debt cannot be achieved due to configured max_debt for given strategy
-            if (newDebt > strategies[strategy].maxDebt) {
-                revert DebtHigherThanMaxDebt(newDebt, strategies[strategy].maxDebt);
-            }
-
-            // Vault is increasing debt with the strategy by sending more funds.
-            uint256 currentMaxDeposit = IStrategy(strategy).maxDeposit(address(this));
-            if (currentMaxDeposit == 0) {
-                revert ZeroValue();
-            }
-
-            // Deposit the difference between desired and current.
-            uint256 assetsToDeposit = newDebt - currentDebt;
-            if (assetsToDeposit > currentMaxDeposit) {
-                // Deposit as much as possible.
-                assetsToDeposit = currentMaxDeposit;
-            }
-
-            // Ensure we always have minimumTotalIdle when updating debt.
-            if (totalIdle <= minimumTotalIdle) {
-                revert InsufficientFunds();
-            }
-
-            uint256 availableIdle = totalIdle - minimumTotalIdle;
-
-            // If insufficient funds to deposit, transfer only what is free.
-            if (assetsToDeposit > availableIdle) {
-                assetsToDeposit = availableIdle;
-            }
+            uint256 assetsToDeposit = VaultLogic.increaseDebt(
+                strategy,
+                strategies[strategy].maxDebt,
+                newDebt, 
+                currentDebt, 
+                totalIdle, 
+                minimumTotalIdle
+            );
 
             // Can't Deposit 0.
             if (assetsToDeposit > 0) {
-                // Approve the strategy to pull only what we are giving it.
-                _erc20SafeApprove(address(assetContract), strategy, assetsToDeposit);
-
-                // Always update based on actual amounts deposited.
-                uint256 preBalance = assetContract.balanceOf(address(this));
-                _depositToStrategy(strategy, assetsToDeposit);
-                uint256 postBalance = assetContract.balanceOf(address(this));
-
-                // Make sure our approval is always back to 0.
-                _erc20SafeApprove(address(assetContract), strategy, 0);
-
-                // Making sure we are changing according to the real result no
-                // matter what. This will spend more gas but makes it more robust.
-                assetsToDeposit = preBalance - postBalance;
+                // actual amount we deposited.
+                assetsToDeposit = _depositToStrategy(strategy, assetsToDeposit);
 
                 // Update storage.
                 totalIdle -= assetsToDeposit;
@@ -502,7 +441,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         uint256 maxLoss,
         address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
-        uint256 shares = _convertToShares(assets, Rounding.ROUND_UP);
+        uint256 shares = VaultLogic.convertToShares(assets, _totalSupply(), _totalAssets(), Rounding.ROUND_UP);
         _redeem(msg.sender, receiver, owner, assets, shares, maxLoss, _strategies);
         return shares;
     }
@@ -523,7 +462,16 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
         // Always return the actual amount of assets withdrawn.
-        return _redeem(msg.sender, receiver, owner, _convertToAssets(shares, Rounding.ROUND_DOWN), shares, maxLoss, _strategies);
+        return _redeem(
+            msg.sender, 
+            receiver, 
+            owner, 
+            VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN), 
+            shares, 
+            maxLoss, 
+            _strategies
+        );
+
     }
 
     /// @notice Deposit assets into the vault.
@@ -636,7 +584,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param _strategies Custom strategies queue if any.
     /// @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] calldata _strategies) external view override returns (uint256) {
-        uint256 sharesEquivalent = _convertToShares(_maxWithdraw(owner, maxLoss, _strategies), Rounding.ROUND_DOWN);
+        uint256 sharesEquivalent = VaultLogic.convertToShares(
+            _maxWithdraw(owner, maxLoss, _strategies), 
+            _totalSupply(),
+            _totalAssets(), 
+            Rounding.ROUND_DOWN);
         return Math.min(sharesEquivalent, sharesBalanceOf[owner]);
     }
 
@@ -651,7 +603,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// exact precision should use convertToAssets or convertToShares instead.
     /// @return The price per share.
     function pricePerShare() external view override returns (uint256) {
-        return _convertToAssets(10 ** decimalsValue, Rounding.ROUND_DOWN);
+        return VaultLogic.convertToAssets(10 ** decimalsValue, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice ERC20 - name of the vault's token
@@ -686,42 +638,57 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param assets The amount of assets to convert.
     /// @return The amount of shares.
     function convertToShares(uint256 assets) external view override returns (uint256) {
-        return _convertToShares(assets, Rounding.ROUND_DOWN);
+        return VaultLogic.convertToShares(
+            assets, 
+            _totalSupply(),
+            _totalAssets(), 
+            Rounding.ROUND_DOWN
+        );
     }
 
     /// @notice Convert an amount of shares to assets.
     /// @param shares The amount of shares to convert.
     /// @return The amount of assets.
     function convertToAssets(uint256 shares) external view override returns (uint256) {
-        return _convertToAssets(shares, Rounding.ROUND_DOWN);
+        return VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Preview the amount of shares that would be minted for a deposit.
     /// @param assets The amount of assets to deposit.
     /// @return The amount of shares that would be minted.
     function previewDeposit(uint256 assets) external view override returns (uint256) {
-        return _convertToShares(assets, Rounding.ROUND_DOWN);
+        return VaultLogic.convertToShares(
+            assets, 
+            _totalSupply(),
+            _totalAssets(), 
+            Rounding.ROUND_DOWN
+        );
     }
 
     /// @notice Preview the amount of shares that would be redeemed for a withdraw.
     /// @param assets The amount of assets to withdraw.
     /// @return The amount of shares that would be redeemed.
     function previewWithdraw(uint256 assets) external view override returns (uint256) {
-        return _convertToShares(assets, Rounding.ROUND_UP);
+        return VaultLogic.convertToShares(
+            assets, 
+            _totalSupply(),
+            _totalAssets(), 
+            Rounding.ROUND_UP
+        );
     }
 
     /// @notice Preview the amount of assets that would be deposited for a mint.
     /// @param shares The amount of shares to mint.
     /// @return The amount of assets that would be deposited.
     function previewMint(uint256 shares) external view override returns (uint256) {
-        return _convertToAssets(shares, Rounding.ROUND_UP);
+        return VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_UP);
     }
 
     /// @notice Preview the amount of assets that would be withdrawn for a redeem.
     /// @param shares The amount of shares to redeem.
     /// @return The amount of assets that would be withdrawn.
     function previewRedeem(uint256 shares) external view override returns (uint256) {
-        return _convertToAssets(shares, Rounding.ROUND_DOWN);
+        return VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Get the maximum amount of assets that can be deposited.
@@ -735,7 +702,12 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param receiver The address that will receive the shares.
     /// @return The maximum amount of shares that can be minted.
     function maxMint(address receiver) external view override returns (uint256) {
-        return _convertToShares(_maxDeposit(receiver), Rounding.ROUND_DOWN);
+        return VaultLogic.convertToShares(
+            _maxDeposit(receiver), 
+            _totalSupply(),
+            _totalAssets(), 
+            Rounding.ROUND_DOWN
+        );
     }
 
     /// @notice Assess the share of unrealised losses for a strategy.
@@ -747,7 +719,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         if (strategyCurrentDebt < assetsNeeded) {
             revert StrategyDebtIsLessThanAssetsNeeded(strategyCurrentDebt);
         }
-        return _assessShareOfUnrealisedLosses(strategy, assetsNeeded);
+        return VaultLogic.assessShareOfUnrealisedLosses(strategy, assetsNeeded, strategyCurrentDebt);
     }
 
     /// @notice Get default strategy queue length.
@@ -810,33 +782,20 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     }
 
     /// @notice Deposit assets into the strategy.
-    function _depositToStrategy(address strategy, uint256 assetsToDeposit) internal {
+    function _depositToStrategy(address strategy, uint256 assetsToDeposit) internal returns (uint256 deposited) {
+        _erc20SafeApprove(address(assetContract), strategy, assetsToDeposit);
+
+        // Always update based on actual amounts deposited.
+        uint256 preBalance = assetContract.balanceOf(address(this));
         IStrategy(strategy).deposit(assetsToDeposit, address(this));
-    }
+        uint256 postBalance = assetContract.balanceOf(address(this));
 
-    /// @notice Calculate and distribute any fees and refunds from the strategy's performance.
-    function _assessFees(address strategy, uint256 gain, uint256 loss) internal returns (FeeAssessment memory) {
-        FeeAssessment memory fees = FeeAssessment(0, 0, 0, address(0));
+        // Make sure our approval is always back to 0.
+        _erc20SafeApprove(address(assetContract), strategy, 0);
 
-        if (accountant != address(0x00)) {
-            (fees.totalFees, fees.totalRefunds) = IAccountant(accountant).report(strategy, gain, loss);
-            // Protocol fees will be 0 if accountant fees are 0.
-            if (fees.totalFees > 0) {
-                uint16 protocolFeeBps;
-                // Get the config for this vault.
-                (protocolFeeBps, fees.protocolFeeRecipient) = IFactory(factory).protocolFeeConfig();
-
-                if (protocolFeeBps > 0) {
-                    if (protocolFeeBps > MAX_BPS) {
-                        revert FeeExceedsMax();
-                    }
-                    // Protocol fees are a percent of the fees the accountant is charging.
-                    fees.protocolFees = (fees.totalFees * uint256(protocolFeeBps)) / MAX_BPS;
-                }
-            }
-        }
-
-        return fees;
+        // Making sure we are changing according to the real result no
+        // matter what. This will spend more gas but makes it more robust.
+        deposited = preBalance - postBalance;
     }
 
     /// @notice Burns shares that have been unlocked since last update.
@@ -864,7 +823,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         ShareManagement memory shares,
         FeeAssessment memory fees,
         address strategy
-    ) internal returns (uint256 previouslyLockedShares, uint256 newlyLockedShares) {
+    ) internal {
         // Shares to lock is any amounts that would otherwise increase the vaults PPS.
         uint256 _newlyLockedShares;
         if (fees.totalRefunds > 0) {
@@ -926,7 +885,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             _issueShares(shares.protocolFeesShares, fees.protocolFeeRecipient);
         }
 
-        return (_previouslyLockedShares, _newlyLockedShares);
+        _manageUnlockingOfShares(_previouslyLockedShares, _newlyLockedShares);
     }
 
     /// @notice Manage the unlocking of shares over time based on the vault's configuration.
@@ -1085,6 +1044,13 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// issue the corresponding shares to the `recipient` and update all needed
     /// vault accounting.
     function _deposit(address sender, address recipient, uint256 assets) internal returns (uint256) {
+        uint256 minDepositAmount = minUserDeposit;
+        uint256 depositedAssets = VaultLogic.convertToAssets(sharesBalanceOf[recipient], _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
+
+        if (depositedAssets + assets < minDepositAmount) {
+            revert MinDepositNotReached();
+        }
+
         uint256 _maxDepositAmount = _maxDeposit(recipient);
         if (shutdown == true) {
             revert InactiveVault();
@@ -1125,7 +1091,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             revert InactiveVault();
         }
         // Get corresponding amount of assets.
-        uint256 assets = _convertToAssets(shares, Rounding.ROUND_UP);
+        uint256 assets = VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_UP);
 
         if (assets == 0) {
             revert ZeroValue();
@@ -1146,20 +1112,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         return assets;
     }
 
-    /// @notice This takes the amount denominated in asset and performs a {redeem}
-    /// with the corresponding amount of shares.
-    /// We use {redeem} to natively take on losses without additional non-4626 standard parameters.
-    function _withdrawFromStrategy(address strategy, uint256 assetsToWithdraw) internal {
-        // Need to get shares since we use redeem to be able to take on losses.
-        uint256 sharesToRedeem = Math.min(
-            IStrategy(strategy).previewWithdraw(assetsToWithdraw), // Use previewWithdraw since it should round up.
-            IStrategy(strategy).balanceOf(address(this)) // And check against our actual balance.
-        );
-
-        // Redeem the shares.
-        IStrategy(strategy).redeem(sharesToRedeem, address(this), address(this));
-    }
-
     /// @notice This will attempt to free up the full amount of assets equivalent to
     /// `sharesToBurn` and transfer them to the `receiver`. If the vault does
     /// not have enough idle funds it will go through any strategies provided by
@@ -1178,11 +1130,20 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         uint256 maxLoss,
         address[] memory _strategies
     ) internal returns (uint256) {
-        _validateRedeem(receiver, owner, sharesToBurn, maxLoss);
+        VaultLogic.validateRedeem(receiver, sharesToBurn, maxLoss, MAX_BPS, sharesBalanceOf[owner]);
         uint256 maxWithdrawAmount = _maxWithdraw(owner, maxLoss, _strategies);
         if (assets > maxWithdrawAmount) {
             revert ExceedWithdrawLimit(maxWithdrawAmount);
         }
+
+        uint256 minDepositAmount = minUserDeposit;
+        uint256 depositedAssets = VaultLogic.convertToAssets(sharesBalanceOf[owner], _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
+        uint256 expectedLeftover = depositedAssets - assets;
+
+        if (expectedLeftover > 0 && expectedLeftover < minDepositAmount) {
+            revert MinDepositNotReached();
+        }
+
         _handleAllowance(owner, sender, sharesToBurn);
         (uint256 requestedAssets, uint256 currTotalIdle) = _withdrawAssets(assets, _strategies);
         _finalizeRedeem(receiver, owner, sharesToBurn, assets, requestedAssets, currTotalIdle, maxLoss);
@@ -1247,7 +1208,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
                 // NOTE: strategies need to manage the fact that realising part of the loss can
                 // mean the realisation of 100% of the loss!! (i.e. if for withdrawing 10% of the
                 // strategy it needs to unwind the whole position, generated losses might be bigger)
-                uint256 unrealisedLossesShare = _assessShareOfUnrealisedLosses(strategy, assetsToWithdraw);
+                uint256 unrealisedLossesShare = VaultLogic.assessShareOfUnrealisedLosses(strategy, assetsToWithdraw, currentDebt);
                 if (unrealisedLossesShare > 0) {
                     // If max withdraw is limiting the amount to pull, we need to adjust the portion of
                     // the unrealized loss the user should take.
@@ -1291,7 +1252,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
                 }
 
                 // WITHDRAW FROM STRATEGY
-                _withdrawFromStrategy(strategy, assetsToWithdraw);
+                VaultLogic.withdrawFromStrategy(strategy, assetsToWithdraw);
                 uint256 postBalance = assetContract.balanceOf(address(this));
 
                 // Always check withdrawn against the real amounts.
@@ -1417,30 +1378,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         emit StrategyChanged(strategy, StrategyChangeType.REVOKED);
     }
 
-    /// @notice Calculate share management based on gains, losses, and fees.
-    function _calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees) internal view returns (ShareManagement memory) {
-        // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
-        // NOTE: this needs to be done before any pps changes
-        ShareManagement memory shares;
-
-        // Only need to burn shares if there is a loss or fees.
-        if (loss + totalFees > 0) {
-            // The amount of shares we will want to burn to offset losses and fees.
-            shares.sharesToBurn = _convertToShares(loss + totalFees, Rounding.ROUND_UP);
-
-            // Vault calculates the amount of shares to mint as fees before changing totalAssets / totalSupply.
-            if (totalFees > 0) {
-                // Accountant fees are total fees - protocol fees.
-                shares.accountantFeesShares = _convertToShares(totalFees - protocolFees, Rounding.ROUND_DOWN);
-                if (protocolFees > 0) {
-                    shares.protocolFeesShares = _convertToShares(protocolFees, Rounding.ROUND_DOWN);
-                }
-            }
-        }
-
-        return shares;
-    }
-
     /// @dev Returns the max amount of `asset` an `owner` can withdraw.
     /// This will do a full simulation of the withdraw in order to determine
     /// how much is currently liquid and if the `maxLoss` would allow for the
@@ -1454,7 +1391,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     // solhint-disable-next-line function-max-lines,code-complexity
     function _maxWithdraw(address owner, uint256 _maxLoss, address[] memory _strategies) internal view returns (uint256) {
         // Get the max amount for the owner if fully liquid.
-        uint256 maxAssets = _convertToAssets(sharesBalanceOf[owner], Rounding.ROUND_DOWN);
+        uint256 maxAssets = VaultLogic.convertToAssets(sharesBalanceOf[owner], _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
 
         // If there is a withdraw limit module use that.
         if (withdrawLimitModule != address(0)) {
@@ -1479,6 +1416,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
 
             for (uint256 i = 0; i < currentStrategies.length; i++) {
                 address strategy = currentStrategies[i];
+                uint256 currentDebt = strategies[strategy].currentDebt;
                 // Can't use an invalid strategy.
                 if (strategies[strategy].activation == 0) {
                     revert InactiveStrategy(strategy);
@@ -1487,11 +1425,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
                 // Get the maximum amount the vault would withdraw from the strategy.
                 uint256 toWithdraw = Math.min(
                     maxAssets - have, // What we still need for the full withdraw
-                    strategies[strategy].currentDebt // The current debt the strategy has.
+                    currentDebt // The current debt the strategy has.
                 );
 
                 // Get any unrealised loss for the strategy.
-                uint256 unrealisedLoss = _assessShareOfUnrealisedLosses(strategy, toWithdraw);
+                uint256 unrealisedLoss = VaultLogic.assessShareOfUnrealisedLosses(strategy, toWithdraw, currentDebt);
 
                 // See if any limit is enforced by the strategy.
                 uint256 strategyLimit = IStrategy(strategy).convertToAssets(IStrategy(strategy).maxRedeem(address(this)));
@@ -1538,32 +1476,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         return maxAssets;
     }
 
-    /// @notice Assess the profit and loss of a strategy.
-    function _assessProfitAndLoss(address strategy) internal view returns (uint256 gain, uint256 loss) {
-        // Vault assesses profits using 4626 compliant interface.
-        // NOTE: It is important that a strategies `convertToAssets` implementation
-        // cannot be manipulated or else the vault could report incorrect gains/losses.
-        uint256 strategyShares = IStrategy(strategy).balanceOf(address(this));
-        // How much the vaults position is worth.
-        uint256 currentTotalAssets = IStrategy(strategy).convertToAssets(strategyShares);
-        // How much the vault had deposited to the strategy.
-        uint256 currentDebt = strategies[strategy].currentDebt;
-
-        uint256 _gain;
-        uint256 _loss;
-
-        // Compare reported assets vs. the current debt.
-        if (currentTotalAssets > currentDebt) {
-            // We have a gain.
-            _gain = currentTotalAssets - currentDebt;
-        } else {
-            // We have a loss.
-            _loss = currentDebt - currentTotalAssets;
-        }
-
-        return (_gain, _loss);
-    }
-
     /// @notice Returns the amount of shares that have been unlocked.
     /// To avoid sudden pricePerShare spikes, profits must be processed
     /// through an unlocking period. The mechanism involves shares to be
@@ -1591,55 +1503,6 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         return totalIdle + totalDebt;
     }
 
-    /// @notice assets = shares * (totalAssets / totalSupply) --- (== pricePerShare * shares)
-    function _convertToAssets(uint256 shares, Rounding rounding) internal view returns (uint256) {
-        if (shares == type(uint256).max || shares == 0) {
-            return shares;
-        }
-
-        uint256 currentTotalSupply = _totalSupply();
-        // if totalSupply is 0, pricePerShare is 1
-        if (currentTotalSupply == 0) {
-            return shares;
-        }
-
-        uint256 numerator = shares * _totalAssets();
-        uint256 amount = numerator / currentTotalSupply;
-        if (rounding == Rounding.ROUND_UP && numerator % currentTotalSupply != 0) {
-            amount += 1;
-        }
-
-        return amount;
-    }
-
-    /// @notice shares = amount * (totalSupply / totalAssets) --- (== amount / pricePerShare)
-    function _convertToShares(uint256 assets, Rounding rounding) internal view returns (uint256) {
-        if (assets == type(uint256).max || assets == 0) {
-            return assets;
-        }
-
-        uint256 currentTotalSupply = _totalSupply();
-        uint256 currentTotalAssets = _totalAssets();
-
-        if (currentTotalAssets == 0) {
-            // if totalAssets and totalSupply is 0, pricePerShare is 1
-            if (currentTotalSupply == 0) {
-                return assets;
-            } else {
-                // Else if totalSupply > 0 pricePerShare is 0
-                return 0;
-            }
-        }
-
-        uint256 numerator = assets * currentTotalSupply;
-        uint256 shares = numerator / currentTotalAssets;
-        if (rounding == Rounding.ROUND_UP && numerator % currentTotalAssets != 0) {
-            shares += 1;
-        }
-
-        return shares;
-    }
-
     function _maxDeposit(address receiver) internal view returns (uint256) {
         if (receiver == address(this) || receiver == address(0)) {
             return 0;
@@ -1659,45 +1522,5 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         }
 
         return depositLimit - currentTotalAssets;
-    }
-
-    /// @notice Returns the share of losses that a user would take if withdrawing from this strategy
-    /// e.g. if the strategy has unrealised losses for 10% of its current debt and the user
-    /// wants to withdraw 1000 tokens, the losses that he will take are 100 token
-    function _assessShareOfUnrealisedLosses(address strategy, uint256 assetsNeeded) internal view returns (uint256) {
-        // Minimum of how much debt the debt should be worth.
-        uint256 strategyCurrentDebt = strategies[strategy].currentDebt;
-        // The actual amount that the debt is currently worth.
-        uint256 vaultShares = IStrategy(strategy).balanceOf(address(this));
-        uint256 strategyAssets = IStrategy(strategy).convertToAssets(vaultShares);
-
-        // If no losses, return 0
-        if (strategyAssets >= strategyCurrentDebt || strategyCurrentDebt == 0) {
-            return 0;
-        }
-
-        // Users will withdraw assets_to_withdraw divided by loss ratio (strategyAssets / strategyCurrentDebt - 1),
-        // but will only receive assets_to_withdraw.
-        // NOTE: If there are unrealised losses, the user will take his share.
-        uint256 numerator = assetsNeeded * strategyAssets;
-        uint256 lossesUserShare = assetsNeeded - numerator / strategyCurrentDebt;
-
-        return lossesUserShare;
-    }
-
-    /// @notice Validates the state and inputs for the redeem operation.
-    function _validateRedeem(address receiver, address owner, uint256 sharesToBurn, uint256 maxLoss) internal view {
-        if (receiver == address(0)) {
-            revert ZeroAddress();
-        }
-        if (maxLoss > MAX_BPS) {
-            revert MaxLoss();
-        }
-        if (sharesToBurn == 0) {
-            revert ZeroValue();
-        }
-        if (sharesBalanceOf[owner] < sharesToBurn) {
-            revert InsufficientShares(sharesBalanceOf[owner]);
-        }
     }
 }
