@@ -94,7 +94,8 @@ async function deployTFStrategyFixture() {
         tokenizedStrategy.target,
         depositPeriodEnds,
         lockPeriodEnds,
-        depositLimit
+        depositLimit,
+        vault.target
     );
 
     const strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
@@ -274,7 +275,7 @@ describe("TradeFintechStrategy-Vault tests", function () {
 
     });
 
-    describe.only("lifesycle", function () {
+    describe("lifesycle", function () {
         it("Ftate fintech vault lifecycle", async function () {
             const { vault, strategy, tfStrategy, user, depositLimit, asset, user2, manager} = await loadFixture(deployTFStrategyFixture);
 
@@ -286,8 +287,7 @@ describe("TradeFintechStrategy-Vault tests", function () {
             await vault.connect(user).deposit(deposit, user.address);
 
             // check max deposit
-            const maxDeposit = await vault.maxDeposit(user.address);
-            expect(maxDeposit).to.equal(depositLimit - deposit);
+            expect(await vault.maxDeposit(user.address)).to.equal(depositLimit - deposit);
 
             let maxWithdraw1 = await vault.maxWithdraw(user.address, 0, [tfStrategy.target]);
             expect(maxWithdraw1).to.equal(deposit);
@@ -306,12 +306,15 @@ describe("TradeFintechStrategy-Vault tests", function () {
             const deposit2 = ethers.parseEther("20000");
             await vault.connect(user2).deposit(deposit2, user2.address);
 
+            expect(await vault.maxDeposit(user.address)).to.equal(depositLimit - ethers.parseEther("30000"));
+            expect(await vault.maxDeposit(user2.address)).to.equal(depositLimit - ethers.parseEther("30000"));
+
             const maxWithdraw2 = await vault.maxWithdraw(user2.address, 0, [tfStrategy.target]);
             expect(maxWithdraw2).to.equal(deposit2);
 
             // deposit time ended
-            await vault.updateDebt(tfStrategy.target, ethers.parseEther("30000"));
             await time.increase(604800 + 1); // 1 week
+            await vault.updateDebt(tfStrategy.target, ethers.parseEther("30000"));
 
 
             // max withdraw is 0

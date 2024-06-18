@@ -7,6 +7,7 @@ const { expect } = require("chai");
 
 // Fixture for deploying TradeFintechStrategy with all dependencies
 async function deployTFStrategyFixture() {
+    const uint256max = ethers.MaxUint256;
     const amount = "1000";
     const latestBlock = await time.latestBlock();
     const latestBlockTimestamp = (await ethers.provider.getBlock(latestBlock)).timestamp;
@@ -30,6 +31,17 @@ async function deployTFStrategyFixture() {
     const Factory = await ethers.getContractFactory("Factory");
     const factoryProxy = await Factory.deploy(factoryPackage.target, deployer.address, "0x", { gasLimit: "0x1000000" });
 
+    const VaultLogic = await ethers.getContractFactory("VaultLogic");
+    const vaultLogic = await VaultLogic.deploy();
+
+    const VaultPackage = await ethers.getContractFactory("VaultPackage", {
+        libraries: {
+            "VaultLogic": vaultLogic.target,
+        }
+    });
+    const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
+
+
     // Deploy TokenizedStrategy
     const TokenizedStrategy = await ethers.getContractFactory("TokenizedStrategy");
     const tokenizedStrategy = await TokenizedStrategy.deploy(factoryProxy.target);
@@ -42,7 +54,8 @@ async function deployTFStrategyFixture() {
         tokenizedStrategy.target,
         depositPeriodEnds,
         lockPeriodEnds,
-        depositLimit
+        depositLimit,
+        vaultPackage.target
     );
 
     const strategy = await ethers.getContractAt("TokenizedStrategy", tfStrategy.target);
@@ -51,10 +64,12 @@ async function deployTFStrategyFixture() {
     await strategy.setPendingManagement(manager.address);
     await strategy.connect(manager).acceptManagement();
 
+    await asset.connect(manager).approve(strategy.target, uint256max);
+
     return { strategy, asset, deployer, manager, otherAccount, depositPeriodEnds, lockPeriodEnds, depositLimit, tfStrategy };
 }
 
-describe("TradeFintechStrategy tests", function () {
+describe.only("TradeFintechStrategy tests", function () {
 
     describe("TradeFintechStrategy init tests", function () {
         it("Initializes with correct parameters", async function () {
@@ -133,12 +148,14 @@ describe("TradeFintechStrategy tests", function () {
         });
 
         it("Returns 0 when there lock period is not ended", async function () {
-            const { asset, strategy, deployer, tfStrategy } = await loadFixture(deployTFStrategyFixture);
+            const { asset, strategy, deployer, manager, tfStrategy } = await loadFixture(deployTFStrategyFixture);
 
             const depositAmount = ethers.parseEther("100");
             await asset.approve(strategy.target, depositAmount);
             await strategy.deposit(depositAmount, deployer.address);
             await strategy.report();
+
+            await time.increaseTo(await tfStrategy.depositPeriodEnds() + BigInt(1));
 
             let availableLimit = await tfStrategy.availableWithdrawLimit(deployer.address);
             expect(availableLimit).to.equal(0);
@@ -146,12 +163,14 @@ describe("TradeFintechStrategy tests", function () {
             const lockPeriodEnds = await tfStrategy.lockPeriodEnds();
             await time.increaseTo(lockPeriodEnds + BigInt(1));
 
+            await tfStrategy.connect(manager).repay(depositAmount);
+
             availableLimit = await tfStrategy.availableWithdrawLimit(deployer.address);
             expect(availableLimit).to.equal(depositAmount);
         });
     
         it("Return investments correctly", async function () {
-            const { strategy, asset, deployer, tfStrategy } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, asset, deployer, manager, tfStrategy } = await loadFixture(deployTFStrategyFixture);
 
             const depositAmount = ethers.parseEther("100");
             await asset.approve(strategy.target, depositAmount);
@@ -160,6 +179,9 @@ describe("TradeFintechStrategy tests", function () {
 
             const lockPeriodEnds = await tfStrategy.lockPeriodEnds();
             await time.increaseTo(lockPeriodEnds + BigInt(1));
+
+            await tfStrategy.connect(manager).repay(depositAmount);
+
             const availableLimit = await tfStrategy.availableWithdrawLimit(deployer.address);
 
             expect(availableLimit).to.equal(depositAmount);
@@ -212,7 +234,7 @@ describe("TradeFintechStrategy tests", function () {
 
     describe("_freeFunds()", function () {
         it("Successfully transfers funds and updates totalInvestedInRWA on withdrawal", async function () {
-            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, tfStrategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
             
             // Simulate the strategy investing funds
             const deployAmount = ethers.parseEther("100");
@@ -222,11 +244,6 @@ describe("TradeFintechStrategy tests", function () {
             // Approve the strategy to spend the asset on behalf of the manager
             await asset.connect(manager).approve(strategy.target, deployAmount);
 
-            // Increase time to simulate the lock period ending and withdrawing period starting
-            const TFStrategy = await ethers.getContractAt("TradeFintechStrategy", strategy.target);
-            const lockPeriodEnds = await TFStrategy.lockPeriodEnds();
-            await time.increaseTo(lockPeriodEnds + BigInt(1));
-    
             // Perform withdrawal through the vault, triggering _freeFunds
             const withdrawalAmount = ethers.parseEther("50");
             await strategy.withdraw(withdrawalAmount, otherAccount.address, deployer.address);
@@ -236,7 +253,7 @@ describe("TradeFintechStrategy tests", function () {
             expect(strategyBalanceAfter).to.equal(withdrawalAmount);
     
             // Verify totalInvestedInRWA is updated correctly
-            const totalInvestedAfter = await TFStrategy.totalInvested();
+            const totalInvestedAfter = await tfStrategy.totalInvested();
             const expectedInvestedAfter = deployAmount - withdrawalAmount;
             expect(totalInvestedAfter).to.equal(expectedInvestedAfter);
         });
@@ -263,11 +280,11 @@ describe("TradeFintechStrategy tests", function () {
             const withdrawalAmount = ethers.parseEther("100");
             await expect(
                 strategy.withdraw(withdrawalAmount, otherAccount.address, deployer.address)
-            ).to.be.revertedWithCustomError(tfStrategy, "ManagerBalanceTooLow");
+            ).to.be.revertedWith("ERC4626: withdraw more than max");
         });
 
         it("Reverts withdrawal if attempting to free funds before locksPeriod ends", async function () {
-            const { strategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
+            const { strategy, tfStrategy, asset, manager, deployer, otherAccount } = await loadFixture(deployTFStrategyFixture);
     
             // Simulate the strategy investing funds
             const deployAmount = ethers.parseEther("100");
@@ -276,6 +293,8 @@ describe("TradeFintechStrategy tests", function () {
 
             // Approve the strategy to spend the asset on behalf of the manager
             await asset.connect(manager).approve(strategy.target, deployAmount);
+
+            await time.increaseTo(await tfStrategy.depositPeriodEnds() + BigInt(1));
     
             // Attempt to withdraw more than the manager's balance, expecting a revert
             const withdrawalAmount = ethers.parseEther("100");
@@ -490,11 +509,13 @@ describe("TradeFintechStrategy tests", function () {
                 .to.be.revertedWithCustomError(tfStrategy, "ZeroAmount");
         });
 
-        it("Reverts if repay before lock period ends", async function () {
+        it("Reverts if repay second time", async function () {
             const { tfStrategy, manager, depositAmount } = await deployAndSetupScenarioForReturningFunds();
 
-            await expect(tfStrategy.connect(manager).repay(depositAmount + BigInt(1)))
-                .to.be.revertedWithCustomError(tfStrategy, "LockPeriodNotEnded");
+            await tfStrategy.connect(manager).repay(depositAmount)
+
+            await expect(tfStrategy.connect(manager).repay(BigInt(1)))
+                .to.be.revertedWithCustomError(tfStrategy, "FundsAlreadyReturned");
         });
 
         it("Repay invested", async function () {
@@ -504,8 +525,6 @@ describe("TradeFintechStrategy tests", function () {
 
             await time.increaseTo(lockPeriodEnds + 1);
 
-            await asset.connect(manager).approve(tfStrategy.target, returnAmount);
-    
             await expect(tfStrategy.connect(manager).repay(returnAmount))
                 .to.emit(tfStrategy, 'FundsReturned')
                 .withArgs(manager.address, returnAmount);

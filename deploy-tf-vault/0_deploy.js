@@ -23,7 +23,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     });
 
 
-    await deploy("VaultPackage", {
+    const vault = await deploy("VaultPackage", {
         from: deployer,
         args: [],
         log: true,
@@ -46,7 +46,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             tokenizedStrategy.address,
             depositEndsAt,
             lockEndsAt,
-            ethers.parseEther("1000000") // 1M FXD
+            ethers.parseEther("1000000"), // 1M FXD
+            vault.address,
         ],
         log: true,
     });

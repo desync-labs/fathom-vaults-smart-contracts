@@ -17,9 +17,9 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     uint256 public totalInvested;
     uint256 public depositLimit;
 
-    // Define periods
-    uint256 public depositPeriodEnds;
-    uint256 public lockPeriodEnds;
+    uint256 public immutable depositPeriodEnds;
+    uint256 public immutable lockPeriodEnds;
+    address public immutable vault;
 
     constructor(
         address asset,
@@ -27,7 +27,8 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
         address tokenizedStrategyAddress,
         uint256 depositEndTS,
         uint256 lockedEndTS,
-        uint256 maxDeposit
+        uint256 maxDeposit,
+        address vaultAddr
     ) BaseStrategy(asset, name, tokenizedStrategyAddress) {
         if (depositEndTS < block.timestamp || lockedEndTS < block.timestamp || depositEndTS > lockedEndTS) {
             revert InvalidPeriods();
@@ -35,6 +36,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
         depositPeriodEnds = depositEndTS;
         lockPeriodEnds = lockedEndTS;
         depositLimit = maxDeposit;
+        vault = vaultAddr;
     }
 
     /// @inheritdoc ITradeFintechStrategy
@@ -57,7 +59,6 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     /// @inheritdoc ITradeFintechStrategy
     function lockFunds(uint256 amount) external override onlyManagement {
         if (amount == 0) revert ZeroAmount();
-        if (block.timestamp < depositPeriodEnds) revert LockPeriodNotStarted();
         if (block.timestamp > lockPeriodEnds) revert LockPeriodEnded();
 
         _deployFunds(amount);
@@ -75,8 +76,9 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc BaseStrategy
     /// @notice if the deposit period has ended, the deposit limit is 0
-    function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
-        return block.timestamp > depositPeriodEnds ? 0 : depositLimit - _getTotalAssets();
+    function availableDepositLimit(address owner) public view override returns (uint256) {
+        if (owner != vault && block.timestamp > depositPeriodEnds) return 0;
+        return depositLimit - _getTotalAssets();
     }
 
     /// @inheritdoc BaseStrategy

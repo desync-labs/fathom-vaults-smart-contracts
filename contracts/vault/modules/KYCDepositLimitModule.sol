@@ -55,7 +55,6 @@ contract KYCDepositLimitModule is Ownable, IKYCDepositLimitModule {
         return _kycPassed[user];
     }
 
-    /// @inheritdoc IDepositLimitModule
     function availableDepositLimit(address receiver) external view override returns (uint256) {
         if (!_kycPassed[receiver]) {
             return 0;
