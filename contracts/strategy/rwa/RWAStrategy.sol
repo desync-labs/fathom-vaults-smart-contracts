@@ -55,16 +55,16 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     /// @inheritdoc IRWAStrategy
     function reportGain(uint256 amount) external onlyRWAManager {
         if (amount == 0) revert ZeroAmount();
-        
+
         asset.safeTransferFrom(managerAddress, address(this), amount);
         emit GainReported(msg.sender, amount);
     }
-        
+
     /// @inheritdoc IRWAStrategy
     function reportLoss(uint256 amount) external onlyRWAManager {
         if (amount == 0) revert ZeroAmount();
         if (amount > totalInvested) revert InvalidLossAmount();
-        
+
         totalInvested -= amount;
         emit LossReported(msg.sender, amount);
     }
@@ -127,7 +127,7 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
         uint256 invested = totalInvested;
         if (amount > invested) revert InsufficientFundsLocked(amount, invested);
 
-         uint256 managerBalance = asset.balanceOf(managerAddress);
+        uint256 managerBalance = asset.balanceOf(managerAddress);
         if (amount > managerBalance) {
             revert ManagerBalanceTooLow(managerBalance, amount);
         }

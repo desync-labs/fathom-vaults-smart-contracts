@@ -2,10 +2,10 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {IBaseStrategy} from "../../strategy/interfaces/IBaseStrategy.sol";
-import {IKYCDepositLimitModule} from "./IKYCDepositLimitModule.sol";
+import { IBaseStrategy } from "../../strategy/interfaces/IBaseStrategy.sol";
+import { IKYCDepositLimitModule } from "./IKYCDepositLimitModule.sol";
 
 contract KYCDepositLimitModule is Ownable, IKYCDepositLimitModule {
     IBaseStrategy private _strategy;
@@ -48,7 +48,7 @@ contract KYCDepositLimitModule is Ownable, IKYCDepositLimitModule {
         if (!_kycPassed[receiver]) {
             return 0;
         }
-        
+
         return _strategy.availableDepositLimit(receiver);
     }
 

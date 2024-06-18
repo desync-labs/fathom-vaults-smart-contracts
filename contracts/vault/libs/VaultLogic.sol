@@ -4,25 +4,25 @@
 pragma solidity 0.8.19;
 
 import "../VaultErrors.sol";
-import { FeeAssessment, ReportInfo, Rounding, ShareManagement } from  "../VaultStructs.sol";
+import { FeeAssessment, ReportInfo, Rounding, ShareManagement } from "../VaultStructs.sol";
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {IStrategy} from "../../strategy/interfaces/IStrategy.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IFactory} from "../../factory/interfaces/IFactory.sol";
-import {IAccountant} from "../../accountant/interfaces/IAccountant.sol";
+import { IStrategy } from "../../strategy/interfaces/IStrategy.sol";
+import { IVault } from "../interfaces/IVault.sol";
+import { IFactory } from "../../factory/interfaces/IFactory.sol";
+import { IAccountant } from "../../accountant/interfaces/IAccountant.sol";
 
 library VaultLogic {
     uint256 public constant MAX_BPS = 10000;
 
     function increaseDebt(
-        address strategy, 
-        uint256 strategyMaxDebt, 
+        address strategy,
+        uint256 strategyMaxDebt,
         uint256 newDebt,
-        uint256 currentDebt, 
-        uint256 currentTotalIdle, 
+        uint256 currentDebt,
+        uint256 currentTotalIdle,
         uint256 minimumTotalIdle
     ) external view returns (uint256 assetsToDeposit) {
         // Revert if target_debt cannot be achieved due to configured max_debt for given strategy
@@ -57,11 +57,11 @@ library VaultLogic {
     }
 
     function decreaseDebt(
-        address strategy, 
-        uint256 newDebt, 
-        uint256 currentDebt, 
-        uint256 totalIdle, 
-        uint256 minimumTotalIdle, 
+        address strategy,
+        uint256 newDebt,
+        uint256 currentDebt,
+        uint256 totalIdle,
+        uint256 minimumTotalIdle,
         IERC20 asset
     ) external returns (uint256 withdrawn, uint256 assetsToWithdraw) {
         assetsToWithdraw = currentDebt - newDebt;
@@ -187,11 +187,11 @@ library VaultLogic {
     }
 
     function processReport(
-        address strategy, 
-        uint256 currentDebt, 
+        address strategy,
+        uint256 currentDebt,
         uint256 totalSupply,
         uint256 totalAssets,
-        address accountant, 
+        address accountant,
         address factory
     ) external returns (ReportInfo memory) {
         (uint256 gain, uint256 loss) = assessProfitAndLoss(strategy, currentDebt);
@@ -199,8 +199,8 @@ library VaultLogic {
         FeeAssessment memory assessmentFees = assessFees(strategy, gain, loss, accountant, factory);
 
         ShareManagement memory shares = calculateShareManagement(
-            loss, 
-            assessmentFees.totalFees, 
+            loss,
+            assessmentFees.totalFees,
             assessmentFees.protocolFees,
             totalSupply,
             totalAssets
@@ -210,7 +210,13 @@ library VaultLogic {
     }
 
     /// @notice Calculate share management based on gains, losses, and fees.
-    function calculateShareManagement(uint256 loss, uint256 totalFees, uint256 protocolFees, uint256 totalSupply, uint256 totalAssets) public pure returns (ShareManagement memory) {
+    function calculateShareManagement(
+        uint256 loss,
+        uint256 totalFees,
+        uint256 protocolFees,
+        uint256 totalSupply,
+        uint256 totalAssets
+    ) public pure returns (ShareManagement memory) {
         // `shares_to_burn` is derived from amounts that would reduce the vaults PPS.
         // NOTE: this needs to be done before any pps changes
         ShareManagement memory shares;
@@ -253,13 +259,7 @@ library VaultLogic {
     }
 
     /// @notice Validates the state and inputs for the redeem operation.
-    function validateRedeem(
-        address receiver, 
-        uint256 sharesToBurn, 
-        uint256 maxLoss, 
-        uint256 maxBPS, 
-        uint256 userSharesBalance
-    ) external pure {
+    function validateRedeem(address receiver, uint256 sharesToBurn, uint256 maxLoss, uint256 maxBPS, uint256 userSharesBalance) external pure {
         if (receiver == address(0)) {
             revert ZeroAddress();
         }
@@ -274,11 +274,21 @@ library VaultLogic {
         }
     }
 
-    function convertToShares(uint256 assets, uint256 currentTotalSupply, uint256 currentTotalAssets, Rounding rounding) external pure returns (uint256) {
+    function convertToShares(
+        uint256 assets,
+        uint256 currentTotalSupply,
+        uint256 currentTotalAssets,
+        Rounding rounding
+    ) external pure returns (uint256) {
         return _convertToShares(assets, currentTotalSupply, currentTotalAssets, rounding);
     }
 
-    function _convertToShares(uint256 assets, uint256 currentTotalSupply, uint256 currentTotalAssets, Rounding rounding) internal pure returns (uint256) {
+    function _convertToShares(
+        uint256 assets,
+        uint256 currentTotalSupply,
+        uint256 currentTotalAssets,
+        Rounding rounding
+    ) internal pure returns (uint256) {
         if (assets == type(uint256).max || assets == 0) {
             return assets;
         }

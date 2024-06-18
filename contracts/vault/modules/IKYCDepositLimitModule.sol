@@ -2,9 +2,9 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {IDepositLimitModule} from "../../vault/interfaces/IDepositLimitModule.sol";
+import { IDepositLimitModule } from "../../vault/interfaces/IDepositLimitModule.sol";
 
 interface IKYCDepositLimitModule is IDepositLimitModule {
     error ZeroAddress();

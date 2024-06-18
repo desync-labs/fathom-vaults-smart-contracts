@@ -35,8 +35,6 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
         depositPeriodEnds = depositEndTS;
         lockPeriodEnds = lockedEndTS;
         depositLimit = maxDeposit;
-
-        
     }
 
     /// @inheritdoc ITradeFintechStrategy
@@ -77,9 +75,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     /// @inheritdoc BaseStrategy
     /// @notice if the deposit period has ended, the deposit limit is 0
     function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
-        return block.timestamp > depositPeriodEnds 
-            ? 0 
-            : depositLimit - _getTotalAssets();
+        return block.timestamp > depositPeriodEnds ? 0 : depositLimit - _getTotalAssets();
     }
 
     /// @inheritdoc BaseStrategy

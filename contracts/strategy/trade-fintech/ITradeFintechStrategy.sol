@@ -2,8 +2,8 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import {ITradeFintechStrategyEvents} from "./ITradeFintechStrategyEvents.sol";
-import {ITradeFintechStrategyErrors} from "./ITradeFintechStrategyErrors.sol";
+import { ITradeFintechStrategyEvents } from "./ITradeFintechStrategyEvents.sol";
+import { ITradeFintechStrategyErrors } from "./ITradeFintechStrategyErrors.sol";
 
 interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStrategyErrors {
     /// @notice Set the deposit limit

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import { IToken }  from "../../../strategy/interfaces/liquidationStrategy/IToken.sol";
+import { IToken } from "../../../strategy/interfaces/liquidationStrategy/IToken.sol";
 
 contract MockUniswapV2Router {
     uint256 public amountsOut;
@@ -21,10 +21,7 @@ contract MockUniswapV2Router {
         giveLessFXD = _giveLessFXD;
     }
 
-    function getAmountsOut(
-        uint256 _collateralAmountToLiquidate,
-        address[] calldata /* _path */
-    ) external view returns (uint256[] memory) {
+    function getAmountsOut(uint256 _collateralAmountToLiquidate, address[] calldata /* _path */) external view returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = _collateralAmountToLiquidate;
         amounts[1] = amountsOut;
@@ -39,7 +36,7 @@ contract MockUniswapV2Router {
         uint256 /* _deadline */
     ) external returns (uint256[] memory amounts) {
         IToken(collateralToken).transferFrom(msg.sender, address(this), _amount);
-        if(giveLessFXD == true) {
+        if (giveLessFXD == true) {
             IToken(stablecoin).transfer(_to, _minAmountOut / 10);
         } else {
             IToken(stablecoin).transfer(_to, _minAmountOut);

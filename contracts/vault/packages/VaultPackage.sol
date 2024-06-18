@@ -349,9 +349,9 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
             uint256 assetsToDeposit = VaultLogic.increaseDebt(
                 strategy,
                 strategies[strategy].maxDebt,
-                newDebt, 
-                currentDebt, 
-                totalIdle, 
+                newDebt,
+                currentDebt,
+                totalIdle,
                 minimumTotalIdle
             );
 
@@ -462,16 +462,16 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
         address[] calldata _strategies
     ) external override nonReentrant returns (uint256) {
         // Always return the actual amount of assets withdrawn.
-        return _redeem(
-            msg.sender, 
-            receiver, 
-            owner, 
-            VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN), 
-            shares, 
-            maxLoss, 
-            _strategies
-        );
-
+        return
+            _redeem(
+                msg.sender,
+                receiver,
+                owner,
+                VaultLogic.convertToAssets(shares, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN),
+                shares,
+                maxLoss,
+                _strategies
+            );
     }
 
     /// @notice Deposit assets into the vault.
@@ -585,10 +585,11 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @return The maximum amount of shares that can be redeemed.
     function maxRedeem(address owner, uint256 maxLoss, address[] calldata _strategies) external view override returns (uint256) {
         uint256 sharesEquivalent = VaultLogic.convertToShares(
-            _maxWithdraw(owner, maxLoss, _strategies), 
+            _maxWithdraw(owner, maxLoss, _strategies),
             _totalSupply(),
-            _totalAssets(), 
-            Rounding.ROUND_DOWN);
+            _totalAssets(),
+            Rounding.ROUND_DOWN
+        );
         return Math.min(sharesEquivalent, sharesBalanceOf[owner]);
     }
 
@@ -638,12 +639,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param assets The amount of assets to convert.
     /// @return The amount of shares.
     function convertToShares(uint256 assets) external view override returns (uint256) {
-        return VaultLogic.convertToShares(
-            assets, 
-            _totalSupply(),
-            _totalAssets(), 
-            Rounding.ROUND_DOWN
-        );
+        return VaultLogic.convertToShares(assets, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Convert an amount of shares to assets.
@@ -657,24 +653,14 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param assets The amount of assets to deposit.
     /// @return The amount of shares that would be minted.
     function previewDeposit(uint256 assets) external view override returns (uint256) {
-        return VaultLogic.convertToShares(
-            assets, 
-            _totalSupply(),
-            _totalAssets(), 
-            Rounding.ROUND_DOWN
-        );
+        return VaultLogic.convertToShares(assets, _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Preview the amount of shares that would be redeemed for a withdraw.
     /// @param assets The amount of assets to withdraw.
     /// @return The amount of shares that would be redeemed.
     function previewWithdraw(uint256 assets) external view override returns (uint256) {
-        return VaultLogic.convertToShares(
-            assets, 
-            _totalSupply(),
-            _totalAssets(), 
-            Rounding.ROUND_UP
-        );
+        return VaultLogic.convertToShares(assets, _totalSupply(), _totalAssets(), Rounding.ROUND_UP);
     }
 
     /// @notice Preview the amount of assets that would be deposited for a mint.
@@ -702,12 +688,7 @@ contract VaultPackage is VaultStorage, IVault, IVaultInit, IVaultEvents {
     /// @param receiver The address that will receive the shares.
     /// @return The maximum amount of shares that can be minted.
     function maxMint(address receiver) external view override returns (uint256) {
-        return VaultLogic.convertToShares(
-            _maxDeposit(receiver), 
-            _totalSupply(),
-            _totalAssets(), 
-            Rounding.ROUND_DOWN
-        );
+        return VaultLogic.convertToShares(_maxDeposit(receiver), _totalSupply(), _totalAssets(), Rounding.ROUND_DOWN);
     }
 
     /// @notice Assess the share of unrealised losses for a strategy.
