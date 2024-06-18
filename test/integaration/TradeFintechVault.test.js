@@ -106,7 +106,7 @@ async function deployTFStrategyFixture() {
 
     // deploy and set KYCDepositLimitModule
     const KYCDepositLimitModule = await ethers.getContractFactory("KYCDepositLimitModule");
-    const kycDepositLimitModule = await KYCDepositLimitModule.deploy(strategy.target, deployer.address);
+    const kycDepositLimitModule = await KYCDepositLimitModule.deploy(strategy.target, vault.target, deployer.address);
 
     // set deposit limit as uint256 max
     await vault.setDepositLimit(uint256max);
@@ -141,7 +141,7 @@ async function deployTFStrategyFixture() {
     };
 }
 
-describe.only("TradeFintechStrategy-Vault tests", function () {
+describe("TradeFintechStrategy-Vault tests", function () {
 
     describe("Min user deposit vaidation", function () {
         it("Set minimum user deposit", async function () {
@@ -285,9 +285,6 @@ describe.only("TradeFintechStrategy-Vault tests", function () {
             const deposit = ethers.parseEther("15000");
             await vault.connect(user).deposit(deposit, user.address);
 
-            // process deposit
-            await vault.updateDebt(tfStrategy.target, deposit);
-
             // check max deposit
             const maxDeposit = await vault.maxDeposit(user.address);
             expect(maxDeposit).to.equal(depositLimit - deposit);
@@ -333,8 +330,6 @@ describe.only("TradeFintechStrategy-Vault tests", function () {
             expect(await vault.maxWithdraw(user.address, 0, [tfStrategy.target])).to.equal(0);
             expect(await vault.maxWithdraw(user2.address, 0, [tfStrategy.target])).to.equal(0);
 
-            console.log(await strategy.totalAssets());
-
             // mint 20% profit
             asset.mint(manager.address, ethers.parseEther("6000"));
 
@@ -343,15 +338,38 @@ describe.only("TradeFintechStrategy-Vault tests", function () {
             await strategy.report();
             await vault.processReport(tfStrategy.target);
 
-            await strategy.report();
-            await vault.processReport(tfStrategy.target);
-
-            console.log(await strategy.totalAssets());
-            console.log(await strategy.totalSupply());
-
             // expected balances - fees
-            expect(await vault.convertToAssets(await vault.balanceOf(user.address))).to.equal('11976047904191616766467');
-            expect(await vault.convertToAssets(await vault.balanceOf(user2.address))).to.equal('23952095808383233532934');
+            const expectedBalance1 = '11976047904191616766467';
+            const expectedBalance2 = '23952095808383233532934';
+            expect(await vault.convertToAssets(await vault.balanceOf(user.address))).to.equal(expectedBalance1);
+            expect(await vault.convertToAssets(await vault.balanceOf(user2.address))).to.equal(expectedBalance2);
+
+            const userBalanceBefore = await asset.balanceOf(user.address);
+            const user2BalanceBefore = await asset.balanceOf(user2.address);
+
+            // withdraw all
+            await vault.connect(user).withdraw(
+                await vault.convertToAssets(await vault.balanceOf(user.address)), 
+                user.address,
+                user.address,
+                0,
+                [tfStrategy.target]
+            );
+
+            await vault.connect(user2).withdraw(
+                await vault.convertToAssets(await vault.balanceOf(user2.address)), 
+                user2.address,
+                user2.address,
+                0,
+                [tfStrategy.target]
+            );
+
+            // expected balances
+            expect(await vault.convertToAssets(await vault.balanceOf(user.address))).to.equal(0);
+            expect(await vault.convertToAssets(await vault.balanceOf(user2.address))).to.equal(0);
+
+            expect(await asset.balanceOf(user.address)).to.equal(BigInt(userBalanceBefore) + BigInt(expectedBalance1));
+            expect(await asset.balanceOf(user2.address)).to.equal(BigInt(user2BalanceBefore) + BigInt(expectedBalance2));
         });
     });
 });

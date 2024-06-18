@@ -39,6 +39,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc ITradeFintechStrategy
     function repay(uint256 amount) external override onlyManagement {
+        if (totalInvested == 0) revert FundsAlreadyReturned();
         if (amount == 0) revert ZeroAmount();
 
         if (amount > totalInvested) {
@@ -81,7 +82,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     /// @inheritdoc BaseStrategy
     /// @notice if the lock period hasn't ended, the withdraw limit is 0
     function availableWithdrawLimit(address) public view override returns (uint256) {
-        // if deposit period hasn't ended, we can withdraw everything incuding locked funds
+        // if deposit period hasn't ended, we can withdraw everything incuding deployed funds
         if (block.timestamp < depositPeriodEnds) return _getTotalAssets();
         // if lock period hasn't ended, we can't withdraw anything
         if (block.timestamp < lockPeriodEnds) return 0;
@@ -107,7 +108,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc BaseStrategy
     function _freeFunds(uint256 amount) internal override {
-        if (block.timestamp > lockPeriodEnds) revert LockPeriodEnded();
+        if (block.timestamp > depositPeriodEnds) revert DepositPeriodEnded();
         uint256 invested = totalInvested;
         if (amount > invested) revert InsufficientFundsLocked(amount, invested);
 
