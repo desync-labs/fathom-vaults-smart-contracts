@@ -28,4 +28,12 @@ interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStr
     /// @notice get the total invested amount
     /// @return The total invested amount
     function totalInvested() external view returns (uint256);
+
+    /// @notice get the deposit period end timestamp
+    /// @return The deposit period end timestamp
+    function depositPeriodEnds() external view returns (uint256);
+
+    /// @notice get the lock period end timestamp
+    /// @return The lock period end timestamp
+    function lockPeriodEnds() external view returns (uint256);
 }
