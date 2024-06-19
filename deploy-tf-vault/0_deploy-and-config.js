@@ -14,46 +14,56 @@ const getTheAbi = (contract) => {
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deploy } = deployments;
+    const { deployer } = await getNamedAccounts();
+
     const uint256max = ethers.MaxUint256;
 
-    // dev FXD
     const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96";
     const factoryAddress = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153";
 
-    const maxDebt = ethers.parseEther("1000000"); // 1M FXD
+    const depositEndsAt = 1718881200; // Thursday, June 20, 2024 11:00:00 AM
+    const lockEndsAt = 1718884800; // Thursday, June 20, 2024 12:00:00 PM
+    const depositLimit = ethers.parseEther("1000000") // 1M FXD
+    const minimumDeposit = ethers.parseEther("10000"); // 10,000 FXD
     const profitMaxUnlockTime = 0;
     const protocolFee = 2000; // 20% of total fee
-    const minimumDeposit = ethers.parseEther("10000"); // 10,000 FXD
+    const performanceFee = 1000; // 10% of gain
 
+    const strategyName = "Fathom Trade Fintech Strategy 2";
     const vaultTokenName = "Trade Fintech Vault Token";
     const vaultTokenSymbol = "fvTFV";
 
-    const { deployer } = await getNamedAccounts();
-
-    const accountantFile = getTheAbi("GenericAccountant");
-    const strategyFile = getTheAbi("TradeFintechStrategy");
-    const vaultPackageFile = getTheAbi("VaultPackage");
-
+    const factory = await ethers.getContractAt("IFactoryOld", factoryAddress);
     const asset = await ethers.getContractAt("ERC20", assetAddress);
 
-    const strategyAddress = strategyFile.address;
-    const strategy = await ethers.getContractAt("TokenizedStrategy", strategyAddress);
-
-    const accountantAddress = accountantFile.address;
-    const vaultPackageAddress = vaultPackageFile.address;
-
-    const factory = await ethers.getContractAt("IFactoryOld", factoryAddress);
-
-    console.log("Factory Address = ", factoryAddress);
-    console.log("Accountant Address = ", accountantAddress);
-    console.log("Strategy Address = ", strategyAddress);
-    console.log("Vault Package Address = ", vaultPackageAddress);
-    console.log("Asset Address = ", assetAddress);
+    const accountant = await deploy("GenericAccountant", {
+        from: deployer,
+        args: [performanceFee, deployer, deployer],
+        log: true,
+    });
+    const vaultLogic = await deploy("VaultLogic", {
+        from: deployer,
+        args: [],
+        log: true,
+    });
+    const vaultPackage = await deploy("VaultPackage", {
+        from: deployer,
+        args: [],
+        log: true,
+        libraries: {
+            "VaultLogic": vaultLogic.address,
+        },
+    });
+    const tokenizedStrategy = await deploy("TokenizedStrategy", {
+        from: deployer,
+        args: [factoryAddress], // Factory address
+        log: true,
+    });
 
     // return; // Comment this line to continue
 
     console.log("Updating Vault Package ...");
-    const updateVaultPackageTx = await factory.updateVaultPackage(vaultPackageAddress);
+    const updateVaultPackageTx = await factory.updateVaultPackage(vaultPackage.address);
     await updateVaultPackageTx.wait();
 
     console.log("Deploying Vault ...");
@@ -63,7 +73,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         assetAddress,
         vaultTokenName,
         vaultTokenSymbol,
-        accountantAddress,
+        accountant.address,
         deployer
     );
     await deployVaultTx.wait();
@@ -76,10 +86,25 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
 
+    const strategy = await deploy("TradeFintechStrategy", {
+        from: deployer,
+        args: [
+            assetAddress, 
+            strategyName,
+            tokenizedStrategy.address,
+            depositEndsAt,
+            lockEndsAt,
+            depositLimit,
+            vaultAddress,
+        ],
+        log: true,
+    });
+
+
     console.log("Deploying KYC Deposit Limit Module ...");
     const kycDepositLimitModule = await deploy("KYCDepositLimitModule", {
         from: deployer,
-        args: [strategy.target, vaultAddress, deployer],
+        args: [strategy.address, vaultAddress, deployer],
         log: true,
     });
     console.log("KYC Deposit Limit Module Address = ", kycDepositLimitModule.address);
@@ -101,12 +126,14 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // await strategy.setPendingManagement(address);
     // await strategy.acceptManagement();
 
+    const tStrategy = await ethers.getContractAt("TokenizedStrategy", strategy.address);
+    
     console.log("Setting profit max unlock time...");
-    const setProfitMaxUnlockTx = await strategy.setProfitMaxUnlockTime(0);
+    const setProfitMaxUnlockTx = await tStrategy.setProfitMaxUnlockTime(0);
     await setProfitMaxUnlockTx.wait();
 
     console.log("Setting keeper...");
-    const setKeeperTx = await strategy.setKeeper(deployer);
+    const setKeeperTx = await tStrategy.setKeeper(deployer);
     await setKeeperTx.wait();
 
     console.log("Setting deposit limit...");
@@ -118,11 +145,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await setDepositLimitModuleTx.wait();
 
     console.log("Adding strategy...");
-    const addStrategy = await vault.addStrategy(strategy.target);
+    const addStrategy = await vault.addStrategy(strategy.address);
     await addStrategy.wait();
 
     console.log("Setting max debt for strategy...");
-    const setMaxDebt = await vault.updateMaxDebtForStrategy(strategy.target, maxDebt);
+    const setMaxDebt = await vault.updateMaxDebtForStrategy(strategy.address, depositLimit);
     await setMaxDebt.wait();
     // Set minimum deposit
 
@@ -131,6 +158,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await setMinDeposit.wait();
 
     console.log("Approve...");
-    const approveTx = await asset.approve(strategy.target, uint256max);
+    const approveTx = await asset.approve(strategy.address, uint256max);
     await approveTx.wait();
+
+    console.log("Done ...");
+    console.log("strategy.address", strategy.address);
+    console.log("deployer.address", deployer);
+    console.log("vault.address", vaultAddress);
+    console.log("kycDepositLimitModule.address", kycDepositLimitModule.address);
 };
