@@ -5,10 +5,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const { deployer } = await getNamedAccounts();
 
     const performanceFee = 1000; // 10% of gain
-    // const asset = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96"; // DAI
-    // const factory = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153";
-    // const depositEndsAt = 1718719200;
-    // const lockEndsAt = 1718805600;
+    const asset = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96";
+    const factory = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153";
+    const depositEndsAt = 1718805600;
+    const lockEndsAt = 1718877600;
+    const depositLimit = ethers.parseEther("1000000") // 1M FXD
 
     await deploy("GenericAccountant", {
         from: deployer,
@@ -46,25 +47,14 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
             tokenizedStrategy.address,
             depositEndsAt,
             lockEndsAt,
-            ethers.parseEther("1000000"), // 1M FXD
+            depositLimit,
             vault.address,
         ],
         log: true,
     });
 
     console.log("strategy.address", strategy.address);
-    console.log("deployer.address", deployer.address);
     console.log("deployer.address", deployer);
-
-    await deploy("KYCDepositLimitModule", {
-        from: deployer,
-        args: [strategy.address, deployer],
-        log: true,
-    });
-
-
-
-
 };
 
 module.exports.tags = ["GenericAccountant","Token"];

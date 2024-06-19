@@ -13,14 +13,14 @@ const getTheAbi = (contract) => {
 };
 
 module.exports = async ({ getNamedAccounts, deployments }) => {
-    // // dev FXD
-    // const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96"; // Real asset address
-    // const factoryAddress = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153"
-    
+    const { deploy } = deployments;
     const uint256max = ethers.MaxUint256;
 
-    // const depositLimit = ethers.parseUnits("50", 18);
-    const maxDebt = ethers.parseUnits("1000000", 18); // 1M FXD
+    // dev FXD
+    const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96";
+    const factoryAddress = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153";
+
+    const maxDebt = ethers.parseEther("1000000"); // 1M FXD
     const profitMaxUnlockTime = 0;
     const protocolFee = 2000; // 20% of total fee
     const minimumDeposit = ethers.parseEther("10000"); // 10,000 FXD
@@ -58,8 +58,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     // return; // Comment this line to continue
 
     console.log("Updating Vault Package ...");
-    // const updateVaultPackageTx = await factory.updateVaultPackage(vaultPackageAddress);
-    // await updateVaultPackageTx.wait();
+    const updateVaultPackageTx = await factory.updateVaultPackage(vaultPackageAddress);
+    await updateVaultPackageTx.wait();
 
     console.log("Deploying Vault ...");
     const deployVaultTx = await factory.deployVault(
@@ -80,6 +80,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const vault = await ethers.getContractAt("VaultPackage", vaultAddress);
     console.log("The Last Vault Address = ", vaultAddress);
+
+    console.log("Deploying KYC Deposit Limit Module ...");
+    await deploy("KYCDepositLimitModule", {
+        from: deployer,
+        args: [strategy.target, vaultAddress, deployer],
+        log: true,
+    });
     
     const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
     const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
@@ -125,7 +132,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await setMinDeposit.wait();
 
     console.log("Approve...");
-    const approveTx = await asset.connect(deployer).approve(strategy.target, uint256max);
+    const approveTx = await asset.approve(strategy.target, uint256max);
     await approveTx.wait();
 };
 
