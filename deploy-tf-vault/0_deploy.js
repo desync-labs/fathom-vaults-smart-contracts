@@ -33,18 +33,19 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         },
     });
 
-    const tokenizedStrategy = await deploy("TokenizedStrategy", {
-        from: deployer,
-        args: [factory], // Factory address
-        log: true,
-    });
+    // const tokenizedStrategy = await deploy("TokenizedStrategy", {
+    //     from: deployer,
+    //     args: [factory], // Factory address
+    //     log: true,
+    // });
 
     const strategy = await deploy("TradeFintechStrategy", {
         from: deployer,
         args: [
             asset, 
             "Fathom Trade Fintech Strategy 1",
-            tokenizedStrategy.address,
+            // tokenizedStrategy.address,
+            "0x341c3C914c57EaB79C18BA9D016bfb82F1F20270",
             depositEndsAt,
             lockEndsAt,
             depositLimit,

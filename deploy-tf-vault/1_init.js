@@ -33,7 +33,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const accountantFile = getTheAbi("GenericAccountant");
     const strategyFile = getTheAbi("TradeFintechStrategy");
     const vaultPackageFile = getTheAbi("VaultPackage");
-    const kycDepositLimitModuleFile = getTheAbi("KYCDepositLimitModule");
 
     const asset = await ethers.getContractAt("ERC20", assetAddress);
 
@@ -43,16 +42,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const accountantAddress = accountantFile.address;
     const vaultPackageAddress = vaultPackageFile.address;
 
-    const kycDepositLimitModuleAddress = kycDepositLimitModuleFile.address;
-    const kycDepositLimitModule = await ethers.getContractAt("KYCDepositLimitModule", kycDepositLimitModuleAddress);
-
     const factory = await ethers.getContractAt("IFactoryOld", factoryAddress);
 
     console.log("Factory Address = ", factoryAddress);
     console.log("Accountant Address = ", accountantAddress);
     console.log("Strategy Address = ", strategyAddress);
     console.log("Vault Package Address = ", vaultPackageAddress);
-    console.log("KYC Deposit Limit Module Address = ", kycDepositLimitModuleAddress);
     console.log("Asset Address = ", assetAddress);
 
     // return; // Comment this line to continue
@@ -82,19 +77,23 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("The Last Vault Address = ", vaultAddress);
 
     console.log("Deploying KYC Deposit Limit Module ...");
-    await deploy("KYCDepositLimitModule", {
+    const kycDepositLimitModule = await deploy("KYCDepositLimitModule", {
         from: deployer,
         args: [strategy.target, vaultAddress, deployer],
         log: true,
     });
-    
+    console.log("KYC Deposit Limit Module Address = ", kycDepositLimitModule.address);
+
     const STRATEGY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("STRATEGY_MANAGER"));
     const REPORTING_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REPORTING_MANAGER"));
     const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
 
-    await vault.grantRole(STRATEGY_MANAGER, deployer);
-    await vault.grantRole(REPORTING_MANAGER, deployer);
-    await vault.grantRole(DEBT_PURCHASER, deployer);
+    let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(DEBT_PURCHASER, deployer);
+    await grantRoleTx.wait();
 
     console.log("Roles granted ...");
 
@@ -115,7 +114,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     await setDepositLimitTx.wait();
 
     console.log("Setting deposit limit module...");
-    const setDepositLimitModuleTx = await vault.setDepositLimitModule(kycDepositLimitModule.target);
+    const setDepositLimitModuleTx = await vault.setDepositLimitModule(kycDepositLimitModule.address);
     await setDepositLimitModuleTx.wait();
 
     console.log("Adding strategy...");
@@ -135,5 +134,3 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const approveTx = await asset.approve(strategy.target, uint256max);
     await approveTx.wait();
 };
-
-module.exports.tags = ["Init"];
