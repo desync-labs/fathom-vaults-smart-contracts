@@ -93,6 +93,11 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     }
 
     /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(ITradeFintechStrategy).interfaceId, abi.encode(depositLimit, depositPeriodEnds, lockPeriodEnds));
+    }
+
+    /// @inheritdoc BaseStrategy
     function _harvestAndReport() internal view override returns (uint256 _totalAssets) {
         _totalAssets = _getTotalAssets();
     }

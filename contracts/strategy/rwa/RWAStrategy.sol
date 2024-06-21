@@ -102,6 +102,11 @@ contract RWAStrategy is BaseStrategy, IRWAStrategy {
     }
 
     /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(IRWAStrategy).interfaceId, abi.encode(minDeployAmount, depositLimit, managerAddress));
+    }
+
+    /// @inheritdoc BaseStrategy
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
         uint256 idle = asset.balanceOf(address(this));
         _totalAssets = totalInvested + idle;
