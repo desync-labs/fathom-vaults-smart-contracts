@@ -2,22 +2,22 @@
 // Copyright Fathom 2023
 pragma solidity 0.8.19;
 
-import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "../../common/ReentrancyGuard.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { BaseStrategy } from "./BaseStrategy.sol";
-import { IUniversalRouter } from "./interfaces/liquidationStrategy/IUniversalRouter.sol";
-import { IPermit2 } from "./interfaces/liquidationStrategy/IPermit2.sol";
-import { IFlashLendingCallee } from "./interfaces/liquidationStrategy/IFlashLendingCallee.sol";
-import { ILiquidationStrategy } from "./interfaces/liquidationStrategy/ILiquidationStrategy.sol";
-import { IERC165 } from "./interfaces/liquidationStrategy/IERC165.sol";
-import { IGenericTokenAdapter } from "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
-import { IUniswapV2Factory } from "./interfaces/liquidationStrategy/IUniswapV2Factory.sol";
-import { IUniswapV2Router02 } from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
-import { IStablecoinAdapter } from "./interfaces/liquidationStrategy/IStablecoinAdapter.sol";
-import { IBookKeeper } from "./interfaces/liquidationStrategy/IBookKeeper.sol";
-import { BytesHelper } from "./libraries/BytesHelper.sol";
+import { BaseStrategy } from "../BaseStrategy.sol";
+import { BytesHelper } from "../libraries/BytesHelper.sol";
+import { IUniversalRouter } from "./interfaces/IUniversalRouter.sol";
+import { IPermit2 } from "./interfaces/IPermit2.sol";
+import { IFlashLendingCallee } from "./interfaces/IFlashLendingCallee.sol";
+import { ILiquidationStrategy } from "./ILiquidationStrategy.sol";
+import { IERC165 } from "./interfaces/IERC165.sol";
+import { IGenericTokenAdapter } from "./interfaces/IGenericTokenAdapter.sol";
+import { IUniswapV2Factory } from "./interfaces/IUniswapV2Factory.sol";
+import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
+import { IStablecoinAdapter } from "./interfaces/IStablecoinAdapter.sol";
+import { IBookKeeper } from "./interfaces/IBookKeeper.sol";
 
 /// @title LiquidationStrategy for FathomVault
 /// @notice Enables participation in generating profits from liquidations and contributes to the liquidation of FXD positions.
@@ -389,6 +389,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
     function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
         return type(IFlashLendingCallee).interfaceId == _interfaceId;
+    }
+
+    /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(ILiquidationStrategy).interfaceId, abi.encode(strategyManager));
     }
 
     function _adjustAmountNeededToPayDebt(address _collateral, uint256 _amount) internal {

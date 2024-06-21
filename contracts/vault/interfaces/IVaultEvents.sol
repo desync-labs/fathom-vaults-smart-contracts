@@ -31,4 +31,6 @@ interface IVaultEvents {
 
     event UpdatedDepositLimitModule(address depositLimitModule);
     event UpdatedWithdrawLimitModule(address withdrawLimitModule);
+    
+    event StrategyAdded(address indexed strategy, bytes4 indexed interfaceId, bytes data);
 }

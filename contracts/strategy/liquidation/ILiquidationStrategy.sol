@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import { IUniswapV2Router02 } from "./IUniswapV2Router02.sol";
+import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
 interface ILiquidationStrategy {
     function setStrategyManager(address _strategyManager) external;
     function setFixedSpreadLiquidationStrategy(address _fixedSpreadLiquidationStrategy) external;
