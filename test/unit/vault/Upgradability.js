@@ -13,9 +13,16 @@ describe("Vault Contract Upgradability", function () {
     async function deployVault() {
         const [owner, otherAccount] = await ethers.getSigners();
 
-        const VaultPackage = await ethers.getContractFactory("VaultPackage");
+        const VaultLogic = await ethers.getContractFactory("VaultLogic");
+        const vaultLogic = await VaultLogic.deploy({ gasLimit: "0x1000000" });
+    
+        const VaultPackage = await ethers.getContractFactory("VaultPackage", {
+            libraries: {
+                "VaultLogic": vaultLogic.target,
+            }
+        });
         const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
-
+    
         const Vault = await ethers.getContractFactory("FathomVault");
         const vault = await Vault.deploy(vaultPackage.target, "0x", { gasLimit: "0x1000000" });
 

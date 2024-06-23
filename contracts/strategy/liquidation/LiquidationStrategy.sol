@@ -2,22 +2,22 @@
 // Copyright Fathom 2023
 pragma solidity 0.8.19;
 
-import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "../../common/ReentrancyGuard.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { BaseStrategy } from "./BaseStrategy.sol";
-import { IUniversalRouter } from "./interfaces/liquidationStrategy/IUniversalRouter.sol";
-import { IPermit2 } from "./interfaces/liquidationStrategy/IPermit2.sol";
-import { IFlashLendingCallee } from "./interfaces/liquidationStrategy/IFlashLendingCallee.sol";
-import { ILiquidationStrategy } from "./interfaces/liquidationStrategy/ILiquidationStrategy.sol";
-import { IERC165 } from "./interfaces/liquidationStrategy/IERC165.sol";
-import { IGenericTokenAdapter } from "./interfaces/liquidationStrategy/IGenericTokenAdapter.sol";
-import { IUniswapV2Factory } from "./interfaces/liquidationStrategy/IUniswapV2Factory.sol";
-import { IUniswapV2Router02 } from "./interfaces/liquidationStrategy/IUniswapV2Router02.sol";
-import { IStablecoinAdapter } from "./interfaces/liquidationStrategy/IStablecoinAdapter.sol";
-import { IBookKeeper } from "./interfaces/liquidationStrategy/IBookKeeper.sol";
-import { BytesHelper } from "./libraries/BytesHelper.sol";
+import { BaseStrategy } from "../BaseStrategy.sol";
+import { BytesHelper } from "../libraries/BytesHelper.sol";
+import { IUniversalRouter } from "./interfaces/IUniversalRouter.sol";
+import { IPermit2 } from "./interfaces/IPermit2.sol";
+import { IFlashLendingCallee } from "./interfaces/IFlashLendingCallee.sol";
+import { ILiquidationStrategy } from "./ILiquidationStrategy.sol";
+import { IERC165 } from "./interfaces/IERC165.sol";
+import { IGenericTokenAdapter } from "./interfaces/IGenericTokenAdapter.sol";
+import { IUniswapV2Factory } from "./interfaces/IUniswapV2Factory.sol";
+import { IUniswapV2Router02 } from "./interfaces/IUniswapV2Router02.sol";
+import { IStablecoinAdapter } from "./interfaces/IStablecoinAdapter.sol";
+import { IBookKeeper } from "./interfaces/IBookKeeper.sol";
 
 /// @title LiquidationStrategy for FathomVault
 /// @notice Enables participation in generating profits from liquidations and contributes to the liquidation of FXD positions.
@@ -185,7 +185,10 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
     function setV3Info(address _permit2, address _universalRouter, uint24 _poolFee) external onlyStrategyManager {
         if (_permit2 == address(0) || _universalRouter == address(0)) revert ZeroAddress();
         if (_poolFee == 0) revert ZeroAmount();
-        if (keccak256(abi.encode(_permit2, _universalRouter, _poolFee)) == keccak256(abi.encode(uniswapV3Info[_universalRouter].permit2, _universalRouter, uniswapV3Info[_universalRouter].poolFee))) revert SameV3Info();
+        if (
+            keccak256(abi.encode(_permit2, _universalRouter, _poolFee)) ==
+            keccak256(abi.encode(uniswapV3Info[_universalRouter].permit2, _universalRouter, uniswapV3Info[_universalRouter].poolFee))
+        ) revert SameV3Info();
         uniswapV3Info[_universalRouter] = UniswapV3Info({ permit2: _permit2, poolFee: _poolFee });
         emit LogSetV3Info(_permit2, _universalRouter);
     }
@@ -210,9 +213,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         // Calculate the cost of Collateral in terms of FXD using the average price
         uint256 averagePriceOfCollateral = idleCollateral[_collateral].averagePriceOfCollateral;
-        uint256 costOfCollateralInFXD = _amount.mul(averagePriceOfCollateral).div(WAD); 
+        uint256 costOfCollateralInFXD = _amount.mul(averagePriceOfCollateral).div(WAD);
         uint256 balanceOfFXDBeforeSwap = fathomStablecoin.balanceOf(address(this));
-        
+
         if (existingCollateral == _amount) {
             delete idleCollateral[_collateral];
         } else {
@@ -225,7 +228,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         if (_minAmountOut > dexAmountOut) revert DEXCannotGiveEnoughAmount();
 
         uint256 receivedAmount = _sellCollateralV2(_collateral, path, _router, _amount, _minAmountOut);
-        
+
         emit LogSellCollateralV2(path, _router, _amount, _minAmountOut, dexAmountOut, receivedAmount);
 
         uint256 balanceOfFXDAfterSwap = fathomStablecoin.balanceOf(address(this));
@@ -233,7 +236,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         _handleLogicForProfitOrLoss(fxdReceived, costOfCollateralInFXD);
     }
-
 
     /// @notice Allows the strategy manager to sell Collateral, held by the contract, to UniV3.
     /// @dev Only the current strategy manager can call this function.
@@ -248,12 +250,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 existingCollateral = idleCollateral[_collateral].collateralAmount;
         UniswapV3Info memory v3Info = uniswapV3Info[_universalRouter];
         if (_amount > existingCollateral) revert WrongAmount();
-        if (v3Info.permit2 == address(0) || 
-            v3Info.poolFee == 0) revert V3InfoNotSet();
+        if (v3Info.permit2 == address(0) || v3Info.poolFee == 0) revert V3InfoNotSet();
 
         // Calculate the cost of Collateral in terms of FXD using the average price
         uint256 averagePriceOfCollateral = idleCollateral[_collateral].averagePriceOfCollateral;
-        uint256 costOfCollateralInFXD = _amount.mul(averagePriceOfCollateral).div(WAD);         
+        uint256 costOfCollateralInFXD = _amount.mul(averagePriceOfCollateral).div(WAD);
 
         if (existingCollateral == _amount) {
             delete idleCollateral[_collateral];
@@ -267,7 +268,6 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         _handleLogicForProfitOrLoss(receivedAmount, costOfCollateralInFXD);
     }
-
 
     /// @notice Withdraws a specified amount of Collateral from the contract.
     /// @dev Only the current strategy manager can call this function.
@@ -333,7 +333,9 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
             _depositStablecoin(amountNeededToPayDebt, _vars.liquidatorAddress);
             idleCollateral[collateralToken].collateralAmount += retrievedCollateralAmount;
             idleCollateral[collateralToken].amountNeededToPayDebt += amountNeededToPayDebt;
-            idleCollateral[collateralToken].averagePriceOfCollateral = idleCollateral[collateralToken].amountNeededToPayDebt.mul(WAD).div(idleCollateral[collateralToken].collateralAmount);
+            idleCollateral[collateralToken].averagePriceOfCollateral = idleCollateral[collateralToken].amountNeededToPayDebt.mul(WAD).div(
+                idleCollateral[collateralToken].collateralAmount
+            );
             emit LogFlashLiquidationSuccess(
                 _vars.liquidatorAddress,
                 amountNeededToPayDebt,
@@ -363,7 +365,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
                 );
             }
 
-            if (balanceOfFXDBeforeSwap + fathomStablecoinReceivedV2 + fathomStablecoinReceivedV3  < amountNeededToPayDebt) {
+            if (balanceOfFXDBeforeSwap + fathomStablecoinReceivedV2 + fathomStablecoinReceivedV3 < amountNeededToPayDebt) {
                 revert NotEnoughToRepayDebt();
             }
 
@@ -387,6 +389,11 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
     function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
         return type(IFlashLendingCallee).interfaceId == _interfaceId;
+    }
+
+    /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(ILiquidationStrategy).interfaceId, abi.encode(strategyManager));
     }
 
     function _adjustAmountNeededToPayDebt(address _collateral, uint256 _amount) internal {
@@ -438,13 +445,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         );
         uint256 minAmountOutAfterComparison = dexAmountOut < _amountNeededToPayDebtV2 ? dexAmountOut : _amountNeededToPayDebtV2;
         return
-            _sellCollateralV2(
-                collateralToken,
-                path,
-                IUniswapV2Router02(_vars.routerV2),
-                _collateralAmountToLiquidateV2,
-                minAmountOutAfterComparison
-            );
+            _sellCollateralV2(collateralToken, path, IUniswapV2Router02(_vars.routerV2), _collateralAmountToLiquidateV2, minAmountOutAfterComparison);
     }
 
     function _sellCollateralV2(
@@ -454,44 +455,44 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
         uint256 _amount,
         uint256 _minAmountOut
     ) internal returns (uint256 receivedAmount) {
-            address tokencoinAddress = _path[_path.length - 1];
-            uint256 tokencoinBalanceBefore = ERC20(tokencoinAddress).balanceOf(address(this));
+        address tokencoinAddress = _path[_path.length - 1];
+        uint256 tokencoinBalanceBefore = ERC20(tokencoinAddress).balanceOf(address(this));
 
-            // Check if enough FXD will be returned from the DEX to complete flash liquidation
-            uint256[] memory amounts = _router.getAmountsOut(_amount, _path);
-            uint256 amountToReceive = amounts[amounts.length - 1];
+        // Check if enough FXD will be returned from the DEX to complete flash liquidation
+        uint256[] memory amounts = _router.getAmountsOut(_amount, _path);
+        uint256 amountToReceive = amounts[amounts.length - 1];
 
-            if (amountToReceive < _minAmountOut) {
-                revert(
-                    string(
-                        abi.encodePacked(
-                            " collateralReceived : ",
-                            string(ERC20(_token).balanceOf(address(this))._uintToASCIIBytes()),
-                            " collaterallToSell : ",
-                            string(_amount._uintToASCIIBytes()),
-                            " amountNeeded : ",
-                            string((_minAmountOut)._uintToASCIIBytes()),
-                            " actualAmountReceived : ",
-                            string(amountToReceive._uintToASCIIBytes()),
-                            " output token : ",
-                            string(_path[_path.length - 1]._addressToASCIIBytes())
-                        )
+        if (amountToReceive < _minAmountOut) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        " collateralReceived : ",
+                        string(ERC20(_token).balanceOf(address(this))._uintToASCIIBytes()),
+                        " collaterallToSell : ",
+                        string(_amount._uintToASCIIBytes()),
+                        " amountNeeded : ",
+                        string((_minAmountOut)._uintToASCIIBytes()),
+                        " actualAmountReceived : ",
+                        string(amountToReceive._uintToASCIIBytes()),
+                        " output token : ",
+                        string(_path[_path.length - 1]._addressToASCIIBytes())
                     )
-                );
-            }
-            ERC20(_token).safeApprove(address(_router), type(uint).max);
-            _router.swapExactTokensForTokens(
-                _amount, // col
-                _minAmountOut, // fxd
-                _path,
-                address(this),
-                block.timestamp + 1000
+                )
             );
-            ERC20(_token).safeApprove(address(_router), 0);
+        }
+        ERC20(_token).safeApprove(address(_router), type(uint).max);
+        _router.swapExactTokensForTokens(
+            _amount, // col
+            _minAmountOut, // fxd
+            _path,
+            address(this),
+            block.timestamp + 1000
+        );
+        ERC20(_token).safeApprove(address(_router), 0);
 
-            uint256 tokencoinBalanceAfter = ERC20(tokencoinAddress).balanceOf(address(this));
+        uint256 tokencoinBalanceAfter = ERC20(tokencoinAddress).balanceOf(address(this));
 
-            receivedAmount = tokencoinBalanceAfter.sub(tokencoinBalanceBefore);
+        receivedAmount = tokencoinBalanceAfter.sub(tokencoinBalanceBefore);
     }
 
     function _sellCollateralV3(
@@ -514,12 +515,7 @@ contract LiquidationStrategy is BaseStrategy, ReentrancyGuard, IFlashLendingCall
 
         ERC20(_tokenIn).safeApprove(_permit2, _amountIn);
 
-        IPermit2(_permit2).approve(
-            _tokenIn,
-            _routerV3,
-            uint160(_amountIn),
-            uint48(block.timestamp)
-        );
+        IPermit2(_permit2).approve(_tokenIn, _routerV3, uint160(_amountIn), uint48(block.timestamp));
 
         IUniversalRouter(_routerV3).execute(commands, inputs, block.timestamp);
 

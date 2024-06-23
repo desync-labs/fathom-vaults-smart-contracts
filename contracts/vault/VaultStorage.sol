@@ -5,7 +5,8 @@ pragma solidity 0.8.19;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+// import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
 import "./VaultStructs.sol";
 
 contract VaultStorage is AccessControl, ReentrancyGuard {
@@ -94,4 +95,6 @@ contract VaultStorage is AccessControl, ReentrancyGuard {
 
     /// @notice EIP-2612 permit() nonces
     mapping(address => uint256) public nonces;
+
+    uint256 public minUserDeposit;
 }

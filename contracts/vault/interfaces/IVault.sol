@@ -15,6 +15,8 @@ interface IVault is IERC4626 {
 
     function setDepositLimit(uint256 depositLimit) external;
 
+    function setMinUserDeposit(uint256 minUserDeposit) external;
+
     function setDepositLimitModule(address newDepositLimitModule) external;
 
     function setWithdrawLimitModule(address newWithdrawLimitModule) external;

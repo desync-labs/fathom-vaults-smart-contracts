@@ -2,8 +2,8 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import {IRWAStrategyEvents} from "./IRWAStrategyEvents.sol";
-import {IRWAStrategyErrors} from "./IRWAStrategyErrors.sol";
+import { IRWAStrategyEvents } from "./IRWAStrategyEvents.sol";
+import { IRWAStrategyErrors } from "./IRWAStrategyErrors.sol";
 
 interface IRWAStrategy is IRWAStrategyEvents, IRWAStrategyErrors {
     /// @notice Report a gain

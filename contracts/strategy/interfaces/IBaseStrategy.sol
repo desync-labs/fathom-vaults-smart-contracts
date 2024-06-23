@@ -22,4 +22,9 @@ interface IBaseStrategy {
     function availableWithdrawLimit(address _owner) external view returns (uint256);
 
     function tendTrigger() external view returns (bool, bytes memory);
+
+    /// @notice Get metadata of the strategy
+    /// @return interfaceId strategy interface id
+    /// @return data encoded metadata specific to the strategy
+    function getMetadata() external view returns (bytes4 interfaceId, bytes memory data);
 }

@@ -4,5 +4,8 @@
 pragma solidity 0.8.19;
 
 interface IDepositLimitModule {
+    /// @notice Get deposit limit for a user
+    /// @param receiver User address
+    /// @return Deposit limit
     function availableDepositLimit(address receiver) external view returns (uint256);
 }

@@ -24,6 +24,12 @@ interface ITradeFintechStrategyErrors {
     /// @notice Error when trying to lock funds after the lock period has ended
     error LockPeriodEnded();
 
+    /// @notice Error when trying to withdraw funds after the deposit period has ended
+    error DepositPeriodEnded();
+
     /// @notice Error when the amount is zero
     error ZeroAmount();
+
+    /// @notice Error when the funds have already been returned
+    error FundsAlreadyReturned();
 }

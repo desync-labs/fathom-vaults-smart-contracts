@@ -17,9 +17,9 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
     uint256 public totalInvested;
     uint256 public depositLimit;
 
-    // Define periods
-    uint256 public depositPeriodEnds;
-    uint256 public lockPeriodEnds;
+    uint256 public immutable depositPeriodEnds;
+    uint256 public immutable lockPeriodEnds;
+    address public immutable vault;
 
     constructor(
         address asset,
@@ -27,44 +27,39 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
         address tokenizedStrategyAddress,
         uint256 depositEndTS,
         uint256 lockedEndTS,
-        uint256 maxDeposit
+        uint256 maxDeposit,
+        address vaultAddr
     ) BaseStrategy(asset, name, tokenizedStrategyAddress) {
-        if (depositEndTS < block.timestamp || lockedEndTS < block.timestamp) {
+        if (depositEndTS < block.timestamp || lockedEndTS < block.timestamp || depositEndTS > lockedEndTS) {
             revert InvalidPeriods();
         }
         depositPeriodEnds = depositEndTS;
         lockPeriodEnds = lockedEndTS;
         depositLimit = maxDeposit;
+        vault = vaultAddr;
     }
 
     /// @inheritdoc ITradeFintechStrategy
-    function reportGain(uint256 amount) external override onlyManagement {
+    function repay(uint256 amount) external override onlyManagement {
+        if (totalInvested == 0) revert FundsAlreadyReturned();
         if (amount == 0) revert ZeroAmount();
-        totalInvested += amount;
-        emit GainReported(msg.sender, amount);
-    }
 
-    /// @inheritdoc ITradeFintechStrategy
-    function reportLoss(uint256 amount) external override onlyManagement {
-        if (amount == 0) revert ZeroAmount();
-        if (amount > totalInvested) revert InvalidLossAmount(amount, totalInvested);
-
-        totalInvested -= amount;
-        emit LossReported(msg.sender, amount);
-    }
-
-    /// @inheritdoc ITradeFintechStrategy
-    function returnFunds(uint256 amount) external override onlyManagement {
-        if (amount == 0) revert ZeroAmount();
+        if (amount > totalInvested) {
+            emit GainReported(msg.sender, amount - totalInvested);
+        } else {
+            emit LossReported(msg.sender, totalInvested - amount);
+        }
         // Transfer the amount from the manager to the strategy contract
-        _freeFunds(amount);
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        totalInvested = 0;
+
         emit FundsReturned(msg.sender, amount);
     }
 
     /// @inheritdoc ITradeFintechStrategy
     function lockFunds(uint256 amount) external override onlyManagement {
         if (amount == 0) revert ZeroAmount();
-        if (block.timestamp > depositPeriodEnds) revert LockPeriodEnded();
+        if (block.timestamp > lockPeriodEnds) revert LockPeriodEnded();
 
         _deployFunds(amount);
         emit FundsLocked(msg.sender, amount);
@@ -81,19 +76,30 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc BaseStrategy
     /// @notice if the deposit period has ended, the deposit limit is 0
-    function availableDepositLimit(address /*_owner*/) public view override returns (uint256) {
-        return block.timestamp > depositPeriodEnds ? 0 : depositLimit - totalInvested;
+    function availableDepositLimit(address owner) public view override returns (uint256) {
+        if (owner != vault && block.timestamp > depositPeriodEnds) return 0;
+        return depositLimit - _getTotalAssets();
     }
 
     /// @inheritdoc BaseStrategy
     /// @notice if the lock period hasn't ended, the withdraw limit is 0
-    function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
-        return block.timestamp > lockPeriodEnds ? asset.balanceOf(address(this)) + totalInvested : 0;
+    function availableWithdrawLimit(address) public view override returns (uint256) {
+        // if deposit period hasn't ended, we can withdraw everything incuding deployed funds
+        if (block.timestamp < depositPeriodEnds) return _getTotalAssets();
+        // if lock period hasn't ended, we can't withdraw anything
+        if (block.timestamp < lockPeriodEnds) return 0;
+        // if lock period has ended, we can withdraw from repaid funds
+        return asset.balanceOf(address(this));
+    }
+
+    /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(ITradeFintechStrategy).interfaceId, abi.encode(depositLimit, depositPeriodEnds, lockPeriodEnds));
     }
 
     /// @inheritdoc BaseStrategy
     function _harvestAndReport() internal view override returns (uint256 _totalAssets) {
-        _totalAssets = totalInvested + asset.balanceOf(address(this));
+        _totalAssets = _getTotalAssets();
     }
 
     /// @inheritdoc BaseStrategy
@@ -109,6 +115,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
     /// @inheritdoc BaseStrategy
     function _freeFunds(uint256 amount) internal override {
+        if (block.timestamp > depositPeriodEnds) revert DepositPeriodEnded();
         uint256 invested = totalInvested;
         if (amount > invested) revert InsufficientFundsLocked(amount, invested);
 
@@ -123,6 +130,7 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
         totalInvested -= amount;
     }
 
+    /// @inheritdoc BaseStrategy
     function _emergencyWithdraw(uint256 amount) internal override {
         uint256 locked = totalInvested;
         if (amount > locked) revert InsufficientFundsLocked(amount, locked);
@@ -132,5 +140,9 @@ contract TradeFintechStrategy is BaseStrategy, ITradeFintechStrategy {
 
         asset.safeTransferFrom(manager, address(this), amountToTransfer);
         totalInvested -= amountToTransfer;
+    }
+
+    function _getTotalAssets() internal view returns (uint256) {
+        return totalInvested + asset.balanceOf(address(this));
     }
 }

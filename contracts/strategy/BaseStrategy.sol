@@ -422,6 +422,11 @@ abstract contract BaseStrategy is IBaseStrategy {
         _emergencyWithdraw(_amount);
     }
 
+    /// @inheritdoc IBaseStrategy
+    function getMetadata() external override view virtual returns (bytes4 interfaceId, bytes memory data) {
+        return (type(IBaseStrategy).interfaceId, "");
+    }
+
     /**
      * @dev Function used to delegate call the TokenizedStrategy with
      * certain `_calldata` and return any return values.
