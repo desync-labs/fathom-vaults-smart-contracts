@@ -18,29 +18,23 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const uint256max = ethers.MaxUint256;
 
-    const assetAddress = "0xDf29cB40Cb92a1b8E8337F542E3846E185DefF96";
-    const factoryAddress = "0xE3E22410ea34661F2b7d5c13EDf7b0c069BD4153";
+    const assetAddress = "0x49d3f7543335cf38Fa10889CCFF10207e22110B5";
+    const factoryAddress = "0x0c6e3fd64D5f33eac0DCCDd887A8c7512bCDB7D6";
 
-    const depositEndsAt = 1718881200; // Thursday, June 20, 2024 11:00:00 AM
-    const lockEndsAt = 1718884800; // Thursday, June 20, 2024 12:00:00 PM
-    const depositLimit = ethers.parseEther("1000000") // 1M FXD
+    const depositEndsAt = 1720598400; // Thursday, July 10, 2024 12:00:00 PM
+    const lockEndsAt = 1736496000; // Friday, January 10, 2025 12:00:00 PM
+    const depositLimit = ethers.parseEther("50000000") // 50M FXD
     const minimumDeposit = ethers.parseEther("10000"); // 10,000 FXD
     const profitMaxUnlockTime = 0;
-    const protocolFee = 2000; // 20% of total fee
-    const performanceFee = 1000; // 10% of gain
 
-    const strategyName = "Fathom Trade Fintech Strategy 2";
-    const vaultTokenName = "Trade Fintech Vault Token";
-    const vaultTokenSymbol = "fvTFV";
+    const strategyName = "TradeFlow Strategy #1";
+    const vaultTokenName = "Fathom Vault TradeFi Token";
+    const vaultTokenSymbol = "fvTFT";
 
     const factory = await ethers.getContractAt("IFactoryOld", factoryAddress);
     const asset = await ethers.getContractAt("ERC20", assetAddress);
 
-    const accountant = await deploy("GenericAccountant", {
-        from: deployer,
-        args: [performanceFee, deployer, deployer],
-        log: true,
-    });
+    const accountant = "0x427Fd46B341C5a3E1eA19BE11D36E5c526A885d4"
     const vaultLogic = await deploy("VaultLogic", {
         from: deployer,
         args: [],
@@ -73,7 +67,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
         assetAddress,
         vaultTokenName,
         vaultTokenSymbol,
-        accountant.address,
+        accountant,
         deployer
     );
     await deployVaultTx.wait();
@@ -114,6 +108,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const DEBT_PURCHASER = ethers.keccak256(ethers.toUtf8Bytes("DEBT_PURCHASER"));
 
     let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
+    await grantRoleTx.wait();
+    grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, "0x716fb962A0295b5dB0a0Ee1125f52c067aA4D8f1"); // vault processing bot
     await grantRoleTx.wait();
     grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
     await grantRoleTx.wait();
@@ -157,9 +153,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     const setMinDeposit = await vault.setMinUserDeposit(minimumDeposit);
     await setMinDeposit.wait();
 
-    console.log("Approve...");
-    const approveTx = await asset.approve(strategy.address, uint256max);
-    await approveTx.wait();
+    // console.log("Approve...");
+    // const approveTx = await asset.approve(strategy.address, uint256max);
+    // await approveTx.wait();
 
     console.log("Done ...");
     console.log("strategy.address", strategy.address);
