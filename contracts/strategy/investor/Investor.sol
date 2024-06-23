@@ -5,9 +5,9 @@ pragma solidity 0.8.19;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { ReentrancyGuard } from "../common/ReentrancyGuard.sol";
-import "./interfaces/IInvestor.sol";
-import "./interfaces/IStrategy.sol";
+import { ReentrancyGuard } from "../../common/ReentrancyGuard.sol";
+import {IInvestor } from "./IInvestor.sol";
+import {IStrategy} from "../interfaces/IStrategy.sol";
 
 contract Investor is AccessControl, ReentrancyGuard, IInvestor {
     using SafeERC20 for ERC20;

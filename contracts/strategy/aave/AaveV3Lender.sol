@@ -173,6 +173,11 @@ contract AaveV3Lender is BaseStrategy, UniversalSwapper, ILender {
         return TokenizedStrategy.totalIdle() + asset.balanceOf(address(A_TOKEN));
     }
 
+    /// @inheritdoc BaseStrategy
+    function getMetadata() external override view returns (bytes4 interfaceId, bytes memory data) {
+        return (type(ILender).interfaceId, abi.encode(address(LENDING_POOL), address(A_TOKEN)));
+    }
+
     /// NEEDED TO BE OVERRIDDEN BY STRATEGIST
 
     /// @dev Should deploy up to '_amount' of 'asset' in the yield source.

@@ -32,9 +32,16 @@ describe("Debt Management", function () {
         const Accountant = await ethers.getContractFactory("GenericAccountant");
         const accountant = await Accountant.deploy(performanceFee, owner.address, owner.address, { gasLimit: "0x1000000" });
 
-        const VaultPackage = await ethers.getContractFactory("VaultPackage");
+        const VaultLogic = await ethers.getContractFactory("VaultLogic");
+        const vaultLogic = await VaultLogic.deploy({ gasLimit: "0x1000000" });
+    
+        const VaultPackage = await ethers.getContractFactory("VaultPackage", {
+            libraries: {
+                "VaultLogic": vaultLogic.target,
+            }
+        });
         const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
-
+    
         const FactoryPackage = await ethers.getContractFactory("FactoryPackage");
         const factoryPackage = await FactoryPackage.deploy({ gasLimit: "0x1000000" });
 
@@ -71,7 +78,7 @@ describe("Debt Management", function () {
         await vault.grantRole(REPORTING_MANAGER, owner.address);
         await vault.grantRole(DEBT_PURCHASER, owner.address);
 
-        return { vault, owner, otherAccount, asset, factory };
+        return { vault, vaultLogic, owner, otherAccount, asset, factory };
     }
 
     it("should update max debt with debt value", async function () {
@@ -109,7 +116,7 @@ describe("Debt Management", function () {
     });
 
     it("should revert if strategy max debt is less than new debt", async function () {
-        const { vault, owner, factory } = await loadFixture(deployVault);
+        const { vault, vaultLogic, owner, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const strategy = await createStrategy(owner, vault, profitMaxUnlockTime, factory.target);
         await addStrategyToVault(owner, strategy, vault);
@@ -117,7 +124,7 @@ describe("Debt Management", function () {
         await vault.connect(owner).updateMaxDebtForStrategy(strategy.target, amount);
     
         await expect(vault.connect(owner).updateDebt(strategy.target, amount + 1))
-            .to.be.revertedWithCustomError(vault, "DebtHigherThanMaxDebt");
+            .to.be.revertedWithCustomError(vaultLogic, "DebtHigherThanMaxDebt");
     });
     
     it("should update debt when current debt is less than new debt", async function () {
@@ -194,7 +201,7 @@ describe("Debt Management", function () {
     });
     
     it("should revert if current debt is greater than new debt and strategy has losses", async function () {
-        const { vault, owner, asset, factory } = await loadFixture(deployVault);
+        const { vault, vaultLogic, owner, asset, factory } = await loadFixture(deployVault);
         const amount = 1000;
         const currentDebt = amount;
         const maxDebt = 10000;
@@ -212,7 +219,7 @@ describe("Debt Management", function () {
         await lossyStrategy.setLoss(owner.address, loss, { gasLimit: "0x1000000" });
     
         await expect(vault.connect(owner).updateDebt(lossyStrategy, newDebt))
-            .to.be.revertedWithCustomError(vault, "StrategyHasUnrealisedLosses");
+            .to.be.revertedWithCustomError(vaultLogic, "StrategyHasUnrealisedLosses");
     });
 
     it("should update debt when current debt is greater than new debt and there's insufficient withdrawable", async function () {

@@ -4,6 +4,5 @@
 pragma solidity 0.8.19;
 
 contract MockBookKeeper {
-    function whitelist(address toBeWhitelistedAddress) external {
-    }
+    function whitelist(address toBeWhitelistedAddress) external {}
 }

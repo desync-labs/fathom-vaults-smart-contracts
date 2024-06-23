@@ -2,20 +2,10 @@
 // Copyright Fathom 2024
 pragma solidity 0.8.19;
 
-import {ITradeFintechStrategyEvents} from "./ITradeFintechStrategyEvents.sol";
-import {ITradeFintechStrategyErrors} from "./ITradeFintechStrategyErrors.sol";
+import { ITradeFintechStrategyEvents } from "./ITradeFintechStrategyEvents.sol";
+import { ITradeFintechStrategyErrors } from "./ITradeFintechStrategyErrors.sol";
 
 interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStrategyErrors {
-    /// @notice Report a gain
-    /// will transfer the amount to the strategy
-    /// @param amount The amount of the gain
-    function reportGain(uint256 amount) external;
-
-    /// @notice Report a loss
-    /// will reduce the total invested amount
-    /// @param amount The amount of the loss
-    function reportLoss(uint256 amount) external;
-
     /// @notice Set the deposit limit
     /// @dev Only the strategy manager can call this
     /// @param limit The new deposit limit
@@ -26,10 +16,10 @@ interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStr
     /// @param amount The amount to transfer
     function lockFunds(uint256 amount) external;
 
-    /// @notice Return funds to the strategy
+    /// @notice Return funds to the strategy with a report of the gain or loss
     /// @dev Only the strategy manager can call this
     /// @param amount The amount to return
-    function returnFunds(uint256 amount) external;
+    function repay(uint256 amount) external;
 
     /// @notice get the deposit limit
     /// @return The deposit limit
@@ -38,4 +28,12 @@ interface ITradeFintechStrategy is ITradeFintechStrategyEvents, ITradeFintechStr
     /// @notice get the total invested amount
     /// @return The total invested amount
     function totalInvested() external view returns (uint256);
+
+    /// @notice get the deposit period end timestamp
+    /// @return The deposit period end timestamp
+    function depositPeriodEnds() external view returns (uint256);
+
+    /// @notice get the lock period end timestamp
+    /// @return The lock period end timestamp
+    function lockPeriodEnds() external view returns (uint256);
 }

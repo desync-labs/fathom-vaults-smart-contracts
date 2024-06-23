@@ -32,6 +32,15 @@ struct WithdrawalState {
     uint256 unrealisedLossesShare;
 }
 
+struct ReportInfo {
+    uint256 gain;
+    uint256 loss;
+    uint256 protocolFees;
+    uint256 totalFees;
+    FeeAssessment assessmentFees;
+    ShareManagement shares;
+}
+
 enum StrategyChangeType {
     ADDED, // Corresponds to the strategy being added.
     REVOKED // Corresponds to the strategy being revoked.

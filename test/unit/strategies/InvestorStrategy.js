@@ -32,7 +32,14 @@ async function deployInvestorStrategyFixture() {
     const Accountant = await ethers.getContractFactory("GenericAccountant");
     const accountant = await Accountant.deploy(performanceFee, deployer.address, deployer.address, { gasLimit: "0x1000000" });
 
-    const VaultPackage = await ethers.getContractFactory("VaultPackage");
+    const VaultLogic = await ethers.getContractFactory("VaultLogic");
+    const vaultLogic = await VaultLogic.deploy({ gasLimit: "0x1000000" });
+
+    const VaultPackage = await ethers.getContractFactory("VaultPackage", {
+        libraries: {
+            "VaultLogic": vaultLogic.target,
+        }
+    });
     const vaultPackage = await VaultPackage.deploy({ gasLimit: "0x1000000" });
 
     const FactoryPackage = await ethers.getContractFactory("FactoryPackage");
