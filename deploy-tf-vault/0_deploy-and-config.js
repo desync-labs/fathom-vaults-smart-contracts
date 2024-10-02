@@ -20,6 +20,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     const assetAddress = "0x49d3f7543335cf38Fa10889CCFF10207e22110B5";
     const factoryAddress = "0x0c6e3fd64D5f33eac0DCCDd887A8c7512bCDB7D6";
+    const processingBot = "0x716fb962A0295b5dB0a0Ee1125f52c067aA4D8f1";
 
     const depositEndsAt = 1720598400; // Thursday, July 10, 2024 12:00:00 PM
     const lockEndsAt = 1736496000; // Friday, January 10, 2025 12:00:00 PM
@@ -109,7 +110,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
     let grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, deployer);
     await grantRoleTx.wait();
-    grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, "0x716fb962A0295b5dB0a0Ee1125f52c067aA4D8f1"); // vault processing bot
+    grantRoleTx = await vault.grantRole(STRATEGY_MANAGER, processingBot);
     await grantRoleTx.wait();
     grantRoleTx = await vault.grantRole(REPORTING_MANAGER, deployer);
     await grantRoleTx.wait();
@@ -152,10 +153,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     console.log("Setting minimum deposit...");
     const setMinDeposit = await vault.setMinUserDeposit(minimumDeposit);
     await setMinDeposit.wait();
-
-    // console.log("Approve...");
-    // const approveTx = await asset.approve(strategy.address, uint256max);
-    // await approveTx.wait();
 
     console.log("Done ...");
     console.log("strategy.address", strategy.address);
